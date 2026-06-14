@@ -1,0 +1,16 @@
+.git
+.gitignore
+.cursor
+.specify
+docs
+specs
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/venv
+**/node_modules
+**/.next
+.local
+.env
+*.md
+!README.md

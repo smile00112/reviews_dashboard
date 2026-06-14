@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan:
+specs/001-yandex-reviews-mvp/plan.md
+
+Also available:
+- Feature spec: specs/001-yandex-reviews-mvp/spec.md
+- Data model: specs/001-yandex-reviews-mvp/data-model.md
+- API contracts: specs/001-yandex-reviews-mvp/contracts/
+- Quickstart: specs/001-yandex-reviews-mvp/quickstart.md
+- Tasks: specs/001-yandex-reviews-mvp/tasks.md
+- Reference notes: docs/plans/2026-06-14-yandex-reviews-mvp.md
+<!-- SPECKIT END -->
