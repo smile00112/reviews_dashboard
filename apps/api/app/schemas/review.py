@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,6 +24,13 @@ class ReviewResponse(BaseModel):
     response_text: str | None
     first_seen_at: datetime
     last_seen_at: datetime
+    # Derived analytics (feature 002); null when not yet analyzed.
+    sentiment: str | None = None
+    sentiment_score: float | None = None
+    sentiment_confidence: float | None = None
+    rating_sentiment_mismatch: bool | None = None
+    problems: list[dict[str, Any]] | None = None
+    analyzed_at: datetime | None = None
 
 
 class ReviewListResponse(BaseModel):

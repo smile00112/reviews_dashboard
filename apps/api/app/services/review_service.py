@@ -5,6 +5,7 @@ from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.analysis.analyzer import ReviewAnalyzer
 from app.models.enums import ScrapeMode
 from app.models.organization import Organization
 from app.models.review import Review
@@ -15,6 +16,18 @@ from app.scraper.types import ParsedReview
 class ReviewService:
     def __init__(self, db: Session):
         self.db = db
+        self._analyzer = ReviewAnalyzer()
+
+    def _apply_analysis(self, review: Review, now: datetime) -> None:
+        """Assign derived analytics. Called strictly AFTER the content_hash is built,
+        so analysis never influences deduplication."""
+        result = self._analyzer.analyze(review.review_text, review.rating)
+        review.sentiment = result["sentiment"]
+        review.sentiment_score = result["sentiment_score"]
+        review.sentiment_confidence = result["sentiment_confidence"]
+        review.rating_sentiment_mismatch = result["rating_sentiment_mismatch"]
+        review.problems = result["problems"]
+        review.analyzed_at = now
 
     def upsert_reviews(
         self,
@@ -44,6 +57,8 @@ class ReviewService:
                 existing.last_seen_at = now
                 if parsed.response_text:
                     existing.response_text = parsed.response_text
+                if existing.analyzed_at is None:
+                    self._apply_analysis(existing, now)
                 updated += 1
                 continue
 
@@ -62,6 +77,7 @@ class ReviewService:
                 first_seen_at=now,
                 last_seen_at=now,
             )
+            self._apply_analysis(review, now)
             self.db.add(review)
             try:
                 self.db.flush()

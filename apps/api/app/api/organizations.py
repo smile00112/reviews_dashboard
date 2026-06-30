@@ -4,12 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.schemas.analytics import AnalyzeResult, OrganizationAnalyticsSummary
 from app.schemas.organization import (
     OrganizationCreate,
     OrganizationListResponse,
     OrganizationResponse,
     OrganizationUpdate,
 )
+from app.services.analysis_service import AnalysisService
 from app.services.organization_service import OrganizationService
 
 router = APIRouter(prefix="/api/organizations", tags=["organizations"])
@@ -56,3 +58,23 @@ def delete_organization(organization_id: UUID, db: Session = Depends(get_db)) ->
     deleted = OrganizationService(db).delete(organization_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Organization not found")
+
+
+@router.post("/{organization_id}/analyze", response_model=AnalyzeResult)
+def analyze_organization(organization_id: UUID, db: Session = Depends(get_db)) -> AnalyzeResult:
+    """Run (or re-run) deterministic local analytics over the org's stored reviews.
+
+    Idempotent; does not re-scrape and never changes any review's content_hash.
+    """
+    result = AnalysisService(db).analyze_organization(organization_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return AnalyzeResult(**result)
+
+
+@router.get("/{organization_id}/analytics", response_model=OrganizationAnalyticsSummary)
+def organization_analytics(organization_id: UUID, db: Session = Depends(get_db)) -> OrganizationAnalyticsSummary:
+    summary = AnalysisService(db).summary(organization_id)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return OrganizationAnalyticsSummary(**summary)

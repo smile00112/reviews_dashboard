@@ -1,14 +1,19 @@
 <!--
 Sync Impact Report
-Version change: (template) → 1.0.0
-Modified principles: Initial ratification — all five principles defined
-Added sections: MVP Scope Boundaries, Security & Credentials, Development Workflow
-Removed sections: None (initial fill from template)
+Version change: 1.0.0 → 1.1.0
+Modified principles:
+  - I. MVP Scope Discipline — clarified that deterministic rule-based local
+    analytics are in scope; LLM/external-ML analysis remains excluded.
+Added sections:
+  - Principle VI. Deterministic Local Analytics (new principle)
+  - MVP Scope Boundaries — added rule-based review analytics + structured
+    (BeautifulSoup) review parsing & date normalization to In scope.
+Removed sections: None
 Templates requiring updates:
   ✅ .specify/templates/plan-template.md — Constitution Check section aligns (no changes needed)
   ✅ .specify/templates/spec-template.md — scope alignment verified (no changes needed)
   ✅ .specify/templates/tasks-template.md — task categorization aligns (no changes needed)
-Follow-up TODOs: None
+Follow-up TODOs: Feature 002 (review analytics) spec/plan to cite Principle VI.
 -->
 
 # ReviewsDashboard Constitution
@@ -18,9 +23,11 @@ Follow-up TODOs: None
 ### I. MVP Scope Discipline
 
 Every deliverable MUST stay within the documented MVP in/out-of-scope list. Features
-explicitly excluded — application auth, review replies, Google Maps, 2GIS, LLM analysis,
-WebSocket/email notifications, Celery pipelines, anti-captcha bypass — MUST NOT be
-introduced without a constitution amendment and spec update.
+explicitly excluded — application auth, review replies, Google Maps, 2GIS,
+LLM/external-ML analysis, WebSocket/email notifications, Celery pipelines, anti-captcha
+bypass — MUST NOT be introduced without a constitution amendment and spec update.
+Deterministic, rule-based local analytics over already-collected reviews (see Principle
+VI) are in scope and do NOT count as excluded "LLM analysis".
 
 **Rationale**: The product is an internal read-only review collector; scope creep delays
 the first working vertical slice.
@@ -62,14 +69,31 @@ be justified in the plan's Complexity Tracking table.
 
 **Rationale**: MVP velocity and operability beat premature scaling infrastructure.
 
+### VI. Deterministic Local Analytics
+
+Analytics over collected reviews — sentiment classification, problem/complaint
+categorization, rating↔sentiment mismatch flags — MUST be deterministic and computed
+locally from rule-based dictionaries and regular expressions. They MUST NOT call out to
+LLMs, hosted ML services, or any external inference API, and MUST degrade safely
+(produce a neutral/empty result, never raise) on missing or malformed text. Analytics
+are display/insight aids derived from stored reviews; they MUST NOT mutate the raw
+scraped review text, rating, or dedup hash inputs.
+
+**Rationale**: Rule-based analytics give operators actionable insight (recurring
+complaints, suspicious 5-star-with-negative-text reviews) with no new infrastructure,
+no per-call cost, and no platform/ToS risk — staying true to the YAGNI and read-only
+principles while excluding the cost and nondeterminism of LLM analysis.
+
 ## MVP Scope Boundaries
 
 **In scope**: Yandex Maps organization tracking, public and operator-auth scraping,
 review display, manual scrape triggers (single and bulk), scrape history, deduplication,
-debug artifacts for failures.
+debug artifacts for failures, structured (BeautifulSoup) review parsing with date
+normalization, and deterministic rule-based review analytics (sentiment, problem
+categorization, rating↔sentiment mismatch) per Principle VI.
 
-**Out of scope**: User login/roles, posting replies, other map providers, LLM features,
-real-time notifications, TimescaleDB, forced captcha bypass.
+**Out of scope**: User login/roles, posting replies, other map providers,
+LLM/external-ML analysis, real-time notifications, TimescaleDB, forced captcha bypass.
 
 **Scale assumption**: Internal tool for a small operator team tracking on the order of
 tens of organizations, not thousands of concurrent users.
@@ -104,4 +128,4 @@ This constitution supersedes ad-hoc implementation choices. Amendments require:
 Compliance review: every plan MUST include a Constitution Check gate; violations MUST be
 documented in Complexity Tracking with rejected simpler alternatives.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-06-14
+**Version**: 1.1.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-06-30

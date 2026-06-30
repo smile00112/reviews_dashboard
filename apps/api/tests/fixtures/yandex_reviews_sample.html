@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Кафе Пример — Яндекс Карты</title></head>
+<body>
+  <h1 class="orgpage-header-view__header">Кафе Пример</h1>
+  <div class="business-rating-badge-view__rating">4,3</div>
+  <div class="business-header-rating-view__text">128 отзывов</div>
+
+  <div class="business-reviews-card-view__reviews-container">
+
+    <!-- Guest review with aria-label rating -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Анна Иванова</div>
+      </div>
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 4 Из 5"></div>
+      <span class="business-review-view__body-text">Хорошее место, вкусно, но долго ждать заказ.</span>
+      <span class="business-review-view__date">2 мая 2024</span>
+    </div>
+
+    <!-- Guest review with full-star markup and relative date -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Иван Петров</div>
+      </div>
+      <div class="business-rating-badge-view__stars">
+        <span class="business-rating-badge-view__star _full"></span>
+        <span class="business-rating-badge-view__star _full"></span>
+        <span class="business-rating-badge-view__star _empty"></span>
+        <span class="business-rating-badge-view__star _empty"></span>
+        <span class="business-rating-badge-view__star _empty"></span>
+      </div>
+      <span class="business-review-view__body-text">Грязно и невкусно, обслуживание медленное.</span>
+      <span class="business-review-view__date">вчера</span>
+    </div>
+
+    <!-- Guest review carrying an owner response bubble -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Мария С.</div>
+      </div>
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 5 Из 5"></div>
+      <span class="business-review-view__body-text">Отличное кафе, всё понравилось!</span>
+      <span class="business-review-view__date">10.01.2024</span>
+      <div class="business-review-comment-content__bubble">Спасибо за отзыв! Будем рады видеть вас снова.</div>
+    </div>
+
+    <!-- Standalone owner response block (must be excluded) -->
+    <div class="business-review-view">
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 5 Из 5"></div>
+      <span class="business-review-view__body-text">Благодарим за отзыв! Приносим извинения за ожидание.</span>
+      <span class="business-review-view__date">сегодня</span>
+    </div>
+
+  </div>
+</body>
+</html>

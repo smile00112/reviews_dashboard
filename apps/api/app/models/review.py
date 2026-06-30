@@ -1,9 +1,25 @@
 import uuid
 from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+# JSONB on PostgreSQL, generic JSON elsewhere (e.g. SQLite in tests).
+JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 from app.core.database import Base
 from app.models.enums import ScrapeMode
@@ -32,5 +48,13 @@ class Review(Base):
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Derived analytics (feature 002). Additive, nullable; never feed content_hash.
+    sentiment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sentiment_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rating_sentiment_mismatch: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    problems: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONType, nullable=True)
+    analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", back_populates="reviews")
