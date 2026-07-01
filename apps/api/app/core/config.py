@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     scraper_debug_dir: str = ".local/scraper-debug"
     api_cors_origins: str = "http://localhost:3000"
 
+    # Admin panel (feature 004)
+    admin_secret_key: str
+    session_max_age: int = 43200  # 12 hours
+
     # Browserless HTTP scraper (public_http mode, feature 003)
     http_scrape_limit: int = 150
     http_scrape_max_pages: int = 5

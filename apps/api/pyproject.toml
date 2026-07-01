@@ -14,6 +14,8 @@ dependencies = [
     "httpx>=0.28.0",
     "beautifulsoup4>=4.12.0",
     "requests>=2.31.0",
+    "sqladmin>=0.20.0",
+    "bcrypt>=4.0.0",
 ]
 
 [project.optional-dependencies]

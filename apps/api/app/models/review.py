@@ -22,7 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 from app.core.database import Base
-from app.models.enums import ScrapeMode
+from app.models.enums import ReviewPlatform, ReviewStatus, ScrapeMode
 
 
 class Review(Base):
@@ -49,6 +49,28 @@ class Review(Base):
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+    # Admin triage fields (feature 004, additive). Never feed content_hash.
+    status: Mapped[ReviewStatus | None] = mapped_column(
+        Enum(ReviewStatus, name="review_status_enum", values_callable=lambda x: [e.value for e in x]),
+        nullable=True,
+        default=ReviewStatus.new,
+    )
+    is_paid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    platform: Mapped[ReviewPlatform | None] = mapped_column(
+        Enum(ReviewPlatform, name="review_platform_enum", values_callable=lambda x: [e.value for e in x]),
+        nullable=True,
+        default=ReviewPlatform.yandex,
+    )
+    paid_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    paid_marked_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reply_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reply_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    replied_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
     # Derived analytics (feature 002). Additive, nullable; never feed content_hash.
     sentiment: Mapped[str | None] = mapped_column(Text, nullable=True)
     sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -58,3 +80,6 @@ class Review(Base):
     analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", back_populates="reviews")
+
+    def __str__(self) -> str:
+        return f"{self.author_name or 'Unknown'} ({self.rating}★)"

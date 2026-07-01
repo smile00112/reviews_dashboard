@@ -1,19 +1,19 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 → 1.1.0
-Modified principles:
-  - I. MVP Scope Discipline — clarified that deterministic rule-based local
-    analytics are in scope; LLM/external-ML analysis remains excluded.
+Version change: 1.1.0 → 1.2.0
+Modified principles: None renamed
 Added sections:
-  - Principle VI. Deterministic Local Analytics (new principle)
-  - MVP Scope Boundaries — added rule-based review analytics + structured
-    (BeautifulSoup) review parsing & date normalization to In scope.
+  - Principle VII. Admin Panel Security (new principle)
+  - Admin Panel Security in Security & Credentials section
+Modified sections:
+  - MVP Scope Boundaries — removed "User login/roles" from out-of-scope;
+    added "Internal admin panel (sqladmin) with RBAC" to in-scope.
 Removed sections: None
 Templates requiring updates:
   ✅ .specify/templates/plan-template.md — Constitution Check section aligns (no changes needed)
   ✅ .specify/templates/spec-template.md — scope alignment verified (no changes needed)
   ✅ .specify/templates/tasks-template.md — task categorization aligns (no changes needed)
-Follow-up TODOs: Feature 002 (review analytics) spec/plan to cite Principle VI.
+Follow-up TODOs: Feature 004 (admin panel) spec/plan to cite Principle VII.
 -->
 
 # ReviewsDashboard Constitution
@@ -23,11 +23,12 @@ Follow-up TODOs: Feature 002 (review analytics) spec/plan to cite Principle VI.
 ### I. MVP Scope Discipline
 
 Every deliverable MUST stay within the documented MVP in/out-of-scope list. Features
-explicitly excluded — application auth, review replies, Google Maps, 2GIS,
-LLM/external-ML analysis, WebSocket/email notifications, Celery pipelines, anti-captcha
-bypass — MUST NOT be introduced without a constitution amendment and spec update.
-Deterministic, rule-based local analytics over already-collected reviews (see Principle
-VI) are in scope and do NOT count as excluded "LLM analysis".
+explicitly excluded — review replies, Google Maps, 2GIS, LLM/external-ML analysis,
+WebSocket/email notifications, Celery pipelines, anti-captcha bypass — MUST NOT be
+introduced without a constitution amendment and spec update. Deterministic, rule-based
+local analytics over already-collected reviews (see Principle VI) are in scope and do
+NOT count as excluded "LLM analysis". The internal admin panel with RBAC (see
+Principle VII) is in scope as of v1.2.0.
 
 **Rationale**: The product is an internal read-only review collector; scope creep delays
 the first working vertical slice.
@@ -45,11 +46,12 @@ present on the scraped page, but the product MUST NOT act as a reply management 
 Business-critical logic MUST have automated tests before merge: review deduplication,
 review content normalization/hash generation, organization and scrape-run API contracts,
 and scraper result persistence. UI smoke tests SHOULD cover the primary dashboard flows.
-Full TDD for every file is NOT required; tests MUST cover logic that would cause data
-loss, duplicate reviews, or silent scrape failures.
+Admin panel RBAC rules MUST be covered by automated tests (auth success/failure,
+role-based access per view). Full TDD for every file is NOT required; tests MUST cover
+logic that would cause data loss, duplicate reviews, or silent scrape failures.
 
-**Rationale**: Duplicate reviews and lost scrape results are the highest-impact failure
-modes for this product.
+**Rationale**: Duplicate reviews, lost scrape results, and RBAC bypasses are the
+highest-impact failure modes for this product.
 
 ### IV. Scraper Reliability & Debuggability
 
@@ -63,9 +65,10 @@ as generic failures or silent retries.
 ### V. Simplicity (YAGNI)
 
 Prefer the simplest architecture that satisfies the spec: FastAPI background tasks instead
-of Celery, no application-level authentication, monorepo with `apps/api` and `apps/web`,
-Docker Compose for local development. Additional services, queues, or abstractions MUST
-be justified in the plan's Complexity Tracking table.
+of Celery, monorepo with `apps/api` and `apps/web`, Docker Compose for local development.
+Additional services, queues, or abstractions MUST be justified in the plan's Complexity
+Tracking table. The admin panel uses sqladmin as a sub-app mounted on the existing FastAPI
+instance — no separate service.
 
 **Rationale**: MVP velocity and operability beat premature scaling infrastructure.
 
@@ -79,21 +82,38 @@ LLMs, hosted ML services, or any external inference API, and MUST degrade safely
 are display/insight aids derived from stored reviews; they MUST NOT mutate the raw
 scraped review text, rating, or dedup hash inputs.
 
-**Rationale**: Rule-based analytics give operators actionable insight (recurring
-complaints, suspicious 5-star-with-negative-text reviews) with no new infrastructure,
-no per-call cost, and no platform/ToS risk — staying true to the YAGNI and read-only
-principles while excluding the cost and nondeterminism of LLM analysis.
+**Rationale**: Rule-based analytics give operators actionable insight with no new
+infrastructure, no per-call cost, and no platform/ToS risk.
+
+### VII. Admin Panel Security
+
+The internal admin panel (sqladmin, mounted at `/admin`) MUST enforce authentication
+before any view is accessible. Passwords MUST be stored only as bcrypt hashes; plaintext
+passwords MUST NOT appear in code, logs, or API responses. The session secret key MUST
+come from an environment variable (`ADMIN_SECRET_KEY`) and MUST NOT be hardcoded.
+RBAC MUST be enforced at the view layer via `is_accessible`/`is_visible` and
+`can_create`/`can_edit`/`can_delete` on every `ModelView`. Two roles are defined for
+this iteration: `admin` (full CRUD everywhere) and `review_operator` (read-only on
+organizations, read+edit on reviews, no access to user management). The admin panel is
+additive: it MUST NOT modify existing API routes, scraper logic, or ORM models beyond
+additive column additions. The application MUST start cleanly after each implementation
+phase.
+
+**Rationale**: The panel exposes all collected data and scrape controls; authentication
+and RBAC protect it from unauthorized access in a shared internal environment.
 
 ## MVP Scope Boundaries
 
 **In scope**: Yandex Maps organization tracking, public and operator-auth scraping,
 review display, manual scrape triggers (single and bulk), scrape history, deduplication,
 debug artifacts for failures, structured (BeautifulSoup) review parsing with date
-normalization, and deterministic rule-based review analytics (sentiment, problem
-categorization, rating↔sentiment mismatch) per Principle VI.
+normalization, deterministic rule-based review analytics (sentiment, problem
+categorization, rating↔sentiment mismatch) per Principle VI, and an internal admin
+panel with authentication and role-based access control (admin + review_operator) per
+Principle VII.
 
-**Out of scope**: User login/roles, posting replies, other map providers,
-LLM/external-ML analysis, real-time notifications, TimescaleDB, forced captcha bypass.
+**Out of scope**: Posting replies, other map providers, LLM/external-ML analysis,
+real-time notifications, TimescaleDB, forced captcha bypass.
 
 **Scale assumption**: Internal tool for a small operator team tracking on the order of
 tens of organizations, not thousands of concurrent users.
@@ -104,6 +124,10 @@ Operator Yandex credentials MUST live in environment variables only. Playwright 
 state files MUST NOT be committed to version control. Passwords, cookies, and storage
 state contents MUST NOT appear in logs or API responses. The `.local/` directory MUST
 be gitignored.
+
+Admin panel session secret (`ADMIN_SECRET_KEY`) MUST be set via environment variable.
+Initial user passwords MUST be supplied via environment variables or CLI arguments to
+seed scripts — never hardcoded. Password hashes MUST use bcrypt (via `passlib[bcrypt]`).
 
 ## Development Workflow
 
@@ -128,4 +152,4 @@ This constitution supersedes ad-hoc implementation choices. Amendments require:
 Compliance review: every plan MUST include a Constitution Check gate; violations MUST be
 documented in Complexity Tracking with rejected simpler alternatives.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-06-30
+**Version**: 1.2.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-07-01

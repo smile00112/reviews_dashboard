@@ -1,11 +1,16 @@
+import os
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, get_db
-from app.main import app
-from fastapi.testclient import TestClient
+# Must be set before any app.* imports so pydantic-settings can instantiate Settings.
+os.environ.setdefault("ADMIN_SECRET_KEY", "test-secret-key-not-for-production")
+
+from app.core.database import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 
 @pytest.fixture()
