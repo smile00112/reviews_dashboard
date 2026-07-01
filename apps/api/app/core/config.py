@@ -24,5 +24,11 @@ class Settings(BaseSettings):
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     )
 
+    # ScrapeOps proxy scraper (scrapeops mode, feature 005)
+    scrapeops_api_key: str = ""
+    scrapeops_limit: int = 150
+    scrapeops_max_pages: int = 5
+    scrapeops_render_js: bool = True
+
 
 settings = Settings()
