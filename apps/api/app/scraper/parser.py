@@ -78,7 +78,12 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
 
     reviews: list[ParsedReview] = []
     for block in soup.select(".business-review-view")[:_MAX_REVIEWS]:
-        body = _text(block.select_one(".business-review-view__body-text"))
+        # Yandex renamed __body-text → __body / spoiler-view__text; itemprop is most stable.
+        body = (
+            _text(block.select_one("[itemprop='reviewBody']"))
+            or _text(block.select_one(".business-review-view__body"))
+            or _text(block.select_one(".business-review-view__body-text"))
+        )
         if not body:
             continue
         # Skip blocks that are themselves owner responses.
@@ -95,7 +100,10 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
         date_text = _text(block.select_one(".business-review-view__date")) or None
 
         # An owner response nested within the review block, if present.
-        response_node = block.select_one(".business-review-comment-content__bubble")
+        response_node = (
+            block.select_one(".business-review-comment-content__bubble")
+            or block.select_one(".business-review-view__comment .spoiler-view__text")
+        )
         response_text = _text(response_node) or None
 
         reviews.append(
