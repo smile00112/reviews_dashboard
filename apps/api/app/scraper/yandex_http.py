@@ -20,9 +20,15 @@ from app.core.config import settings
 from app.scraper.debug_artifacts import save_html_debug
 from app.scraper.parser import parse_reviews_from_html
 from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
-from app.scraper.yandex_public import CAPTCHA_MARKERS
-
-BOT_MARKERS: tuple[str, ...] = ("Обнаружена защита от ботов", *CAPTCHA_MARKERS)
+# More specific than CAPTCHA_MARKERS: exclude bare "captcha" which matches
+# the `captchapgrd` fingerprinting library URL embedded in every Yandex Maps
+# SPA page, producing false positives on normal review pages.
+BOT_MARKERS: tuple[str, ...] = (
+    "Обнаружена защита от ботов",
+    "showcaptcha",
+    "SmartCaptcha",
+    "Подтвердите, что запросы",
+)
 
 
 class YandexHttpScraper:
@@ -41,6 +47,7 @@ class YandexHttpScraper:
         )
 
     def scrape(self, url: str) -> ScrapeResult:
+        url = self._resolve_reviews_url(url)
         result = ScrapeResult()
         limit = settings.http_scrape_limit
         max_pages = settings.http_scrape_max_pages
@@ -99,6 +106,24 @@ class YandexHttpScraper:
             result.error_code = "http_scrape_error"
             result.error_message = str(exc)
             return result
+
+    def _resolve_reviews_url(self, url: str) -> str:
+        """Follow redirects and ensure the URL points to the reviews tab.
+
+        Short links (/maps/-/...) and org root URLs lack /reviews/; fetching
+        them returns the SPA shell without review blocks.
+        """
+        try:
+            response = self.session.head(url, timeout=self.REQUEST_TIMEOUT_SECONDS, allow_redirects=True)
+            resolved = response.url
+        except requests.RequestException:
+            resolved = url
+
+        # Strip query/fragment to get the clean path, then re-append if reviews already there.
+        base = re.split(r"[?#]", resolved)[0].rstrip("/")
+        if "/reviews" not in base:
+            base = f"{base}/reviews"
+        return base + "/"
 
     def _fetch(self, url: str) -> str | None:
         """Download a page; return HTML, or None on network / non-200 error."""
