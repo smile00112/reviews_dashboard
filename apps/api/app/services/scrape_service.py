@@ -12,6 +12,7 @@ from app.scraper.types import ScrapeResult
 from app.scraper.yandex_auth import YandexAuthScraper
 from app.scraper.yandex_http import YandexHttpScraper
 from app.scraper.yandex_public import YandexPublicScraper
+from app.scraper.yandex_scrapeops import YandexScrapeOpsScraper
 from app.services.organization_service import OrganizationService
 from app.services.review_service import ReviewService
 
@@ -22,11 +23,13 @@ class ScrapeService:
         db: Session,
         public_scraper: YandexPublicScraper | None = None,
         http_scraper: YandexHttpScraper | None = None,
+        scrapeops_scraper: YandexScrapeOpsScraper | None = None,
     ):
         self.db = db
         self.public_scraper = public_scraper or YandexPublicScraper()
         self.http_scraper = http_scraper or YandexHttpScraper()
         self.auth_scraper = YandexAuthScraper()
+        self.scrapeops_scraper = scrapeops_scraper or YandexScrapeOpsScraper()
 
     def create_run(self, organization_id: UUID | None, mode: ScrapeMode) -> ScrapeRun:
         run = ScrapeRun(organization_id=organization_id, mode=mode, status=ScrapeRunStatus.queued)
@@ -109,6 +112,8 @@ class ScrapeService:
                 scrape_result = self.auth_scraper.scrape(url, session.storage_state_path)
             elif mode == ScrapeMode.public_http:
                 scrape_result = self.http_scraper.scrape(url)
+            elif mode == ScrapeMode.scrapeops:
+                scrape_result = self.scrapeops_scraper.scrape(url)
             else:
                 scrape_result = self.public_scraper.scrape(url)
 
