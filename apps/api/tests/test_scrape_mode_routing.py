@@ -87,3 +87,22 @@ def test_public_mode_still_uses_playwright_scraper(db_session):
 
     assert public.calls == 1
     assert http.calls == 0
+
+
+def test_scrapeops_mode_routes_to_scrapeops_scraper(db_session):
+    org = _org(db_session)
+    scrapeops = FakeScraper(_result())
+    public = FakeScraper(_result())
+    http = FakeScraper(_result())
+    service = ScrapeService(db_session, public_scraper=public, http_scraper=http, scrapeops_scraper=scrapeops)
+
+    run = service.create_run(org.id, ScrapeMode.scrapeops)
+    service.execute_run(run.id)
+
+    assert scrapeops.calls == 1
+    assert public.calls == 0
+    assert http.calls == 0
+
+    run = service.get_run(run.id)
+    assert run.status.value == "success"
+    assert run.reviews_inserted == 2
