@@ -97,6 +97,10 @@ export async function listScrapeRuns() {
   return request<{ items: ScrapeRun[] }>("/api/scrape-runs");
 }
 
+export async function getScrapeRun(runId: string): Promise<ScrapeRun> {
+  return request<ScrapeRun>(`/api/scrape-runs/${runId}`);
+}
+
 export async function getSession(): Promise<SessionInfo> {
   return request<SessionInfo>("/api/scraper/yandex/session");
 }

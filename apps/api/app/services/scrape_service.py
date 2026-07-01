@@ -10,15 +10,22 @@ from app.models.scrape_run import ScrapeRun
 from app.models.scraper_session import ScraperSession
 from app.scraper.types import ScrapeResult
 from app.scraper.yandex_auth import YandexAuthScraper
+from app.scraper.yandex_http import YandexHttpScraper
 from app.scraper.yandex_public import YandexPublicScraper
 from app.services.organization_service import OrganizationService
 from app.services.review_service import ReviewService
 
 
 class ScrapeService:
-    def __init__(self, db: Session, public_scraper: YandexPublicScraper | None = None):
+    def __init__(
+        self,
+        db: Session,
+        public_scraper: YandexPublicScraper | None = None,
+        http_scraper: YandexHttpScraper | None = None,
+    ):
         self.db = db
         self.public_scraper = public_scraper or YandexPublicScraper()
+        self.http_scraper = http_scraper or YandexHttpScraper()
         self.auth_scraper = YandexAuthScraper()
 
     def create_run(self, organization_id: UUID | None, mode: ScrapeMode) -> ScrapeRun:
@@ -100,6 +107,8 @@ class ScrapeService:
                     org_service.update_scrape_status(organization_id, OrganizationScrapeStatus.needs_manual_action)
                     return
                 scrape_result = self.auth_scraper.scrape(url, session.storage_state_path)
+            elif mode == ScrapeMode.public_http:
+                scrape_result = self.http_scraper.scrape(url)
             else:
                 scrape_result = self.public_scraper.scrape(url)
 

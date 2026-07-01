@@ -25,6 +25,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link href="/scrape-runs" className="text-slate-600 hover:text-slate-900">
               История сборов
             </Link>
+            <Link href="/http-scraper" className="text-slate-600 hover:text-slate-900">
+              HTTP-парсер
+            </Link>
           </nav>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>

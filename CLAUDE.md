@@ -43,7 +43,7 @@ Strict layers, do not bypass:
 - `services/` — business logic. `OrganizationService`, `ReviewService`, `ScrapeService`, `AnalysisService`. All take a SQLAlchemy `Session` in the constructor.
 - `models/` — SQLAlchemy ORM models + `enums.py` (status/mode string enums shared across layers).
 - `schemas/` — Pydantic request/response models.
-- `scraper/` — Playwright scrapers + structured HTML parsing (BeautifulSoup, `parser.py`), isolated from the web layer.
+- `scraper/` — scrapers (`yandex_public.py` Playwright, `yandex_auth.py` operator-auth, `yandex_http.py` browserless requests) + structured HTML parsing (BeautifulSoup, `parser.py`), isolated from the web layer.
 - `analysis/` — pure, stdlib-only rule-based analytics (`sentiment.py`, `problems.py`, `analyzer.py`). No DB, no I/O, no external/LLM calls.
 
 `core/config.py` is the single source of settings (pydantic-settings, reads `.env`). `core/database.py` exposes `get_db` (request-scoped dependency) and `SessionLocal` (used directly by background tasks).
@@ -53,6 +53,7 @@ Strict layers, do not bypass:
 2. `ScrapeService.execute_run` picks a scraper by mode:
    - `public` → `YandexPublicScraper` (headless Chromium, opens the "Отзывы" tab, scroll-loads reviews).
    - `operator_auth` → `YandexAuthScraper` using a saved Playwright storage-state file. If the session isn't `valid`, the run ends as `needs_manual_action` (operator must run login first) — it is **not** a failure.
+   - `public_http` → `YandexHttpScraper` (feature 003): **browserless** requests + `?page=N` pagination, no Playwright. Delegates review extraction to `parse_reviews_from_html`; bot-protection/captcha → `needs_manual_action` + HTML debug artifact (no bypass). Has its own web page `/http-scraper`. Settings (`http_scrape_limit/max_pages/delay`) in `core/config.py`.
 3. Parsed reviews are persisted by `ReviewService.upsert_reviews`. Each run records counts (`reviews_seen/inserted/updated`), timestamps, and status; failures save debug artifacts (screenshot + HTML paths).
 4. Bulk `/scrape/all` creates one parent run plus a child `ScrapeRun` per organization.
 
@@ -65,14 +66,14 @@ Reviews are deduped per organization by `content_hash` = SHA-256 of normalized `
 Deterministic, local, rule-based (constitution Principle VI — no LLM/external calls). `ReviewAnalyzer.analyze(text, rating)` returns sentiment (label/score/confidence), problem categories (8-category taxonomy with severity + context), and a rating↔sentiment mismatch flag. `ReviewService.upsert_reviews` runs analysis **after** `build_review_hash` (analysis fields are additive columns + `problems` JSONB; they never feed the dedup hash). Backfill via `POST /api/organizations/{id}/analyze`; per-org aggregate via `GET /api/organizations/{id}/analytics`. Analysis must degrade safely (empty/garbage text → neutral/empty, never raise) and stays idempotent. JSONB column uses `JSON().with_variant(JSONB, "postgresql")` so SQLite-backed tests work.
 
 ### Status enums (`models/enums.py`)
-`ScrapeMode` (public | operator_auth), `ScrapeRunStatus`, `OrganizationScrapeStatus`, `SessionStatus`. `needs_manual_action` is a first-class outcome (captcha/2FA/expired session), distinct from `failed`. Captcha detection lives in `YandexPublicScraper.CAPTCHA_MARKERS`.
+`ScrapeMode` (public | operator_auth | public_http), `ScrapeRunStatus`, `OrganizationScrapeStatus`, `SessionStatus`. `needs_manual_action` is a first-class outcome (captcha/2FA/expired session/bot-wall), distinct from `failed`. Captcha detection lives in `YandexPublicScraper.CAPTCHA_MARKERS`; `YandexHttpScraper.BOT_MARKERS` extends it for the HTTP path. Note: in the real DB (migration 0001) all three `scrape_mode` columns share one Postgres type `scrape_mode_enum` — the differing `name=` in the ORM models only matter for SQLite test backends. Adding a mode = `ALTER TYPE scrape_mode_enum ADD VALUE` (see migration 0003).
 
 ### Frontend (`apps/web`)
 Next.js App Router (`app/`). All backend calls go through `lib/api.ts` (single `request<T>` wrapper, `cache: "no-store"`); types mirror the API in `lib/types.ts`. Base URL from `NEXT_PUBLIC_API_URL`. Pages are server components reading the API; tables/forms are client components under `components/`.
 
 ## Constraints (enforced by `.specify/memory/constitution.md`)
 
-This is a Spec Kit project: changes flow constitution → specify → plan → tasks → implement. Features: `specs/001-yandex-reviews-mvp/` (MVP) and `specs/002-review-analytics/` (analytics + structured parsing). Constitution is at **v1.1.0** — Principle VI permits deterministic local analytics; LLM/external-ML analysis stays out of scope. The plan in `specs/<feature>/plan.md` is the source of truth for stack/structure.
+This is a Spec Kit project: changes flow constitution → specify → plan → tasks → implement. Features: `specs/001-yandex-reviews-mvp/` (MVP), `specs/002-review-analytics/` (analytics + structured parsing), `specs/003-http-scraper/` (browserless `public_http` mode + page). Constitution is at **v1.1.0** — Principle VI permits deterministic local analytics; LLM/external-ML analysis stays out of scope. The plan in `specs/<feature>/plan.md` is the source of truth for stack/structure.
 
 Hard rules — do not violate without a constitution amendment:
 - **Read-only.** Collect/display Yandex reviews only. Never publish, edit, or delete replies on Yandex. Stored business responses are display-only.

@@ -18,6 +18,7 @@ export function ModeSelect({ value, onChange, id }: ModeSelectProps) {
     >
       <option value="public">public</option>
       <option value="operator_auth">operator_auth</option>
+      <option value="public_http">public_http</option>
     </select>
   );
 }
