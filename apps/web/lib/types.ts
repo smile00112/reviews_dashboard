@@ -1,4 +1,4 @@
-export type ScrapeMode = "public" | "operator_auth";
+export type ScrapeMode = "public" | "operator_auth" | "public_http";
 
 export type OrganizationScrapeStatus =
   | "pending"

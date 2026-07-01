@@ -18,15 +18,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    scrape_mode_enum = postgresql.ENUM("public", "operator_auth", name="scrape_mode_enum")
+    scrape_mode_enum = postgresql.ENUM(
+        "public", "operator_auth", name="scrape_mode_enum", create_type=False
+    )
     org_status_enum = postgresql.ENUM(
-        "pending", "running", "success", "failed", "needs_manual_action", name="org_scrape_status_enum"
+        "pending", "running", "success", "failed", "needs_manual_action",
+        name="org_scrape_status_enum", create_type=False
     )
     run_status_enum = postgresql.ENUM(
-        "queued", "running", "success", "failed", "needs_manual_action", name="scrape_run_status_enum"
+        "queued", "running", "success", "failed", "needs_manual_action",
+        name="scrape_run_status_enum", create_type=False
     )
     session_status_enum = postgresql.ENUM(
-        "missing", "valid", "expired", "needs_manual_action", name="session_status_enum"
+        "missing", "valid", "expired", "needs_manual_action",
+        name="session_status_enum", create_type=False
     )
     scrape_mode_enum.create(op.get_bind(), checkfirst=True)
     org_status_enum.create(op.get_bind(), checkfirst=True)

@@ -4,6 +4,7 @@ import enum
 class ScrapeMode(str, enum.Enum):
     public = "public"
     operator_auth = "operator_auth"
+    public_http = "public_http"
 
 
 class OrganizationScrapeStatus(str, enum.Enum):

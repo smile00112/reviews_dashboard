@@ -32,3 +32,15 @@ def save_debug_artifacts(page, prefix: str) -> tuple[str | None, str | None]:
         pass
 
     return screenshot_str, html_str
+
+
+def save_html_debug(html: str, prefix: str) -> str | None:
+    """Save an HTML snapshot without a browser page (for the HTTP scraper)."""
+    debug_dir = ensure_debug_dir()
+    run_id = uuid4().hex[:8]
+    html_path = debug_dir / f"{prefix}-{run_id}.html"
+    try:
+        html_path.write_text(html or "", encoding="utf-8")
+        return str(html_path)
+    except Exception:
+        return None

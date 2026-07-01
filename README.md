@@ -4,7 +4,7 @@ Internal dashboard for collecting and displaying Yandex Maps organization review
 
 ## Stack
 
-- **API**: FastAPI, SQLAlchemy, Alembic, Playwright, BeautifulSoup (Python)
+- **API**: FastAPI, SQLAlchemy, Alembic, Playwright, BeautifulSoup, requests (Python)
 - **Web**: Next.js, TypeScript, TailwindCSS
 - **DB**: PostgreSQL 16
 
@@ -63,6 +63,8 @@ See `specs/001-yandex-reviews-mvp/quickstart.md` for milestone validation steps.
 
 - Organization board with manual scrape triggers
 - Public and operator-auth Playwright scraping
+- Browserless HTTP scraping (`public_http` mode) on a dedicated `/http-scraper` page —
+  requests + pagination, bot-protection surfaces as `needs_manual_action` (no bypass)
 - Review deduplication by content hash
 - Global reviews feed with filters
 - Scrape run history with debug artifact paths
@@ -72,7 +74,5 @@ See `specs/001-yandex-reviews-mvp/quickstart.md` for milestone validation steps.
 
 ## Spec Kit Artifacts
 
-- Spec: `specs/001-yandex-reviews-mvp/spec.md`, `specs/002-review-analytics/spec.md`
-- Plan: `specs/001-yandex-reviews-mvp/plan.md`, `specs/002-review-analytics/plan.md`
-- Tasks: `specs/001-yandex-reviews-mvp/tasks.md`, `specs/002-review-analytics/tasks.md`
+- Specs: `specs/001-yandex-reviews-mvp/`, `specs/002-review-analytics/`, `specs/003-http-scraper/` (each has spec.md / plan.md / tasks.md)
 - Constitution: `.specify/memory/constitution.md` (v1.1.0)
