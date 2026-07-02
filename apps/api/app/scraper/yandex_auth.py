@@ -81,9 +81,15 @@ class YandexAuthScraper:
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True)
-                context = browser.new_context(storage_state=str(path))
+                context = browser.new_context(
+                    storage_state=str(path),
+                    locale=public.LOCALE,
+                    extra_http_headers=public.EXTRA_HTTP_HEADERS,
+                )
                 page = context.new_page()
                 try:
+                    # Raw goto first so short links (/maps/-/CODE) resolve via
+                    # redirect; the reviews path is built from the resolved URL.
                     page.goto(url, wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
                     page.wait_for_timeout(2000)
                     html = page.content()
@@ -93,8 +99,12 @@ class YandexAuthScraper:
                         result.error_code = "access_challenge"
                         result.error_message = "Captcha or access challenge detected"
                         return result
+                    if "/reviews" not in page.url:
+                        page.goto(public._reviews_url(page.url), wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
+                        page.wait_for_timeout(2000)
                     public._open_reviews_tab(page)
                     public._scroll_reviews(page)
+                    public._expand_reviews(page)
                     from app.scraper.parser import parse_reviews_from_html
 
                     org, reviews = parse_reviews_from_html(page.content())
