@@ -9,6 +9,7 @@ from app.models.enums import OrganizationScrapeStatus, ScrapeMode, ScrapeRunStat
 from app.models.scrape_run import ScrapeRun
 from app.models.scraper_session import ScraperSession
 from app.scraper.types import ScrapeResult
+from app.scraper.twogis_api import TwogisApiScraper
 from app.scraper.yandex_auth import YandexAuthScraper
 from app.scraper.yandex_http import YandexHttpScraper
 from app.scraper.yandex_public import YandexPublicScraper
@@ -24,12 +25,14 @@ class ScrapeService:
         public_scraper: YandexPublicScraper | None = None,
         http_scraper: YandexHttpScraper | None = None,
         scrapeops_scraper: YandexScrapeOpsScraper | None = None,
+        twogis_scraper: TwogisApiScraper | None = None,
     ):
         self.db = db
         self.public_scraper = public_scraper or YandexPublicScraper()
         self.http_scraper = http_scraper or YandexHttpScraper()
         self.auth_scraper = YandexAuthScraper()
         self.scrapeops_scraper = scrapeops_scraper or YandexScrapeOpsScraper()
+        self.twogis_scraper = twogis_scraper or TwogisApiScraper()
 
     def create_run(self, organization_id: UUID | None, mode: ScrapeMode) -> ScrapeRun:
         run = ScrapeRun(organization_id=organization_id, mode=mode, status=ScrapeRunStatus.queued)
@@ -114,6 +117,8 @@ class ScrapeService:
                 scrape_result = self.http_scraper.scrape(url)
             elif mode == ScrapeMode.scrapeops:
                 scrape_result = self.scrapeops_scraper.scrape(url)
+            elif mode == ScrapeMode.twogis_api:
+                scrape_result = self.twogis_scraper.scrape(url)
             else:
                 scrape_result = self.public_scraper.scrape(url)
 

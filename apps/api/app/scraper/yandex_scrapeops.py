@@ -29,7 +29,10 @@ BOT_MARKERS: tuple[str, ...] = (
 
 
 class YandexScrapeOpsScraper:
-    REQUEST_TIMEOUT_SECONDS = 30
+    # ScrapeOps proxies (and optionally JS-renders) each request, so it is far
+    # slower than a direct fetch — a 30s cap intermittently times out. 90s gives
+    # the proxy room even on a cold/rendered page.
+    REQUEST_TIMEOUT_SECONDS = 90
 
     def scrape(self, url: str) -> ScrapeResult:
         if not settings.scrapeops_api_key:
@@ -39,6 +42,7 @@ class YandexScrapeOpsScraper:
                 error_message="SCRAPEOPS_API_KEY not configured",
             )
 
+        url = self._reviews_url(url)
         result = ScrapeResult()
         limit = settings.scrapeops_limit
         max_pages = settings.scrapeops_max_pages
@@ -80,7 +84,7 @@ class YandexScrapeOpsScraper:
             return result
         except Exception as exc:
             result.error_code = "scrapeops_error"
-            result.error_message = str(exc)
+            result.error_message = self._redact(str(exc))
             return result
 
     def _fetch(self, url: str) -> tuple[str | None, ScrapeResult | None]:
@@ -102,13 +106,51 @@ class YandexScrapeOpsScraper:
                 )
             return None, ScrapeResult(
                 error_code="http_error",
-                error_message=str(e),
+                error_message=self._redact(str(e)),
             )
         except requests.exceptions.RequestException as e:
             return None, ScrapeResult(
                 error_code="network_error",
-                error_message=str(e),
+                error_message=self._redact(str(e)),
             )
+
+    @staticmethod
+    def _redact(text: str) -> str:
+        """Strip the API key from any message that echoes the proxy URL.
+
+        requests embeds the full request URL (including ``?api_key=...``) in its
+        exception strings; that message is persisted on the ScrapeRun and can
+        surface in API responses. Credentials must never leak there (CLAUDE.md).
+        """
+        key = settings.scrapeops_api_key
+        return text.replace(key, "***") if key else text
+
+    def _reviews_url(self, url: str) -> str:
+        """Resolve to the reviews tab and pin the Russian locale.
+
+        Two problems the raw org URL causes through the ScrapeOps proxy:
+        * The org root (and short links /maps/-/CODE) only render ~3 preview
+          reviews; the full paginated list lives under ``/reviews/``. HEAD-follow
+          redirects (short link → org) then append ``/reviews/`` — mirrors
+          ``YandexHttpScraper._resolve_reviews_url``.
+        * ScrapeOps exits from a non-RU IP, so Yandex serves yandex.com English
+          ("June 11", "Sushi Master"). ``review_date_text`` feeds
+          ``build_review_hash``, so an English date yields a different
+          ``content_hash`` than the RU-IP http path and silently re-inserts every
+          review. Yandex honours ``?lang=ru`` regardless of exit IP (Accept-Language
+          and ScrapeOps ``country=ru`` are both ignored), forcing Russian output.
+        """
+        try:
+            resolved = requests.head(
+                url, timeout=self.REQUEST_TIMEOUT_SECONDS, allow_redirects=True
+            ).url
+        except requests.RequestException:
+            resolved = url
+
+        base = re.split(r"[?#]", resolved)[0].rstrip("/")
+        if "/reviews" not in base:
+            base = f"{base}/reviews"
+        return f"{base}/?lang=ru"
 
     @staticmethod
     def _page_url(base_url: str, page: int) -> str:

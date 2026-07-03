@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.analysis.analyzer import ReviewAnalyzer
-from app.models.enums import ScrapeMode
+from app.models.enums import ReviewPlatform, ScrapeMode
 from app.models.organization import Organization
 from app.models.review import Review
 from app.scraper.normalize import build_review_hash
@@ -40,6 +40,11 @@ class ReviewService:
         updated = 0
         now = datetime.now(timezone.utc)
 
+        # Provenance derived from the scrape mode. Never a content_hash input.
+        is_twogis = scrape_mode == ScrapeMode.twogis_api
+        source = "2gis" if is_twogis else "yandex_maps"
+        platform = ReviewPlatform.gis2 if is_twogis else ReviewPlatform.yandex
+
         for parsed in reviews:
             seen += 1
             content_hash = build_review_hash(
@@ -64,8 +69,9 @@ class ReviewService:
 
             review = Review(
                 organization_id=organization_id,
-                source="yandex_maps",
+                source=source,
                 scrape_mode=scrape_mode,
+                platform=platform,
                 external_review_id=parsed.external_review_id,
                 author_name=parsed.author_name,
                 rating=parsed.rating,

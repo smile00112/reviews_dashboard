@@ -1,19 +1,20 @@
 <!--
 Sync Impact Report
-Version change: 1.1.0 → 1.2.0
-Modified principles: None renamed
+Version change: 1.2.0 → 1.3.0
+Modified principles:
+  - I. MVP Scope Discipline — 2GIS removed from the excluded list; now an in-scope provider
+  - II. Read-Only Review Collection — broadened from "Yandex only" to "Yandex and 2GIS"
 Added sections:
-  - Principle VII. Admin Panel Security (new principle)
-  - Admin Panel Security in Security & Credentials section
+  - Principle VIII. Multi-Provider Collection (new principle)
 Modified sections:
-  - MVP Scope Boundaries — removed "User login/roles" from out-of-scope;
-    added "Internal admin panel (sqladmin) with RBAC" to in-scope.
+  - MVP Scope Boundaries — added "2GIS review collection via public reviews API"
+    to in-scope; "other map providers" narrowed to exclude only Google (2GIS now allowed)
 Removed sections: None
 Templates requiring updates:
   ✅ .specify/templates/plan-template.md — Constitution Check section aligns (no changes needed)
   ✅ .specify/templates/spec-template.md — scope alignment verified (no changes needed)
   ✅ .specify/templates/tasks-template.md — task categorization aligns (no changes needed)
-Follow-up TODOs: Feature 004 (admin panel) spec/plan to cite Principle VII.
+Follow-up TODOs: Feature 006 (2gis reviews) spec/plan to cite Principle VIII.
 -->
 
 # ReviewsDashboard Constitution
@@ -23,21 +24,23 @@ Follow-up TODOs: Feature 004 (admin panel) spec/plan to cite Principle VII.
 ### I. MVP Scope Discipline
 
 Every deliverable MUST stay within the documented MVP in/out-of-scope list. Features
-explicitly excluded — review replies, Google Maps, 2GIS, LLM/external-ML analysis,
+explicitly excluded — review replies, Google Maps, LLM/external-ML analysis,
 WebSocket/email notifications, Celery pipelines, anti-captcha bypass — MUST NOT be
 introduced without a constitution amendment and spec update. Deterministic, rule-based
 local analytics over already-collected reviews (see Principle VI) are in scope and do
 NOT count as excluded "LLM analysis". The internal admin panel with RBAC (see
-Principle VII) is in scope as of v1.2.0.
+Principle VII) is in scope as of v1.2.0. 2GIS review collection via its public reviews
+API (see Principle VIII) is in scope as of v1.3.0; Google Maps remains excluded.
 
 **Rationale**: The product is an internal read-only review collector; scope creep delays
 the first working vertical slice.
 
 ### II. Read-Only Review Collection
 
-The system MUST collect and display Yandex Maps reviews only. It MUST NOT publish,
-edit, or delete replies on Yandex. Visible business responses MAY be stored when
-present on the scraped page, but the product MUST NOT act as a reply management tool.
+The system MUST collect and display reviews from supported providers (Yandex Maps and
+2GIS) only. It MUST NOT publish, edit, or delete replies on any provider. Visible
+business responses (e.g. official answers) MAY be stored when present in the scraped
+page or provider API, but the product MUST NOT act as a reply management tool.
 
 **Rationale**: Reply workflows, moderation, and platform ToS risks are out of MVP scope.
 
@@ -102,18 +105,36 @@ phase.
 **Rationale**: The panel exposes all collected data and scrape controls; authentication
 and RBAC protect it from unauthorized access in a shared internal environment.
 
+### VIII. Multi-Provider Collection
+
+Provider integrations MUST reuse the existing collection contract: each provider scraper
+returns the standard `ScrapeResult` (organization + reviews) and persists through
+`ReviewService.upsert_reviews`, so deduplication (`content_hash`), normalization, and
+analytics (Principle VI) apply unchanged across providers. A provider is selected by an
+explicit `ScrapeMode` value; no provider-specific branching may leak into the dedup hash
+inputs. Provider access MUST stay read-only (Principle II) and prefer official/public
+data endpoints over brittle HTML scraping where one exists. Provider API keys and proxy
+credentials MUST live in settings/environment, never hardcoded in a way that leaks into
+logs or API responses (see Security & Credentials). Adding a provider is an amendment +
+spec, not an ad-hoc change.
+
+**Rationale**: The 2GIS reviews API and Yandex share the same review shape; a single
+persistence/dedup path keeps multi-provider collection consistent and low-risk.
+
 ## MVP Scope Boundaries
 
 **In scope**: Yandex Maps organization tracking, public and operator-auth scraping,
 review display, manual scrape triggers (single and bulk), scrape history, deduplication,
 debug artifacts for failures, structured (BeautifulSoup) review parsing with date
 normalization, deterministic rule-based review analytics (sentiment, problem
-categorization, rating↔sentiment mismatch) per Principle VI, and an internal admin
+categorization, rating↔sentiment mismatch) per Principle VI, an internal admin
 panel with authentication and role-based access control (admin + review_operator) per
-Principle VII.
+Principle VII, and 2GIS review collection via its public reviews API (catalog + reviews
+endpoints) per Principle VIII.
 
-**Out of scope**: Posting replies, other map providers, LLM/external-ML analysis,
-real-time notifications, TimescaleDB, forced captcha bypass.
+**Out of scope**: Posting replies, Google Maps and other map providers (except Yandex
+and 2GIS), LLM/external-ML analysis, real-time notifications, TimescaleDB, forced
+captcha bypass.
 
 **Scale assumption**: Internal tool for a small operator team tracking on the order of
 tens of organizations, not thousands of concurrent users.
@@ -152,4 +173,4 @@ This constitution supersedes ad-hoc implementation choices. Amendments require:
 Compliance review: every plan MUST include a Constitution Check gate; violations MUST be
 documented in Complexity Tracking with rejected simpler alternatives.
 
-**Version**: 1.2.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-07-01
+**Version**: 1.3.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-07-03

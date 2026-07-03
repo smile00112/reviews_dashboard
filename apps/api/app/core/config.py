@@ -28,7 +28,18 @@ class Settings(BaseSettings):
     scrapeops_api_key: str = ""
     scrapeops_limit: int = 150
     scrapeops_max_pages: int = 5
-    scrapeops_render_js: bool = True
+    # Yandex /reviews/?lang=ru is server-rendered, so JS rendering is unnecessary
+    # and costs ~10x ScrapeOps credits. Leave off; flip on only if a target needs it.
+    scrapeops_render_js: bool = False
+
+    # 2GIS reviews API scraper (twogis_api mode, feature 006). Both keys are the
+    # public keys embedded in the 2GIS web client; kept in settings so a block can
+    # be resolved by rotating the value (a blocked key surfaces as needs_manual_action).
+    twogis_catalog_key: str = "rubnkm7490"
+    twogis_review_key: str = "6e7e1929-4ea9-4a5d-8c05-d601860389bd"
+    twogis_review_limit: int = 150
+    twogis_page_size: int = 50
+    twogis_request_delay_seconds: float = 0.3
 
 
 settings = Settings()

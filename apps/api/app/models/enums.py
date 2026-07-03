@@ -24,6 +24,7 @@ class ScrapeMode(str, enum.Enum):
     operator_auth = "operator_auth"
     public_http = "public_http"
     scrapeops = "scrapeops"
+    twogis_api = "twogis_api"
 
 
 class OrganizationScrapeStatus(str, enum.Enum):
