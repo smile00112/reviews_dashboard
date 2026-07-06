@@ -1,0 +1,3349 @@
+<!DOCTYPE html>
+<!-- saved from url=(0061)https://hoster.sushi-master.ru/dashboard_prototype-itog1.html -->
+<html lang="ru"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoMonitor — SERM Dashboard Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="./GeoMonitor — SERM Dashboard Prototype_files/css2" rel="stylesheet">
+<script type="text/javascript" src="https://ff.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=SCNiSApXubbHxOKGoaCwVY4pRpWG5C1H6kz-wxtJ1gtb5Ynz8Yr3mS6DbvHJmxZwbKZ05jjUDW0Mn0aV5bhSQOexJG5UXrSDwAaCz39NFM1LK2sxZgBT7NRoEJZDLjRZ91oHQJZirgSN3k8j0XSq5avBkY4elarsji_FreeM6BFXZ7flKworxyuVuWVJ0C5yvciUJB2DB3y_UbIW4fQ-fAnTdobeZ3krx4MtOmsoAzvB9SxCtIb272E9gU5MX6KX" charset="UTF-8"></script><script src="./GeoMonitor — SERM Dashboard Prototype_files/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #171a23;
+  --surface-2: #1e222d;
+  --surface-3: #262b38;
+  --border: #2a3041;
+  --text: #e8eaf0;
+  --text-dim: #8b91a3;
+  --text-faint: #5a6175;
+  --accent: #d4ff3a;
+  --accent-dim: #95b224;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --info: #60a5fa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Manrope', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+.app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 0;
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column;
+}
+.logo {
+  padding: 0 24px 28px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.logo-name {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  display: flex; align-items: center; gap: 8px;
+}
+.logo-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+.logo-sub {
+  font-size: 11px; color: var(--text-faint);
+  margin-top: 4px; font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.nav { flex: 1; padding: 0 12px; }
+.nav-group { margin-bottom: 24px; }
+.nav-title {
+  font-size: 10px; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 1.5px;
+  padding: 0 12px; margin-bottom: 8px;
+  font-weight: 600;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  cursor: pointer; color: var(--text-dim);
+  font-weight: 500; font-size: 13.5px;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--text); }
+.nav-item.active {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.nav-item .icon {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.nav-item .badge {
+  margin-left: auto;
+  background: var(--bad); color: white;
+  font-size: 10px; padding: 2px 6px;
+  border-radius: 4px; font-weight: 600;
+}
+
+.user-card {
+  margin: 0 12px;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer;
+}
+.user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #7a9020);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: var(--bg); font-size: 13px;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-weight: 600; font-size: 13px; }
+.user-role { font-size: 11px; color: var(--text-faint); }
+
+/* MAIN */
+.main { padding: 0; min-width: 0; }
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 10;
+  backdrop-filter: blur(10px);
+}
+.updated-indicator {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+.updated-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 0 rgba(74,222,128,0.6);
+  animation: pulse 2.4s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
+  100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+}
+.updated-refresh {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-dim); font-size: 14px; padding: 0 4px;
+  transition: color 0.15s;
+}
+.updated-refresh:hover { color: var(--accent); }
+.updated-refresh.spin { animation: spin 0.8s linear; }
+@keyframes spin {
+  from { transform: rotate(0); }
+  to { transform: rotate(360deg); }
+}
+.topbar-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { background: var(--surface-3); }
+.btn.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn.primary:hover { background: var(--accent-dim); }
+.btn.danger { color: var(--bad); }
+
+.content { padding: 28px 32px; }
+
+/* PAGE HEADER */
+.page-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 28px;
+  gap: 24px; flex-wrap: wrap;
+}
+.page-title {
+  font-family: 'Fraunces', serif;
+  font-size: 38px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  line-height: 1.05;
+}
+.page-subtitle {
+  color: var(--text-dim);
+  margin-top: 6px;
+  font-size: 14px;
+}
+.filters {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.filter-chip {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: inherit; color: var(--text-dim);
+}
+.filter-chip:hover { color: var(--text); border-color: var(--text-faint); }
+.filter-chip.active {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: var(--accent);
+}
+.filter-chip.mini { padding: 5px 10px; font-size: 11.5px; }
+
+/* Двухуровневые фильтры в Отзывах */
+.filter-primary {
+  display: flex; gap: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.status-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-dim);
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 4px;
+  transition: all 0.15s;
+  min-width: 130px;
+}
+.status-tab:hover { border-color: var(--text-faint); color: var(--text); }
+.status-tab.active {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.status-tab-label {
+  font-size: 13px; font-weight: 600;
+}
+.status-tab-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; font-weight: 500;
+  color: var(--text);
+}
+.status-tab-count.danger { color: var(--bad); }
+
+.filter-secondary {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  margin-bottom: 18px;
+  align-items: center;
+}
+.fs-group {
+  display: flex; align-items: center; gap: 6px;
+}
+.fs-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+  font-weight: 600;
+}
+.grouping-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  user-select: none;
+}
+.grouping-toggle:hover { color: var(--text); background: var(--surface-2); }
+.grouping-toggle input { accent-color: var(--accent); cursor: pointer; }
+
+.reviews-actions { margin-left: auto; }
+
+/* KPI CARDS */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  position: relative; overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.kpi:hover { border-color: var(--text-faint); transform: translateY(-1px); }
+.kpi-label {
+  font-size: 12px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+}
+.kpi-value {
+  font-family: 'Fraunces', serif;
+  font-size: 40px;
+  font-weight: 500;
+  margin: 10px 0 4px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.kpi-delta {
+  font-size: 12.5px;
+  font-family: 'JetBrains Mono', monospace;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-weight: 500;
+}
+.kpi-delta.up { color: var(--good); }
+.kpi-delta.down { color: var(--bad); }
+.kpi-spark {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 80px; height: 32px;
+  opacity: 0.6;
+}
+.kpi.featured {
+  background: linear-gradient(135deg, var(--surface), var(--surface-2));
+  border-color: var(--accent);
+}
+.kpi.featured .kpi-value { color: var(--accent); }
+.kpi.kpi-alert .kpi-value { color: var(--bad) !important; }
+
+/* Иерархия KPI: 3 главных крупно */
+.kpi-hero {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.kpi-hero .kpi { padding: 24px; }
+.kpi-hero .kpi-value { font-size: 48px; margin: 12px 0 6px; }
+.kpi-bench {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.kpi-bench .muted { color: var(--text-faint); }
+.kpi-bench b { color: var(--text); }
+
+/* Компактные KPI второго ряда */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.kpi-mini {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: help;
+  transition: border-color 0.15s;
+}
+.kpi-mini:hover { border-color: var(--text-faint); }
+.kpi-mini-label {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.kpi-mini-value {
+  font-family: 'Fraunces', serif;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.kpi-mini-unit { font-size: 13px; color: var(--text-dim); font-family: 'Manrope', sans-serif; font-weight: 500; }
+.kpi-mini-delta {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.kpi-mini-delta.up { color: var(--good); }
+.kpi-mini-delta.down { color: var(--bad); }
+.kpi-mini-delta.muted { color: var(--text-faint); }
+
+/* PANELS */
+.row { display: grid; gap: 16px; margin-bottom: 16px; }
+.row.r-2-1 { grid-template-columns: 2fr 1fr; }
+.row.r-1-1 { grid-template-columns: 1fr 1fr; }
+.row.r-1-1-1 { grid-template-columns: 1fr 1fr 1fr; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.panel-title {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+}
+.panel-meta { font-size: 12px; color: var(--text-faint); }
+
+/* TABLE */
+.table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+.table th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.table tr:last-child td { border-bottom: none; }
+.table tr.clickable { cursor: pointer; }
+.table tr.clickable:hover { background: var(--surface-2); }
+
+.rating-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface-2);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 12px;
+}
+.rating-pill.high { color: var(--good); }
+.rating-pill.mid { color: var(--warn); }
+.rating-pill.low { color: var(--bad); }
+.delta-mini {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  margin-left: 6px;
+}
+.delta-mini.up { color: var(--good); }
+.delta-mini.down { color: var(--bad); }
+
+.platform-tag {
+  display: inline-block;
+  padding: 2px 7px; border-radius: 4px;
+  font-size: 10.5px; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 3px;
+}
+.platform-tag.yandex { background: rgba(255,204,0,0.15); color: #ffcc00; }
+.platform-tag.google { background: rgba(66,133,244,0.15); color: #4285f4; }
+.platform-tag.gis { background: rgba(46,204,113,0.15); color: #2ecc71; }
+
+.sentiment-bar {
+  display: inline-flex; height: 6px; width: 80px;
+  border-radius: 3px; overflow: hidden;
+  background: var(--surface-3);
+}
+.sentiment-bar.sm { width: 100px; height: 8px; }
+.sentiment-bar > div { height: 100%; }
+.sentiment-bar .pos { background: var(--good); }
+.sentiment-bar .neu { background: var(--text-faint); }
+.sentiment-bar .neg { background: var(--bad); }
+
+/* Индикатор «здоровья» в таблице */
+.health-bar {
+  display: inline-block;
+  width: 4px;
+  height: 22px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.health-bar.good { background: var(--good); }
+.health-bar.warn { background: var(--warn); }
+.health-bar.bad { background: var(--bad); }
+
+/* Тогл Таблица / Карта */
+.view-toggle {
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+}
+.view-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 7px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+}
+.view-toggle-btn.active {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.loc-view { display: none; }
+.loc-view.active { display: block; }
+
+.loc-type {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.3px;
+}
+.loc-type.own { background: rgba(96,165,250,0.15); color: var(--info); }
+.loc-type.franchise { background: rgba(251,191,36,0.15); color: var(--warn); }
+
+/* Карта-заглушка */
+.map-mock {
+  position: relative;
+  height: 480px;
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--bg) 100%);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.map-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(138,145,165,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(138,145,165,0.04) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #000;
+  cursor: pointer;
+  border: 2px solid var(--bg);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.15s;
+}
+.map-pin:hover { transform: translate(-50%, -50%) scale(1.2); z-index: 5; }
+.map-pin.sm { width: 30px; height: 30px; font-size: 10px; }
+.map-pin.md { width: 42px; height: 42px; font-size: 12px; }
+.map-pin.lg { width: 56px; height: 56px; font-size: 14px; }
+.map-pin.good { background: var(--good); }
+.map-pin.warn { background: var(--warn); }
+.map-pin.bad { background: var(--bad); color: #fff; }
+.map-mock-note {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  background: var(--surface);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* REVIEWS LIST */
+.reviews-feed { max-height: 540px; overflow-y: auto; padding-right: 4px; }
+.reviews-feed::-webkit-scrollbar { width: 6px; }
+.reviews-feed::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+.review-card {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.review-card:hover { background: var(--surface-2); margin: 0 -10px; padding: 14px 10px; border-radius: 8px; }
+.review-card:last-child { border-bottom: none; }
+.review-head {
+  display: flex; justify-content: space-between;
+  margin-bottom: 6px; font-size: 12px;
+  color: var(--text-dim);
+}
+.stars { color: var(--warn); letter-spacing: 1px; font-size: 13px; }
+.stars.low { color: var(--bad); }
+.review-text { font-size: 13.5px; line-height: 1.6; color: var(--text); }
+.review-meta { display: flex; gap: 10px; margin-top: 8px; font-size: 11.5px; color: var(--text-faint); }
+.review-status {
+  font-size: 10.5px; padding: 2px 7px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600; letter-spacing: 0.5px;
+}
+.review-status.unanswered { background: rgba(248,113,113,0.15); color: var(--bad); }
+.review-status.answered { background: rgba(74,222,128,0.12); color: var(--good); }
+.review-status.in-progress { background: rgba(251,191,36,0.15); color: var(--warn); }
+.review-status.escalated { background: rgba(248,113,113,0.25); color: var(--bad); border: 1px solid var(--bad); }
+
+/* Карточка отзыва — расширения */
+.escalated-card {
+  border-left: 3px solid var(--bad);
+  padding-left: 12px !important;
+  margin-left: -12px;
+}
+.answered-card { opacity: 0.92; }
+.answered-card:hover { opacity: 1; }
+
+.order-link {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: 6px;
+  border-left: 2px solid var(--info);
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+.order-link b { color: var(--text); font-weight: 600; }
+
+.answer-block {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(74,222,128,0.04);
+  border-radius: 8px;
+  border-left: 2px solid var(--good);
+}
+.answer-head {
+  display: flex; justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.answer-head b { color: var(--text); font-weight: 600; }
+.answer-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.clickable-aspect { cursor: pointer; transition: all 0.15s; }
+.clickable-aspect:hover { background: var(--accent); color: #000 !important; }
+
+/* Overflow меню для редких действий */
+.overflow-wrap { position: relative; display: inline-block; }
+.btn-icon { padding: 6px 8px !important; font-size: 14px !important; line-height: 1; min-width: 28px; }
+.overflow-menu {
+  position: absolute; top: 100%; right: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+  padding: 4px;
+  display: none;
+  min-width: 200px;
+  z-index: 50;
+}
+.overflow-wrap:hover .overflow-menu { display: block; }
+.overflow-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.overflow-menu button:hover { background: var(--surface-2); color: var(--text); }
+
+/* Сортировка/тогл хронология / критичность */
+.sort-toggle { display: inline-flex; gap: 4px; }
+.sort-toggle button {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sort-toggle button.active {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.feed-flat { display: flex; flex-direction: column; }
+
+/* Динамика выбранного аспекта (Sparkline-блок) */
+.aspect-trend {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.aspect-trend-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.aspect-trend-title { font-size: 12px; color: var(--text-dim); font-weight: 600; }
+.aspect-trend-chart { height: 90px; }
+
+.aspect-row.active { background: var(--surface-2); }
+
+/* WORD CLOUD */
+.cloud { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
+.cloud-word {
+  padding: 6px 10px; border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cloud-word:hover { background: var(--surface-3); }
+.cloud-word.pos { color: var(--good); border: 1px solid rgba(74,222,128,0.2); }
+.cloud-word.neg { color: var(--bad); border: 1px solid rgba(248,113,113,0.2); }
+.cloud-word.big { font-size: 18px; }
+.cloud-word.med { font-size: 14px; }
+.cloud-word.sm { font-size: 12px; }
+
+/* SCREENS */
+.screen { display: none; animation: fadeIn 0.3s; }
+.screen.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* LOCATIONS GRID (mass mgmt) */
+.locations-toolbar {
+  display: flex; gap: 10px; margin-bottom: 18px;
+  align-items: center; flex-wrap: wrap;
+}
+.bulk-bar {
+  display: none;
+  padding: 12px 16px;
+  background: rgba(212,255,58,0.08);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  align-items: center; gap: 12px;
+}
+.bulk-bar.show { display: flex; }
+.bulk-count {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent); font-weight: 700;
+}
+
+/* MODAL */
+.modal-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  align-items: center; justify-content: center;
+  padding: 40px;
+}
+.modal-backdrop.show { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  max-width: 720px;
+  width: 100%; max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px;
+}
+.modal-title {
+  font-family: 'Fraunces', serif;
+  font-size: 24px; font-weight: 500;
+  margin-bottom: 4px;
+}
+.modal-sub { color: var(--text-dim); margin-bottom: 22px; font-size: 13px; }
+.field { margin-bottom: 16px; }
+.field-label {
+  display: block;
+  font-size: 11px; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 6px; font-weight: 600;
+}
+.field-input, .field-textarea, .field-select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+}
+.field-textarea { min-height: 100px; resize: vertical; }
+.modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.modal-wide { max-width: 860px; }
+.template-cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.template-list { display: flex; flex-direction: column; gap: 10px; max-height: 480px; overflow-y: auto; padding-right: 4px; }
+.template-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.template-item:hover { border-color: var(--accent); transform: translateY(-1px); }
+.template-head {
+  display: flex; justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.template-cat { font-weight: 600; color: var(--text); font-size: 13px; }
+.template-meta { font-size: 11px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; }
+.template-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  background: var(--bg);
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+.template-vars {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.template-vars code {
+  background: var(--surface-3);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  margin: 0 2px;
+}
+
+/* CHECKBOX */
+.cb {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--text-faint);
+  border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  background: var(--surface-2);
+}
+.cb.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.cb.checked::after {
+  content: '✓'; color: var(--bg); font-weight: 700; font-size: 11px;
+}
+
+/* HEATMAP */
+.heatmap { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+.hm-cell {
+  aspect-ratio: 1;
+  background: var(--surface-2);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.hm-cell.l1 { background: rgba(212,255,58,0.15); }
+.hm-cell.l2 { background: rgba(212,255,58,0.35); }
+.hm-cell.l3 { background: rgba(212,255,58,0.55); }
+.hm-cell.l4 { background: rgba(212,255,58,0.85); }
+
+/* ALERT STYLES */
+.alert-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  border-left: 3px solid var(--bad);
+}
+.alert-row.warn { border-left-color: var(--warn); }
+.alert-row.info { border-left-color: var(--info); }
+.alert-icon {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(248,113,113,0.15);
+  flex-shrink: 0;
+}
+.alert-row.warn .alert-icon { background: rgba(251,191,36,0.15); }
+.alert-row.info .alert-icon { background: rgba(96,165,250,0.15); }
+.alert-content { flex: 1; min-width: 0; }
+.alert-title { font-size: 13.5px; font-weight: 600; margin-bottom: 2px; }
+.alert-sub { font-size: 12px; color: var(--text-dim); }
+.alert-time { font-size: 11px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; }
+
+/* TABS */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+  gap: 4px;
+}
+.tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-weight: 500;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.empty-state {
+  text-align: center; padding: 40px 20px; color: var(--text-faint);
+}
+
+.legend { display: flex; gap: 14px; font-size: 11px; color: var(--text-dim); flex-wrap: wrap; }
+.legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+/* SOURCE TOGGLE */
+.source-toggle {
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.source-toggle button {
+  background: none; border: none; color: var(--text-dim);
+  padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+}
+.source-toggle button.active {
+  background: var(--surface-3); color: var(--text);
+}
+
+/* ===== NEW COMPONENTS (v2 — under TЗ) ===== */
+
+/* KPI grid 8 — 4 колонки на двух строках */
+.kpi-grid-8 { grid-template-columns: repeat(4, 1fr); }
+
+/* Чипы со значками-счётчиками */
+.chip-badge {
+  display: inline-block;
+  background: var(--bad); color: white;
+  font-size: 10px; padding: 1px 6px;
+  border-radius: 4px; margin-left: 6px;
+  font-weight: 600;
+}
+
+/* Donut charts (3 круговые в ряд) */
+.donut-wrap {
+  position: relative;
+  min-height: 180px;
+  max-height: 220px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.donut-wrap canvas { max-height: 100% !important; }
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.donut-legend > div {
+  display: flex; align-items: center; gap: 8px;
+}
+.donut-legend b { color: var(--text); margin-left: auto; font-weight: 600; }
+
+/* Горизонтальные bar-chart (Распределение оценок) */
+.hbar-list {
+  display: flex; flex-direction: column;
+  gap: 10px; padding: 8px 0;
+}
+.hbar-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 110px;
+  gap: 12px;
+  align-items: center;
+}
+.hbar-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-dim);
+}
+.hbar-track {
+  height: 18px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hbar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.hbar-val {
+  font-size: 12px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+}
+.hbar-val b { color: var(--text); font-weight: 600; }
+.hbar-val .muted { color: var(--text-faint); margin-left: 4px; }
+.hbar-foot {
+  display: flex; justify-content: space-between;
+  font-size: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.hbar-foot .muted { color: var(--text-faint); }
+.hbar-foot b { font-weight: 600; }
+
+/* Platform aggregate cards */
+.platform-card { padding: 20px; }
+.platform-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.platform-logo {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.platform-logo.sm {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+/* Тепловая карта (Рейтинги) */
+.heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+}
+.heatmap-row {
+  display: grid;
+  grid-template-columns: 60px repeat(6, 1fr);
+  gap: 4px;
+}
+.heatmap-cell {
+  height: 42px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.1s;
+  position: relative;
+}
+.heatmap-cell:hover { transform: scale(1.05); z-index: 2; }
+.heatmap-cell.heatmap-label {
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  cursor: default;
+}
+.heatmap-cell:not(.heatmap-label):hover::after {
+  content: attr(data-v) " отзывов · ср. " attr(data-r);
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-3);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  color: var(--text);
+  z-index: 5;
+}
+.heatmap-insight {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  border-left: 3px solid var(--accent);
+}
+.heatmap-insight b { color: var(--text); font-weight: 600; }
+
+.loc-insight {
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  border-left: 3px solid var(--bad);
+  margin-bottom: 4px;
+}
+.loc-insight b { color: var(--text); font-weight: 600; }
+
+/* Empty state (когда нет данных) */
+.empty-state {
+  display: none;
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-faint);
+}
+.empty-state.visible { display: block; }
+.empty-state-icon { font-size: 56px; margin-bottom: 14px; opacity: 0.4; }
+.empty-state-title {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.empty-state-text {
+  font-size: 13px;
+  color: var(--text-dim);
+  max-width: 360px;
+  margin: 0 auto 18px;
+  line-height: 1.55;
+}
+.platform-name {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.platform-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.pm-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+.pm-value {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.pm-unit { font-size: 13px; color: var(--text-dim); font-family: 'Manrope', sans-serif; font-weight: 500; }
+
+/* "Требуют внимания за 24 часа" — attention panel */
+.attention-panel {
+  background: linear-gradient(135deg, rgba(212,255,58,0.05) 0%, var(--surface) 50%);
+  border-color: rgba(212,255,58,0.2);
+  margin-bottom: 28px;
+}
+.attention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.attention-more {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-dim);
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  transition: all 0.15s;
+}
+.attention-more:hover { border-color: var(--accent); color: var(--accent); }
+.att-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 0 8px;
+}
+.att-meta b { color: var(--text); font-weight: 600; }
+.attention-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.attention-item:hover { border-color: var(--accent); transform: translateY(-1px); }
+.attention-item.urgent { border-left: 3px solid var(--bad); }
+.attention-item.warn { border-left: 3px solid var(--warn); }
+.att-icon { font-size: 22px; }
+.att-body { flex: 1; min-width: 0; }
+.att-title { font-weight: 600; color: var(--text); font-size: 13.5px; margin-bottom: 2px; }
+.att-sub { font-size: 12px; color: var(--text-dim); }
+.att-arrow { color: var(--text-faint); font-size: 18px; }
+
+/* Heat-table (Топ-10 строки) */
+.heat-table td:first-child { color: var(--text-dim); font-size: 12px; }
+.heat-table tbody tr:nth-child(odd) { background: rgba(255,255,255,0.01); }
+
+/* Aspect tags */
+.aspect-tag {
+  display: inline-block;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-right: 2px;
+}
+.aspect-tag.pos { background: rgba(74,222,128,0.12); color: var(--good); }
+
+/* Review actions: ответить, назначить, покупной */
+.review-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.btn-sm {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+}
+.paid-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.paid-toggle:hover { background: var(--surface-2); }
+.paid-toggle input { accent-color: var(--accent); cursor: pointer; }
+.paid-toggle input:checked ~ span { color: var(--accent); font-weight: 600; }
+
+/* Feed sections (группировка ленты отзывов по площадкам) */
+.feed-section { margin-bottom: 20px; }
+.feed-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.feed-section-head .muted { color: var(--text-faint); font-weight: 400; }
+.muted { color: var(--text-faint); font-size: 11px; }
+
+/* Charts: ограничение высоты (важно — без этого растягиваются) */
+.chart-panel { margin-bottom: 16px; }
+.chart-box {
+  position: relative;
+  min-height: 280px;
+  max-height: 360px;
+  height: 320px;
+  width: 100%;
+}
+.chart-box canvas { max-height: 100% !important; }
+
+/* Mini-distribution bar (для таблицы конкурентов) */
+.mini-dist {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-3);
+  min-width: 120px;
+}
+.mini-dist span { display: block; height: 100%; }
+
+/* Сгруппированное распределение оценок (Конкуренты) — 3 сегмента вместо 5 для читаемости */
+.dist-grouped {
+  display: flex;
+  height: 18px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-3);
+  min-width: 220px;
+  position: relative;
+}
+.dist-grouped span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #000;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  position: relative;
+}
+.dist-grouped span::after {
+  content: attr(data-lbl);
+  display: block;
+}
+.dist-grouped span:nth-child(3) { color: #fff; }
+.dist-grouped span:hover {
+  filter: brightness(1.15);
+}
+
+/* Переключатель гранулярности (День/Неделя/Месяц) */
+.granularity-toggle {
+  display: inline-flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+.granularity-toggle button {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.granularity-toggle button.active {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* Color dots для легенды/выбора */
+.dot-color {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+/* Competitor toggle checkboxes */
+.competitor-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 60%;
+  justify-content: flex-end;
+}
+.comp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.comp-toggle:hover { border-color: var(--text-faint); }
+.comp-toggle.active {
+  color: var(--text);
+  border-color: var(--text-faint);
+  background: var(--surface-3);
+}
+.comp-toggle input { display: none; }
+
+/* Activity table */
+.activity-active {
+  background: rgba(212,255,58,0.03);
+}
+.activity-active td:first-child {
+  border-left: 2px solid var(--accent);
+}
+
+/* Status pills (для заказных отзывов) */
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.status-pill.active { background: rgba(74,222,128,0.15); color: var(--good); }
+.status-pill.deleted { background: rgba(248,113,113,0.15); color: var(--bad); }
+
+/* Placeholder panel (для заглушек Управление/Система) */
+.placeholder-panel {
+  text-align: center;
+  padding: 80px 24px;
+}
+.placeholder-emoji {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+.placeholder-title {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+.placeholder-text {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* Delta-mini flat */
+.delta-mini.flat { color: var(--text-faint); }
+
+/* Filters: разделители-чипы (для фильтра по периоду + площадкам) */
+.filters { flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-grid-8 { grid-template-columns: repeat(2, 1fr); }
+  .row.r-2-1, .row.r-1-1, .row.r-1-1-1 { grid-template-columns: 1fr; }
+  .attention-grid { grid-template-columns: 1fr; }
+  .competitor-toggles { max-width: 100%; }
+}
+</style>
+<script type="text/javascript" src="chrome-extension://epebfcehmdedogndhlcacafjaacknbcm/nmcades_plugin_api.js"></script></head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-name"><span class="logo-dot"></span>GeoMonitor</div>
+      <div class="logo-sub">SERM Platform v0.1</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-title">Аналитика</div>
+        <div class="nav-item active" data-screen="overview"><span class="icon">⚡</span>Обзор</div>
+        <div class="nav-item" data-screen="reviews"><span class="icon">💬</span>Отзывы<span class="badge">23</span></div>
+        <div class="nav-item" data-screen="rating"><span class="icon">⭐</span>Рейтинги</div>
+        <div class="nav-item" data-screen="locations-analytics"><span class="icon">📍</span>По локациям</div>
+        <div class="nav-item" data-screen="competitors"><span class="icon">⚔</span>Конкуренты</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-title">Маркетинг</div>
+        <div class="nav-item" data-screen="activities"><span class="icon">🎯</span>Активности</div>
+        <div class="nav-item" data-screen="ordered-reviews"><span class="icon">💎</span>Заказные отзывы</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-title">Сервис</div>
+        <div class="nav-item" data-screen="management"><span class="icon">⚙</span>Управление<span class="badge" style="background:var(--text-faint)">soon</span></div>
+        <div class="nav-item" data-screen="system"><span class="icon">🔧</span>Система<span class="badge" style="background:var(--text-faint)">soon</span></div>
+      </div>
+    </nav>
+    <div class="user-card" onclick="cycleRole()">
+      <div class="user-avatar" id="userAvatar">МА</div>
+      <div class="user-info">
+        <div class="user-name" id="userName">Филонов Максим</div>
+        <div class="user-role" id="userRole">Маркетолог</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="updated-indicator" title="Время последнего обновления данных">
+        <span class="updated-dot"></span>
+        Обновлено 5 минут назад
+        <button class="updated-refresh" title="Обновить" onclick="this.classList.add(&#39;spin&#39;); setTimeout(()=&gt;this.classList.remove(&#39;spin&#39;),800)">⟳</button>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn">Экспорт</button>
+        <button class="btn primary" onclick="switchScreen(&#39;activities&#39;)">+ Активность</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ========== SCREEN: OVERVIEW ========== -->
+      <section class="screen active" id="screen-overview">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Здравствуйте, Максим.</h1>
+            <div class="page-subtitle">23 новых отзыва · 12 без ответа &gt; 24ч · 4 негатива поступили за последние 2 часа</div>
+          </div>
+          <div class="filters">
+            <button class="filter-chip">День</button>
+            <button class="filter-chip">Неделя</button>
+            <button class="filter-chip active">30 дней</button>
+            <button class="filter-chip">90 дней</button>
+            <button class="filter-chip">Год</button>
+            <button class="filter-chip">Всё время</button>
+            <span style="width:1px;background:var(--border);align-self:stretch;margin:0 4px;"></span>
+            <button class="filter-chip active">Все площадки</button>
+            <button class="filter-chip">Яндекс</button>
+            <button class="filter-chip">Google</button>
+            <button class="filter-chip">2ГИС</button>
+          </div>
+        </div>
+
+        <!-- KPI С ИЕРАРХИЕЙ: 3 главных крупно + 5 компактных -->
+        <div class="kpi-hero">
+          <div class="kpi featured">
+            <div class="kpi-label">Средний рейтинг сети</div>
+            <div class="kpi-value">4.36</div>
+            <div class="kpi-delta up">▲ +0.08 vs прошлый месяц</div>
+            <div class="kpi-bench">vs рынок: <b>4.26</b> (+0.10) <span class="muted">по 6 конкурентам</span></div>
+          </div>
+          <div class="kpi featured">
+            <div class="kpi-label">Новых за период</div>
+            <div class="kpi-value">312</div>
+            <div class="kpi-delta up">▲ 23 сегодня</div>
+            <div class="kpi-bench muted">7 706 всего · 21.1/день в среднем</div>
+          </div>
+          <div class="kpi featured kpi-alert">
+            <div class="kpi-label">Без ответа</div>
+            <div class="kpi-value" style="color:var(--bad)">210</div>
+            <div class="kpi-delta down">▲ +18 за сутки</div>
+            <div class="kpi-bench"><b style="color:var(--bad)">12</b> просрочены &gt; 24ч <span class="muted">· требуют внимания</span></div>
+          </div>
+        </div>
+
+        <!-- Компактные KPI второго ряда -->
+        <div class="kpi-strip">
+          <div class="kpi-mini">
+            <div class="kpi-mini-label">Ср. время ответа</div>
+            <div class="kpi-mini-value">22<span class="kpi-mini-unit"> мин</span></div>
+            <div class="kpi-mini-delta up">▲ −4 мин</div>
+          </div>
+          <div class="kpi-mini">
+            <div class="kpi-mini-label">Медиана ответа</div>
+            <div class="kpi-mini-value">14<span class="kpi-mini-unit"> мин</span></div>
+            <div class="kpi-mini-delta muted">p95: 4ч 12м</div>
+          </div>
+          <div class="kpi-mini">
+            <div class="kpi-mini-label">В SLA</div>
+            <div class="kpi-mini-value">87<span class="kpi-mini-unit">%</span></div>
+            <div class="kpi-mini-delta up">▲ +3 п.п.</div>
+          </div>
+          <div class="kpi-mini">
+            <div class="kpi-mini-label">Позитивность</div>
+            <div class="kpi-mini-value">78.3<span class="kpi-mini-unit">%</span></div>
+            <div class="kpi-mini-delta up">▲ +0.8 п.п.</div>
+          </div>
+          <div class="kpi-mini" title="Доля рекомендующих: 5★ минус 1–3★. Не путать с классическим NPS — это упрощённая метрика для гео-отзывов.">
+            <div class="kpi-mini-label">Индекс репутации</div>
+            <div class="kpi-mini-value">95<span class="kpi-mini-unit">%</span></div>
+            <div class="kpi-mini-delta up">▲ +2 п.п.</div>
+          </div>
+        </div>
+
+        <!-- 3 КРУГОВЫЕ ДИАГРАММЫ В РЯД (по ТЗ) -->
+        <div class="row r-1-1-1">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Распределение оценок</div>
+                <div class="panel-meta">За выбранный период · всего 7 706</div>
+              </div>
+            </div>
+            <div class="hbar-list">
+              <div class="hbar-row">
+                <div class="hbar-label">5★</div>
+                <div class="hbar-track"><div class="hbar-fill" style="width:97%; background:#d4ff3a;"></div></div>
+                <div class="hbar-val"><b>7 475</b> <span class="muted">97.0%</span></div>
+              </div>
+              <div class="hbar-row">
+                <div class="hbar-label">4★</div>
+                <div class="hbar-track"><div class="hbar-fill" style="width:6%; background:#9ae600;"></div></div>
+                <div class="hbar-val"><b>38</b> <span class="muted">0.5%</span></div>
+              </div>
+              <div class="hbar-row">
+                <div class="hbar-label">3★</div>
+                <div class="hbar-track"><div class="hbar-fill" style="width:5%; background:#fbbf24;"></div></div>
+                <div class="hbar-val"><b>31</b> <span class="muted">0.4%</span></div>
+              </div>
+              <div class="hbar-row">
+                <div class="hbar-label">2★</div>
+                <div class="hbar-track"><div class="hbar-fill" style="width:5%; background:#fb923c;"></div></div>
+                <div class="hbar-val"><b>31</b> <span class="muted">0.4%</span></div>
+              </div>
+              <div class="hbar-row">
+                <div class="hbar-label">1★</div>
+                <div class="hbar-track"><div class="hbar-fill" style="width:14%; background:#f87171;"></div></div>
+                <div class="hbar-val"><b>131</b> <span class="muted">1.7%</span></div>
+              </div>
+            </div>
+            <div class="hbar-foot">
+              <span class="muted">Доля 4–5★: <b style="color:var(--good)">97.5%</b></span>
+              <span class="muted">Доля 1–3★: <b style="color:var(--bad)">2.5%</b></span>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Тональность отзывов</div>
+                <div class="panel-meta">Положит. / нейтр. / отриц.</div>
+              </div>
+            </div>
+            <div class="donut-wrap"><canvas id="donutTone" style="display: block; box-sizing: border-box; height: 200px; width: 477px;" width="477" height="200"></canvas></div>
+            <div class="donut-legend">
+              <div><span class="legend-dot" style="background:#4ade80"></span>😊 Положительные <b>6 036</b></div>
+              <div><span class="legend-dot" style="background:#8b91a3"></span>😐 Нейтральные <b>65</b></div>
+              <div><span class="legend-dot" style="background:#f87171"></span>😞 Отрицательные <b>114</b></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Отзывы по каталогам</div>
+                <div class="panel-meta">Распределение по площадкам</div>
+              </div>
+            </div>
+            <div class="donut-wrap"><canvas id="donutPlatforms" style="display: block; box-sizing: border-box; height: 200px; width: 477px;" width="477" height="200"></canvas></div>
+            <div class="donut-legend">
+              <div><span class="legend-dot" style="background:#ffcc00"></span>📍 Яндекс Карты <b>2 070</b></div>
+              <div><span class="legend-dot" style="background:#2ecc71"></span>📍 2ГИС <b>1 480</b></div>
+              <div><span class="legend-dot" style="background:#4285f4"></span>📍 Google Business <b>4 156</b></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- АГРЕГАТЫ ПО 3 ПЛОЩАДКАМ -->
+        <div class="row r-1-1-1">
+          <div class="panel platform-card platform-yandex">
+            <div class="platform-head">
+              <div class="platform-logo" style="background:#ffcc00;color:#000;">Я</div>
+              <div><div class="platform-name">Яндекс Бизнес</div><div class="panel-meta">2 070 отзывов</div></div>
+            </div>
+            <div class="platform-metrics">
+              <div><div class="pm-label">Ср.взвеш</div><div class="pm-value">4.44</div></div>
+              <div><div class="pm-label">Δ за период</div><div class="pm-value" style="color:var(--good);font-size:18px;">▲ +0.07</div></div>
+              <div><div class="pm-label">Доля негатива</div><div class="pm-value" style="color:var(--bad)">10.5%</div></div>
+              <div><div class="pm-label">Скорость ответа</div><div class="pm-value">5.7<span class="pm-unit"> ч</span></div></div>
+            </div>
+          </div>
+          <div class="panel platform-card platform-google">
+            <div class="platform-head">
+              <div class="platform-logo" style="background:#4285f4;color:#fff;">G</div>
+              <div><div class="platform-name">Google Business</div><div class="panel-meta">4 156 отзывов</div></div>
+            </div>
+            <div class="platform-metrics">
+              <div><div class="pm-label">Ср.взвеш</div><div class="pm-value">4.51</div></div>
+              <div><div class="pm-label">Δ за период</div><div class="pm-value" style="color:var(--good);font-size:18px;">▲ +0.05</div></div>
+              <div><div class="pm-label">Доля негатива</div><div class="pm-value" style="color:var(--bad)">8.2%</div></div>
+              <div><div class="pm-label">Скорость ответа</div><div class="pm-value">3.1<span class="pm-unit"> ч</span></div></div>
+            </div>
+          </div>
+          <div class="panel platform-card platform-2gis">
+            <div class="platform-head">
+              <div class="platform-logo" style="background:#2ecc71;color:#fff;">2</div>
+              <div><div class="platform-name">2ГИС</div><div class="panel-meta">1 480 отзывов</div></div>
+            </div>
+            <div class="platform-metrics">
+              <div><div class="pm-label">Ср.взвеш</div><div class="pm-value">4.16</div></div>
+              <div><div class="pm-label">Δ за период</div><div class="pm-value" style="color:var(--bad);font-size:18px;">▼ −0.04</div></div>
+              <div><div class="pm-label">Доля негатива</div><div class="pm-value" style="color:var(--bad)">14.1%</div></div>
+              <div><div class="pm-label">Скорость ответа</div><div class="pm-value">8.2<span class="pm-unit"> ч</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ТРЕБУЮТ ВНИМАНИЯ ЗА 24 ЧАСА -->
+        <div class="panel attention-panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">⚡ Требуют внимания за последние 24 часа</div>
+              <div class="panel-meta">События, которые нельзя пропустить · отсортировано по критичности</div>
+            </div>
+            <button class="btn" onclick="switchScreen(&#39;reviews&#39;)">К отзывам →</button>
+          </div>
+          <div class="attention-list">
+            <div class="attention-item urgent" onclick="switchScreen(&#39;reviews&#39;)">
+              <div class="att-icon">⏰</div>
+              <div class="att-body">
+                <div class="att-title">12 отзывов без ответа &gt; 24ч</div>
+                <div class="att-sub">SLA нарушен · риск эскалации</div>
+              </div>
+              <div class="att-meta"><b>12</b></div>
+              <div class="att-arrow">→</div>
+            </div>
+            <div class="attention-item urgent" onclick="switchScreen(&#39;reviews&#39;)">
+              <div class="att-icon">💢</div>
+              <div class="att-body">
+                <div class="att-title">4 новых негативных отзыва (1–2★)</div>
+                <div class="att-sub">Поступили за последние 2 часа</div>
+              </div>
+              <div class="att-meta"><b>4</b></div>
+              <div class="att-arrow">→</div>
+            </div>
+            <div class="attention-item warn" onclick="switchScreen(&#39;locations-analytics&#39;)">
+              <div class="att-icon">📉</div>
+              <div class="att-body">
+                <div class="att-title">Падение рейтинга: ТРК Европейский (Москва)</div>
+                <div class="att-sub">4.25 → 3.85 за неделю · −0.40</div>
+              </div>
+              <div class="att-meta"><b style="color:var(--bad)">−0.40</b></div>
+              <div class="att-arrow">→</div>
+            </div>
+            <div class="attention-item warn" onclick="switchScreen(&#39;reviews&#39;)">
+              <div class="att-icon">🚨</div>
+              <div class="att-body">
+                <div class="att-title">Рост упоминаний аспекта «опоздание»</div>
+                <div class="att-sub">+42% за 7 дней · 47 → 67 упоминаний</div>
+              </div>
+              <div class="att-meta"><b style="color:var(--bad)">+42%</b></div>
+              <div class="att-arrow">→</div>
+            </div>
+            <div class="attention-item warn" onclick="switchScreen(&#39;reviews&#39;)">
+              <div class="att-icon">🔥</div>
+              <div class="att-body">
+                <div class="att-title">3 эскалированных отзыва ждут реакции</div>
+                <div class="att-sub">Назначены маркетологу головного офиса</div>
+              </div>
+              <div class="att-meta"><b>3</b></div>
+              <div class="att-arrow">→</div>
+            </div>
+          </div>
+          <button class="attention-more" onclick="this.style.display=&#39;none&#39;">Показать ещё 8 →</button>
+        </div>
+
+        <!-- ТОП-10 ХУДШИХ ТОЧЕК + ТОП АСПЕКТОВ ПО НЕГАТИВУ -->
+        <div class="row r-1-1">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">🔻 Топ-10 худших точек</div>
+                <div class="panel-meta">Требуют управленческой реакции · клик — карточка точки</div>
+              </div>
+              <button class="btn" onclick="switchScreen(&#39;locations-analytics&#39;)">Все →</button>
+            </div>
+            <table class="table heat-table">
+              <thead><tr><th></th><th>Город</th><th>Точка</th><th>Рейтинг</th><th>Δ за месяц</th><th>Без ответа</th></tr></thead>
+              <tbody>
+                <tr class="clickable"><td><span class="health-bar bad"></span></td><td>Москва</td><td>Севастопольский</td><td><span class="rating-pill low">3.78 ★</span></td><td><span class="delta-mini down">▼ −0.22</span></td><td><b style="color:var(--bad)">3</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar bad"></span></td><td>Москва</td><td>ТРК Европейский</td><td><span class="rating-pill low">3.85 ★</span></td><td><span class="delta-mini down">▼ −0.40</span></td><td><b style="color:var(--bad)">7</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar bad"></span></td><td>СПб</td><td>ТЦ Галерея</td><td><span class="rating-pill low">3.92 ★</span></td><td><span class="delta-mini down">▼ −0.70</span></td><td><b style="color:var(--bad)">4</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar bad"></span></td><td>Казань</td><td>Маршала Жукова</td><td><span class="rating-pill low">3.95 ★</span></td><td><span class="delta-mini down">▼ −0.20</span></td><td><b>2</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar warn"></span></td><td>Москва</td><td>Кутузовский, 22</td><td><span class="rating-pill mid">4.05 ★</span></td><td><span class="delta-mini down">▼ −0.30</span></td><td><b>1</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar warn"></span></td><td>Новосибирск</td><td>Площадь Ленина, 1</td><td><span class="rating-pill mid">4.12 ★</span></td><td><span class="delta-mini down">▼ −0.15</span></td><td><b>2</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar warn"></span></td><td>Уфа</td><td>Проспект Октября</td><td><span class="rating-pill mid">4.14 ★</span></td><td><span class="delta-mini down">▼ −0.10</span></td><td><b>1</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar warn"></span></td><td>СПб</td><td>Гражданский, 41</td><td><span class="rating-pill mid">4.16 ★</span></td><td><span class="delta-mini down">▼ −0.18</span></td><td><b>0</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar warn"></span></td><td>Ростов</td><td>Большая Садовая</td><td><span class="rating-pill mid">4.18 ★</span></td><td><span class="delta-mini down">▼ −0.12</span></td><td><b>2</b></td></tr>
+                <tr class="clickable"><td><span class="health-bar warn"></span></td><td>Самара</td><td>Куйбышева, 75</td><td><span class="rating-pill mid">4.20 ★</span></td><td><span class="delta-mini down">▼ −0.08</span></td><td><b>1</b></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">🔥 Аспекты с ростом негатива</div>
+                <div class="panel-meta">Что чаще всего вызывает жалобы · последние 7 дней vs предыдущие</div>
+              </div>
+              <button class="btn" onclick="switchScreen(&#39;reviews&#39;)">Подробнее →</button>
+            </div>
+            <table class="table">
+              <thead><tr><th>Аспект</th><th>Упом.</th><th>Δ за неделю</th><th>Тональность</th></tr></thead>
+              <tbody>
+                <tr class="clickable"><td><b>Опоздание</b></td><td>67</td><td><span class="delta-mini down">▲ +42%</span></td>
+                  <td><div class="sentiment-bar sm"><div class="pos" style="width:14%"></div><div class="neu" style="width:21%"></div><div class="neg" style="width:65%"></div></div></td></tr>
+                <tr class="clickable"><td><b>Курьер</b></td><td>89</td><td><span class="delta-mini down">▲ +18%</span></td>
+                  <td><div class="sentiment-bar sm"><div class="pos" style="width:42%"></div><div class="neu" style="width:18%"></div><div class="neg" style="width:40%"></div></div></td></tr>
+                <tr class="clickable"><td><b>Комплектность</b></td><td>54</td><td><span class="delta-mini down">▲ +12%</span></td>
+                  <td><div class="sentiment-bar sm"><div class="pos" style="width:34%"></div><div class="neu" style="width:22%"></div><div class="neg" style="width:44%"></div></div></td></tr>
+                <tr class="clickable"><td><b>Температура</b></td><td>48</td><td><span class="delta-mini up">▼ −8%</span></td>
+                  <td><div class="sentiment-bar sm"><div class="pos" style="width:58%"></div><div class="neu" style="width:20%"></div><div class="neg" style="width:22%"></div></div></td></tr>
+                <tr class="clickable"><td><b>Качество блюд</b></td><td>41</td><td><span class="delta-mini up">▼ −5%</span></td>
+                  <td><div class="sentiment-bar sm"><div class="pos" style="width:68%"></div><div class="neu" style="width:18%"></div><div class="neg" style="width:14%"></div></div></td></tr>
+              </tbody>
+            </table>
+            <div class="legend" style="margin-top:14px;font-size:11px;">
+              <span><span class="legend-dot" style="background:var(--good)"></span>Позитив</span>
+              <span><span class="legend-dot" style="background:var(--text-faint)"></span>Нейтрально</span>
+              <span><span class="legend-dot" style="background:var(--bad)"></span>Негатив</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: REVIEWS ========== -->
+      <section class="screen" id="screen-reviews">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Отзывы</h1>
+            <div class="page-subtitle">7 706 отзывов · 23 новых · 210 без ответа · 12 просрочены &gt; 24ч</div>
+          </div>
+          <div class="reviews-actions">
+            <button class="btn" onclick="openModal(&#39;templates&#39;)">📝 Шаблоны ответов</button>
+          </div>
+        </div>
+
+        <!-- ПЕРВИЧНЫЕ ФИЛЬТРЫ — СТАТУСЫ (крупнее) -->
+        <div class="filter-primary">
+          <button class="status-tab active" data-tab="all">
+            <span class="status-tab-label">Все</span>
+            <span class="status-tab-count">7 706</span>
+          </button>
+          <button class="status-tab" data-tab="unanswered">
+            <span class="status-tab-label">Не отвечено</span>
+            <span class="status-tab-count danger">210</span>
+          </button>
+          <button class="status-tab" data-tab="in-progress">
+            <span class="status-tab-label">В работе</span>
+            <span class="status-tab-count">14</span>
+          </button>
+          <button class="status-tab" data-tab="escalated">
+            <span class="status-tab-label">Эскалированные</span>
+            <span class="status-tab-count danger">3</span>
+          </button>
+          <button class="status-tab" data-tab="answered">
+            <span class="status-tab-label">Отвечено</span>
+            <span class="status-tab-count">7 479</span>
+          </button>
+        </div>
+
+        <!-- ВТОРИЧНЫЕ ФИЛЬТРЫ — УТОЧНЕНИЯ -->
+        <div class="filter-secondary">
+          <div class="fs-group">
+            <span class="fs-label">Тональность:</span>
+            <button class="filter-chip mini">Все</button>
+            <button class="filter-chip mini">😞 Негатив 1–3★ <span class="chip-badge">114</span></button>
+            <button class="filter-chip mini">😊 Позитив 4–5★</button>
+          </div>
+          <div class="fs-group">
+            <span class="fs-label">Период:</span>
+            <button class="filter-chip mini">24ч</button>
+            <button class="filter-chip mini">7д</button>
+            <button class="filter-chip mini active">30д</button>
+            <button class="filter-chip mini">Год</button>
+          </div>
+          <div class="fs-group">
+            <span class="fs-label">Площадка:</span>
+            <button class="filter-chip mini active">Все</button>
+            <button class="filter-chip mini">Я</button>
+            <button class="filter-chip mini">G</button>
+            <button class="filter-chip mini">2Г</button>
+          </div>
+          <div class="fs-group">
+            <button class="filter-chip mini">⏷ Локации</button>
+            <button class="filter-chip mini">💎 Покупные</button>
+            <label class="grouping-toggle"><input type="checkbox" id="groupByPlatform"> <span>Группировать по площадкам</span></label>
+          </div>
+        </div>
+
+        <div class="row r-2-1">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Лента отзывов</div>
+                <div class="panel-meta">Хронологически · самые новые сверху</div>
+              </div>
+              <div class="sort-toggle">
+                <button class="active">↻ Новые</button>
+                <button>⚡ По критичности</button>
+              </div>
+            </div>
+
+            <div class="feed-flat">
+
+              <!-- Empty-state (показывается, когда фильтры дают 0 результатов) -->
+              <div class="empty-state" id="reviewsEmpty">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-title">Под выбранные фильтры ничего не нашлось</div>
+                <div class="empty-state-text">Попробуйте сбросить часть фильтров или расширить период — например, переключиться на «Год».</div>
+                <button class="btn">Сбросить фильтры</button>
+              </div>
+
+              <!-- 1. Свежий негатив без ответа -->
+              <div class="review-card">
+                <div class="review-head">
+                  <div><b>Анна П.</b> · Доставка СПб, Невский <span class="platform-tag yandex">Я</span></div>
+                  <div>2 часа назад</div>
+                </div>
+                <div class="stars low">★☆☆☆☆ 1.0</div>
+                <div class="review-text">Курьер опоздал на 40 минут, пицца холодная и без соусов, которые я заказала. Деньги верните или больше никогда.</div>
+                <div class="order-link">📦 Заказ <b>#SM-247193</b> · 3 ролла, 2 напитка · курьер: Артур К. · доставлено за 78 мин (план: 40)</div>
+                <div class="review-meta">
+                  <span class="review-status unanswered">БЕЗ ОТВЕТА · 2ч</span>
+                  <span>Аспекты: <span class="aspect-tag clickable-aspect" onclick="event.stopPropagation()">опоздание</span> <span class="aspect-tag clickable-aspect">температура</span> <span class="aspect-tag clickable-aspect">комплектность</span></span>
+                </div>
+                <div class="review-actions">
+                  <button class="btn primary btn-sm">↩ Ответить</button>
+                  <button class="btn btn-sm" onclick="openModal(&#39;templates&#39;)">📝 Шаблон</button>
+                  <button class="btn btn-sm">Назначить</button>
+                  <label class="paid-toggle">
+                    <input type="checkbox"> <span>💎 Покупной</span>
+                  </label>
+                  <div class="overflow-wrap">
+                    <button class="btn btn-sm btn-icon" title="Ещё">⋯</button>
+                    <div class="overflow-menu">
+                      <button>🔥 Эскалировать</button>
+                      <button>📦 Связать с заказом</button>
+                      <button>⚐ Пожаловаться площадке</button>
+                      <button>🗒 Заметка</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. Положительный отвеченный с раскрытием -->
+              <div class="review-card answered-card">
+                <div class="review-head">
+                  <div><b>Дмитрий К.</b> · Доставка Москва, Тверская <span class="platform-tag google">G</span></div>
+                  <div>4 часа назад</div>
+                </div>
+                <div class="stars">★★★★★ 5.0</div>
+                <div class="review-text">Отличная сборка заказа, всё в комплекте, курьер вежливый. Особое спасибо за тёплую упаковку — еда как с кухни.</div>
+                <div class="review-meta">
+                  <span class="review-status answered">ОТВЕЧЕН · 18 мин</span>
+                  <span>Тональность: <b style="color:var(--good)">+0.95</b></span>
+                  <span>Аспекты: <span class="aspect-tag pos clickable-aspect">курьер</span> <span class="aspect-tag pos clickable-aspect">комплектность</span></span>
+                </div>
+                <div class="answer-block">
+                  <div class="answer-head">
+                    <span class="answer-author">↪ Ответ · <b>Алина Самойлова</b> (КЦ)</span>
+                    <span class="answer-time">сегодня, 11:42</span>
+                  </div>
+                  <div class="answer-text">Дмитрий, спасибо большое за тёплые слова! Мы передадим вашу благодарность курьеру и команде кухни. Будем рады видеть вас снова!</div>
+                </div>
+                <div class="review-actions">
+                  <button class="btn btn-sm">✎ Изменить ответ</button>
+                  <label class="paid-toggle"><input type="checkbox"> <span>💎 Покупной</span></label>
+                  <div class="overflow-wrap">
+                    <button class="btn btn-sm btn-icon" title="Ещё">⋯</button>
+                    <div class="overflow-menu">
+                      <button>📦 Связать с заказом</button>
+                      <button>🗒 Заметка</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3. В работе -->
+              <div class="review-card">
+                <div class="review-head">
+                  <div><b>Мария Т.</b> · Доставка Москва, Кутузовский <span class="platform-tag gis">2Г</span></div>
+                  <div>5 часов назад</div>
+                </div>
+                <div class="stars low">★★☆☆☆ 2.0</div>
+                <div class="review-text">Курьер хамил по телефону, заказ привёз через 1.5 часа вместо обещанных 40 минут. Рис холодный, васаби забыли.</div>
+                <div class="order-link">📦 Заказ <b>#SM-247088</b> · сет «Филадельфия», 4 ролла · курьер: Виктор М. · доставлено за 92 мин</div>
+                <div class="review-meta">
+                  <span class="review-status in-progress">В РАБОТЕ · Алина С.</span>
+                  <span>Аспекты: <span class="aspect-tag clickable-aspect">курьер</span> <span class="aspect-tag clickable-aspect">опоздание</span> <span class="aspect-tag clickable-aspect">температура</span></span>
+                </div>
+                <div class="review-actions">
+                  <button class="btn primary btn-sm">↩ Ответить</button>
+                  <button class="btn btn-sm" onclick="openModal(&#39;templates&#39;)">📝 Шаблон</button>
+                  <label class="paid-toggle"><input type="checkbox"> <span>💎 Покупной</span></label>
+                  <div class="overflow-wrap">
+                    <button class="btn btn-sm btn-icon" title="Ещё">⋯</button>
+                    <div class="overflow-menu">
+                      <button>🔥 Эскалировать</button>
+                      <button>📦 Связать с заказом</button>
+                      <button>⚐ Пожаловаться площадке</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4. Эскалированный -->
+              <div class="review-card escalated-card">
+                <div class="review-head">
+                  <div><b>Елена Б.</b> · Доставка СПб, Севастопольский <span class="platform-tag gis">2Г</span></div>
+                  <div>18 часов назад</div>
+                </div>
+                <div class="stars low">★☆☆☆☆ 1.0</div>
+                <div class="review-text">Привезли совершенно другое блюдо вместо моего заказа. Курьер не извинился. Возврат денег пришлось вытрясать через поддержку.</div>
+                <div class="order-link">📦 Заказ <b>#SM-246912</b> · ошибка комплектации · кухня: Севастопольский</div>
+                <div class="review-meta">
+                  <span class="review-status escalated">🔥 ЭСКАЛИРОВАНО · Мария А.</span>
+                  <span>Аспекты: <span class="aspect-tag clickable-aspect">комплектность</span> <span class="aspect-tag clickable-aspect">курьер</span></span>
+                </div>
+                <div class="review-actions">
+                  <button class="btn primary btn-sm">↩ Ответить</button>
+                  <button class="btn btn-sm" onclick="openModal(&#39;templates&#39;)">📝 Шаблон</button>
+                  <div class="overflow-wrap">
+                    <button class="btn btn-sm btn-icon" title="Ещё">⋯</button>
+                    <div class="overflow-menu">
+                      <button>📦 Связать с заказом</button>
+                      <button>↩ Снять эскалацию</button>
+                      <button>🗒 Заметка</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 5. Отвеченный 4-звёздный -->
+              <div class="review-card answered-card">
+                <div class="review-head">
+                  <div><b>Сергей Л.</b> · ТРК Европейский, Москва <span class="platform-tag yandex">Я</span></div>
+                  <div>вчера, 18:42</div>
+                </div>
+                <div class="stars">★★★★☆ 4.0</div>
+                <div class="review-text">Заказывал ролы и сет — всё свежее, тёплое, привезли вовремя. Минус — забыли палочки в одном из заказов.</div>
+                <div class="review-meta">
+                  <span class="review-status answered">ОТВЕЧЕН · 1ч 12м</span>
+                  <span>Аспекты: <span class="aspect-tag pos clickable-aspect">температура</span> <span class="aspect-tag clickable-aspect">комплектность</span></span>
+                </div>
+                <div class="answer-block">
+                  <div class="answer-head">
+                    <span class="answer-author">↪ Ответ · <b>Денис Петров</b> (КЦ)</span>
+                    <span class="answer-time">вчера, 19:54</span>
+                  </div>
+                  <div class="answer-text">Сергей, спасибо за заказ! Извините за забытые палочки — передадим менеджеру смены. В следующий раз положим дополнительно. Ждём вас снова!</div>
+                </div>
+                <div class="review-actions">
+                  <button class="btn btn-sm">✎ Изменить ответ</button>
+                  <label class="paid-toggle">
+                    <input type="checkbox" checked=""> <span>💎 Покупной · 570 ₽</span>
+                  </label>
+                  <div class="overflow-wrap">
+                    <button class="btn btn-sm btn-icon" title="Ещё">⋯</button>
+                    <div class="overflow-menu">
+                      <button>📦 Связать с заказом</button>
+                      <button>🗒 Заметка</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 6. Просто положительный без заказа (Google) -->
+              <div class="review-card answered-card">
+                <div class="review-head">
+                  <div><b>Игорь Р.</b> · Доставка Казань <span class="platform-tag google">G</span></div>
+                  <div>2 дня назад</div>
+                </div>
+                <div class="stars">★★★★★ 5.0</div>
+                <div class="review-text">Заказываю регулярно — всегда привозят горячее и в полной комплектации. Курьеры всегда улыбаются. Спасибо!</div>
+                <div class="review-meta">
+                  <span class="review-status answered">ОТВЕЧЕН · 24 мин</span>
+                  <span>Аспекты: <span class="aspect-tag pos clickable-aspect">температура</span> <span class="aspect-tag pos clickable-aspect">курьер</span></span>
+                </div>
+                <div class="answer-block">
+                  <div class="answer-head">
+                    <span class="answer-author">↪ Ответ · <b>Алина Самойлова</b> (КЦ)</span>
+                    <span class="answer-time">2 дня назад, 14:08</span>
+                  </div>
+                  <div class="answer-text">Игорь, спасибо за такие тёплые слова! Очень рады, что вам нравится. Будем стараться и дальше держать планку!</div>
+                </div>
+                <div class="review-actions">
+                  <button class="btn btn-sm">✎ Изменить ответ</button>
+                  <label class="paid-toggle"><input type="checkbox"> <span>💎 Покупной</span></label>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Аспектный анализ</div>
+                <div class="panel-meta">Привязан к фильтру периода · клик по строке → фильтр ленты</div>
+              </div>
+            </div>
+            <table class="table">
+              <thead><tr><th>Аспект</th><th>Упом.</th><th>Δ за период</th><th>Тональность</th></tr></thead>
+              <tbody>
+                <tr class="clickable aspect-row" title="Кликните, чтобы отфильтровать ленту"><td><b>Курьер</b></td><td>1 247</td><td><span class="delta-mini down">▲ +5%</span></td>
+                  <td><div class="sentiment-bar"><div class="pos" style="width:72%"></div><div class="neu" style="width:18%"></div><div class="neg" style="width:10%"></div></div></td>
+                </tr>
+                <tr class="clickable aspect-row" title="Кликните, чтобы отфильтровать ленту"><td><b>Опоздание</b></td><td>892</td><td><span class="delta-mini down">▲ +42%</span></td>
+                  <td><div class="sentiment-bar"><div class="pos" style="width:14%"></div><div class="neu" style="width:21%"></div><div class="neg" style="width:65%"></div></div></td>
+                </tr>
+                <tr class="clickable aspect-row" title="Кликните, чтобы отфильтровать ленту"><td><b>Температура</b></td><td>721</td><td><span class="delta-mini up">▼ −8%</span></td>
+                  <td><div class="sentiment-bar"><div class="pos" style="width:48%"></div><div class="neu" style="width:20%"></div><div class="neg" style="width:32%"></div></div></td>
+                </tr>
+                <tr class="clickable aspect-row" title="Кликните, чтобы отфильтровать ленту"><td><b>Комплектность</b></td><td>654</td><td><span class="delta-mini down">▲ +12%</span></td>
+                  <td><div class="sentiment-bar"><div class="pos" style="width:34%"></div><div class="neu" style="width:22%"></div><div class="neg" style="width:44%"></div></div></td>
+                </tr>
+                <tr class="clickable aspect-row" title="Кликните, чтобы отфильтровать ленту"><td><b>Качество блюд</b></td><td>587</td><td><span class="delta-mini up">▼ −5%</span></td>
+                  <td><div class="sentiment-bar"><div class="pos" style="width:68%"></div><div class="neu" style="width:18%"></div><div class="neg" style="width:14%"></div></div></td>
+                </tr>
+                <tr class="clickable aspect-row" title="Кликните, чтобы отфильтровать ленту"><td><b>Упаковка</b></td><td>523</td><td><span class="delta-mini flat">— 0%</span></td>
+                  <td><div class="sentiment-bar"><div class="pos" style="width:78%"></div><div class="neu" style="width:15%"></div><div class="neg" style="width:7%"></div></div></td>
+                </tr>
+                <tr class="clickable aspect-row" title="Кликните, чтобы отфильтровать ленту"><td><b>Свежесть</b></td><td>412</td><td><span class="delta-mini up">▼ −2%</span></td>
+                  <td><div class="sentiment-bar"><div class="pos" style="width:81%"></div><div class="neu" style="width:14%"></div><div class="neg" style="width:5%"></div></div></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="legend" style="margin-top:14px;">
+              <span><span class="legend-dot" style="background:var(--good)"></span>Позитив</span>
+              <span><span class="legend-dot" style="background:var(--text-faint)"></span>Нейтрально</span>
+              <span><span class="legend-dot" style="background:var(--bad)"></span>Негатив</span>
+            </div>
+
+            <!-- Динамика выбранного аспекта (мини-график) -->
+            <div class="aspect-trend">
+              <div class="aspect-trend-head">
+                <span class="aspect-trend-title">Динамика «Опоздание» за 90 дней</span>
+                <span class="aspect-trend-meta delta-mini down">▲ +42% за неделю</span>
+              </div>
+              <div class="aspect-trend-chart"><canvas id="aspectTrendChart" style="display: block; box-sizing: border-box; height: 90px; width: 482px;" width="482" height="90"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: RATING ========== -->
+      <section class="screen" id="screen-rating">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Рейтинги</h1>
+            <div class="page-subtitle">Сравнительный анализ оценок по площадкам, динамика, тепловая карта</div>
+          </div>
+          <div class="filters">
+            <button class="filter-chip">День</button>
+            <button class="filter-chip">Неделя</button>
+            <button class="filter-chip">Месяц</button>
+            <button class="filter-chip">90 дней</button>
+            <button class="filter-chip active">Год</button>
+            <button class="filter-chip">Всё время</button>
+          </div>
+        </div>
+
+        <!-- Распределение оценок по площадкам (сравнительная таблица) -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Распределение оценок по площадкам</div>
+              <div class="panel-meta">Сравнение долей 1–5★ для каждой площадки</div>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Площадка</th>
+                <th>Ср. рейтинг</th>
+                <th>5★</th>
+                <th>4★</th>
+                <th>3★</th>
+                <th>2★</th>
+                <th>1★</th>
+                <th>Распределение</th>
+                <th>Удалено</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="clickable">
+                <td><div class="platform-logo sm" style="background:#ffcc00;color:#000;">Я</div></td>
+                <td><b>Яндекс Бизнес</b></td>
+                <td><span class="rating-pill high">4.44 ★</span></td>
+                <td>78%</td><td>9%</td><td>3%</td><td>3%</td><td>7%</td>
+                <td><div class="mini-dist"><span style="width:78%;background:#d4ff3a"></span><span style="width:9%;background:#9ae600"></span><span style="width:3%;background:#fbbf24"></span><span style="width:3%;background:#fb923c"></span><span style="width:7%;background:#f87171"></span></div></td>
+                <td>14</td>
+              </tr>
+              <tr class="clickable">
+                <td><div class="platform-logo sm" style="background:#4285f4;color:#fff;">G</div></td>
+                <td><b>Google Business</b></td>
+                <td><span class="rating-pill high">4.51 ★</span></td>
+                <td>82%</td><td>8%</td><td>3%</td><td>3%</td><td>4%</td>
+                <td><div class="mini-dist"><span style="width:82%;background:#d4ff3a"></span><span style="width:8%;background:#9ae600"></span><span style="width:3%;background:#fbbf24"></span><span style="width:3%;background:#fb923c"></span><span style="width:4%;background:#f87171"></span></div></td>
+                <td>3</td>
+              </tr>
+              <tr class="clickable">
+                <td><div class="platform-logo sm" style="background:#2ecc71;color:#fff;">2</div></td>
+                <td><b>2ГИС</b></td>
+                <td><span class="rating-pill mid">4.16 ★</span></td>
+                <td>68%</td><td>11%</td><td>5%</td><td>5%</td><td>11%</td>
+                <td><div class="mini-dist"><span style="width:68%;background:#d4ff3a"></span><span style="width:11%;background:#9ae600"></span><span style="width:5%;background:#fbbf24"></span><span style="width:5%;background:#fb923c"></span><span style="width:11%;background:#f87171"></span></div></td>
+                <td>5</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Динамика среднего рейтинга — 3 линии (без stacked) -->
+        <div class="row r-1-1" style="margin-bottom:16px;">
+          <div class="panel chart-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Динамика среднего рейтинга</div>
+                <div class="panel-meta">Три площадки, без накопления · 12 месяцев</div>
+              </div>
+              <div class="legend">
+                <span><span class="legend-dot" style="background:#ffcc00"></span>Яндекс</span>
+                <span><span class="legend-dot" style="background:#4285f4"></span>Google</span>
+                <span><span class="legend-dot" style="background:#2ecc71"></span>2ГИС</span>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="ratingLinesChart" style="display: block; box-sizing: border-box; height: 320px; width: 746px;" width="746" height="320"></canvas></div>
+          </div>
+
+          <div class="panel chart-panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Количество отзывов по площадкам</div>
+                <div class="panel-meta">Накопительная диаграмма · аддитивные величины</div>
+              </div>
+              <div class="legend">
+                <span><span class="legend-dot" style="background:#ffcc00"></span>Яндекс</span>
+                <span><span class="legend-dot" style="background:#4285f4"></span>Google</span>
+                <span><span class="legend-dot" style="background:#2ecc71"></span>2ГИС</span>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="volumeStackedChart" style="display: block; box-sizing: border-box; height: 320px; width: 746px;" width="746" height="320"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Скорость ответа в динамике -->
+        <div class="panel chart-panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Скорость ответа на отзывы</div>
+              <div class="panel-meta">Медиана и 95-й перцентиль · по неделям · сильный хвост ≠ плохое среднее</div>
+            </div>
+            <div class="legend">
+              <span><span class="legend-dot" style="background:var(--accent)"></span>Медиана</span>
+              <span><span class="legend-dot" style="background:var(--warn)"></span>p95</span>
+              <span><span class="legend-dot" style="background:var(--text-faint)"></span>SLA-цель: 2ч</span>
+            </div>
+          </div>
+          <div class="chart-box"><canvas id="responseSpeedChart" style="display: block; box-sizing: border-box; height: 320px; width: 1555px;" width="1555" height="320"></canvas></div>
+        </div>
+
+        <!-- Тепловая карта: рейтинг по дням недели / часам -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Тепловая карта: оценки по дням недели и времени суток</div>
+              <div class="panel-meta">Чем темнее ячейка, тем больше отзывов · цвет — средний рейтинг</div>
+            </div>
+            <div class="legend">
+              <span><span class="legend-dot" style="background:#f87171"></span>≤ 4.0</span>
+              <span><span class="legend-dot" style="background:#fbbf24"></span>4.0–4.5</span>
+              <span><span class="legend-dot" style="background:#d4ff3a"></span>≥ 4.5</span>
+            </div>
+          </div>
+          <div class="heatmap">
+            <div class="heatmap-row heatmap-header">
+              <div class="heatmap-cell heatmap-label"></div>
+              <div class="heatmap-cell heatmap-label">00–04</div>
+              <div class="heatmap-cell heatmap-label">04–08</div>
+              <div class="heatmap-cell heatmap-label">08–12</div>
+              <div class="heatmap-cell heatmap-label">12–16</div>
+              <div class="heatmap-cell heatmap-label">16–20</div>
+              <div class="heatmap-cell heatmap-label">20–24</div>
+            </div>
+            <div class="heatmap-row">
+              <div class="heatmap-cell heatmap-label">Пн</div>
+              <div class="heatmap-cell" data-r="4.7" data-v="2" style="background:rgba(212,255,58,0.15);">4.7</div>
+              <div class="heatmap-cell" data-r="4.6" data-v="4" style="background:rgba(212,255,58,0.25);">4.6</div>
+              <div class="heatmap-cell" data-r="4.4" data-v="18" style="background:rgba(251,191,36,0.45);">4.4</div>
+              <div class="heatmap-cell" data-r="4.3" data-v="42" style="background:rgba(251,191,36,0.85);">4.3</div>
+              <div class="heatmap-cell" data-r="4.1" data-v="68" style="background:rgba(248,113,113,0.55);">4.1</div>
+              <div class="heatmap-cell" data-r="3.9" data-v="51" style="background:rgba(248,113,113,0.75);">3.9</div>
+            </div>
+            <div class="heatmap-row">
+              <div class="heatmap-cell heatmap-label">Вт</div>
+              <div class="heatmap-cell" data-r="4.6" data-v="1" style="background:rgba(212,255,58,0.12);">4.6</div>
+              <div class="heatmap-cell" data-r="4.7" data-v="3" style="background:rgba(212,255,58,0.20);">4.7</div>
+              <div class="heatmap-cell" data-r="4.5" data-v="21" style="background:rgba(212,255,58,0.45);">4.5</div>
+              <div class="heatmap-cell" data-r="4.4" data-v="48" style="background:rgba(251,191,36,0.65);">4.4</div>
+              <div class="heatmap-cell" data-r="4.2" data-v="72" style="background:rgba(251,191,36,0.95);">4.2</div>
+              <div class="heatmap-cell" data-r="4.0" data-v="54" style="background:rgba(248,113,113,0.65);">4.0</div>
+            </div>
+            <div class="heatmap-row">
+              <div class="heatmap-cell heatmap-label">Ср</div>
+              <div class="heatmap-cell" data-r="4.5" data-v="2" style="background:rgba(212,255,58,0.15);">4.5</div>
+              <div class="heatmap-cell" data-r="4.6" data-v="4" style="background:rgba(212,255,58,0.25);">4.6</div>
+              <div class="heatmap-cell" data-r="4.4" data-v="22" style="background:rgba(251,191,36,0.50);">4.4</div>
+              <div class="heatmap-cell" data-r="4.3" data-v="51" style="background:rgba(251,191,36,0.80);">4.3</div>
+              <div class="heatmap-cell" data-r="4.1" data-v="74" style="background:rgba(248,113,113,0.85);">4.1</div>
+              <div class="heatmap-cell" data-r="3.9" data-v="58" style="background:rgba(248,113,113,0.80);">3.9</div>
+            </div>
+            <div class="heatmap-row">
+              <div class="heatmap-cell heatmap-label">Чт</div>
+              <div class="heatmap-cell" data-r="4.7" data-v="2" style="background:rgba(212,255,58,0.18);">4.7</div>
+              <div class="heatmap-cell" data-r="4.6" data-v="5" style="background:rgba(212,255,58,0.30);">4.6</div>
+              <div class="heatmap-cell" data-r="4.5" data-v="24" style="background:rgba(212,255,58,0.50);">4.5</div>
+              <div class="heatmap-cell" data-r="4.3" data-v="54" style="background:rgba(251,191,36,0.85);">4.3</div>
+              <div class="heatmap-cell" data-r="4.1" data-v="78" style="background:rgba(248,113,113,0.90);">4.1</div>
+              <div class="heatmap-cell" data-r="3.8" data-v="62" style="background:rgba(248,113,113,0.95);">3.8</div>
+            </div>
+            <div class="heatmap-row">
+              <div class="heatmap-cell heatmap-label">Пт</div>
+              <div class="heatmap-cell" data-r="4.6" data-v="3" style="background:rgba(212,255,58,0.22);">4.6</div>
+              <div class="heatmap-cell" data-r="4.5" data-v="6" style="background:rgba(212,255,58,0.32);">4.5</div>
+              <div class="heatmap-cell" data-r="4.4" data-v="28" style="background:rgba(251,191,36,0.55);">4.4</div>
+              <div class="heatmap-cell" data-r="4.2" data-v="61" style="background:rgba(251,191,36,0.95);">4.2</div>
+              <div class="heatmap-cell" data-r="3.9" data-v="92" style="background:rgba(248,113,113,1);">3.9</div>
+              <div class="heatmap-cell" data-r="3.7" data-v="71" style="background:rgba(248,113,113,1);">3.7</div>
+            </div>
+            <div class="heatmap-row">
+              <div class="heatmap-cell heatmap-label">Сб</div>
+              <div class="heatmap-cell" data-r="4.5" data-v="4" style="background:rgba(212,255,58,0.25);">4.5</div>
+              <div class="heatmap-cell" data-r="4.6" data-v="3" style="background:rgba(212,255,58,0.22);">4.6</div>
+              <div class="heatmap-cell" data-r="4.5" data-v="32" style="background:rgba(212,255,58,0.55);">4.5</div>
+              <div class="heatmap-cell" data-r="4.3" data-v="68" style="background:rgba(251,191,36,0.90);">4.3</div>
+              <div class="heatmap-cell" data-r="4.0" data-v="98" style="background:rgba(248,113,113,1);">4.0</div>
+              <div class="heatmap-cell" data-r="3.8" data-v="84" style="background:rgba(248,113,113,1);">3.8</div>
+            </div>
+            <div class="heatmap-row">
+              <div class="heatmap-cell heatmap-label">Вс</div>
+              <div class="heatmap-cell" data-r="4.6" data-v="3" style="background:rgba(212,255,58,0.22);">4.6</div>
+              <div class="heatmap-cell" data-r="4.7" data-v="2" style="background:rgba(212,255,58,0.18);">4.7</div>
+              <div class="heatmap-cell" data-r="4.5" data-v="29" style="background:rgba(212,255,58,0.50);">4.5</div>
+              <div class="heatmap-cell" data-r="4.3" data-v="62" style="background:rgba(251,191,36,0.85);">4.3</div>
+              <div class="heatmap-cell" data-r="4.0" data-v="88" style="background:rgba(248,113,113,1);">4.0</div>
+              <div class="heatmap-cell" data-r="3.8" data-v="76" style="background:rgba(248,113,113,1);">3.8</div>
+            </div>
+          </div>
+          <div class="heatmap-insight">
+            💡 <b>Пик жалоб</b> — пятница и суббота с 16:00 до 24:00 (вечерние заказы). <b>Лучшие оценки</b> — будние утром.
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: LOCATIONS ANALYTICS ========== -->
+      <section class="screen" id="screen-locations-analytics">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Точки сети</h1>
+            <div class="page-subtitle">250 локаций в 47 городах · 178 собственных, 72 франчайзи</div>
+          </div>
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" data-view="table" onclick="toggleLocView(this,&#39;table&#39;)">▤ Таблица</button>
+            <button class="view-toggle-btn" data-view="map" onclick="toggleLocView(this,&#39;map&#39;)">🗺 Карта</button>
+          </div>
+        </div>
+
+        <!-- Фильтры локаций: тип владения + город + сортировка -->
+        <div class="filter-secondary" style="margin-bottom:16px;">
+          <div class="fs-group">
+            <span class="fs-label">Тип:</span>
+            <button class="filter-chip mini active">Все 250</button>
+            <button class="filter-chip mini">🏢 Собственные <span class="chip-badge" style="background:var(--info)">178</span></button>
+            <button class="filter-chip mini">🤝 Франчайзи <span class="chip-badge" style="background:var(--warn)">72</span></button>
+          </div>
+          <div class="fs-group">
+            <span class="fs-label">Город:</span>
+            <button class="filter-chip mini active">Все</button>
+            <button class="filter-chip mini">Москва (68)</button>
+            <button class="filter-chip mini">СПб (42)</button>
+            <button class="filter-chip mini">Регионы (140)</button>
+          </div>
+          <div class="fs-group">
+            <span class="fs-label">Сортировка:</span>
+            <button class="filter-chip mini active">↓ Худшие</button>
+            <button class="filter-chip mini">↑ Лучшие</button>
+            <button class="filter-chip mini">Δ за месяц</button>
+            <button class="filter-chip mini">Без ответа</button>
+          </div>
+        </div>
+
+        <!-- Вид: Таблица -->
+        <div class="panel loc-view loc-view-table active">
+          <div class="panel-header">
+            <div class="panel-title">Все точки · сортировка: худшие сверху</div>
+            <div class="legend" style="font-size:11px;">
+              <span><span class="health-bar good"></span>≥ 4.5</span>
+              <span><span class="health-bar warn"></span>4.0–4.5</span>
+              <span><span class="health-bar bad"></span>&lt; 4.0</span>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Точка</th><th>Город</th><th>Тип</th>
+                <th>Яндекс</th><th>Google</th><th>2ГИС</th>
+                <th>Отзывов</th><th>Без ответа</th><th>Δ за месяц</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="clickable" onclick="openLocCard(&#39;Севастопольский&#39;)"><td><span class="health-bar bad"></span></td>
+                <td><b>Севастопольский</b></td><td>Москва</td><td><span class="loc-type own">Своя</span></td>
+                <td><span class="rating-pill low">3.8</span></td><td><span class="rating-pill mid">4.0</span></td><td><span class="rating-pill low">3.7</span></td>
+                <td>176</td><td><b style="color:var(--bad)">3</b></td><td><span class="delta-mini down">▼ −0.2</span></td>
+              </tr>
+              <tr class="clickable" onclick="openLocCard(&#39;ТРК Европейский&#39;)"><td><span class="health-bar bad"></span></td>
+                <td><b>ТРК Европейский</b></td><td>Москва</td><td><span class="loc-type own">Своя</span></td>
+                <td><span class="rating-pill mid">3.9</span></td><td><span class="rating-pill mid">4.1</span></td><td><span class="rating-pill low">3.8</span></td>
+                <td>512</td><td><b style="color:var(--bad)">7</b></td><td><span class="delta-mini down">▼ −0.4</span></td>
+              </tr>
+              <tr class="clickable" onclick="openLocCard(&#39;ТЦ Галерея&#39;)"><td><span class="health-bar bad"></span></td>
+                <td><b>ТЦ Галерея</b></td><td>СПб</td><td><span class="loc-type franchise">Франш.</span></td>
+                <td><span class="rating-pill mid">4.1</span></td><td><span class="rating-pill mid">4.2</span></td><td><span class="rating-pill mid">4.0</span></td>
+                <td>198</td><td><b style="color:var(--bad)">4</b></td><td><span class="delta-mini down">▼ −0.7</span></td>
+              </tr>
+              <tr class="clickable"><td><span class="health-bar bad"></span></td>
+                <td><b>Маршала Жукова</b></td><td>Казань</td><td><span class="loc-type franchise">Франш.</span></td>
+                <td><span class="rating-pill mid">4.0</span></td><td><span class="rating-pill mid">4.1</span></td><td><span class="rating-pill mid">4.0</span></td>
+                <td>134</td><td><b>2</b></td><td><span class="delta-mini down">▼ −0.2</span></td>
+              </tr>
+              <tr class="clickable"><td><span class="health-bar warn"></span></td>
+                <td><b>Кутузовский, 22</b></td><td>Москва</td><td><span class="loc-type own">Своя</span></td>
+                <td><span class="rating-pill mid">4.2</span></td><td><span class="rating-pill mid">4.3</span></td><td><span class="rating-pill mid">4.1</span></td>
+                <td>267</td><td><b>1</b></td><td><span class="delta-mini down">▼ −0.3</span></td>
+              </tr>
+              <tr class="clickable"><td><span class="health-bar warn"></span></td>
+                <td><b>Гражданский, 41</b></td><td>СПб</td><td><span class="loc-type own">Своя</span></td>
+                <td><span class="rating-pill mid">4.2</span></td><td><span class="rating-pill mid">4.2</span></td><td><span class="rating-pill mid">4.1</span></td>
+                <td>189</td><td><b>0</b></td><td><span class="delta-mini down">▼ −0.18</span></td>
+              </tr>
+              <tr class="clickable" onclick="openLocCard(&#39;Тверская, 17&#39;)"><td><span class="health-bar good"></span></td>
+                <td><b>Тверская, 17</b></td><td>Москва</td><td><span class="loc-type own">Своя</span></td>
+                <td><span class="rating-pill high">4.8</span></td><td><span class="rating-pill high">4.9</span></td><td><span class="rating-pill high">4.7</span></td>
+                <td>421</td><td>1</td><td><span class="delta-mini up">▲ +0.05</span></td>
+              </tr>
+              <tr class="clickable"><td><span class="health-bar good"></span></td>
+                <td><b>Мясницкая, 13</b></td><td>Москва</td><td><span class="loc-type own">Своя</span></td>
+                <td><span class="rating-pill high">4.9</span></td><td><span class="rating-pill high">5.0</span></td><td><span class="rating-pill high">4.8</span></td>
+                <td>342</td><td>0</td><td><span class="delta-mini up">▲ +0.1</span></td>
+              </tr>
+              <tr class="clickable"><td><span class="health-bar good"></span></td>
+                <td><b>Невский, 71</b></td><td>СПб</td><td><span class="loc-type own">Своя</span></td>
+                <td><span class="rating-pill high">4.9</span></td><td><span class="rating-pill high">4.8</span></td><td><span class="rating-pill high">4.9</span></td>
+                <td>287</td><td>0</td><td><span class="delta-mini up">▲ +0.03</span></td>
+              </tr>
+              <tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:18px;">+ ещё 241 точка</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Вид: Карта (placeholder) -->
+        <div class="panel loc-view loc-view-map">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Карта точек · Россия</div>
+              <div class="panel-meta">Размер пина — количество отзывов · цвет — средний рейтинг</div>
+            </div>
+            <div class="legend" style="font-size:11px;">
+              <span><span class="health-bar good"></span>≥ 4.5</span>
+              <span><span class="health-bar warn"></span>4.0–4.5</span>
+              <span><span class="health-bar bad"></span>&lt; 4.0</span>
+            </div>
+          </div>
+          <div class="map-mock">
+            <div class="map-grid"></div>
+            <!-- Кластеры точек -->
+            <div class="map-pin good lg" style="left:42%;top:38%;" title="Москва · 68 точек">68</div>
+            <div class="map-pin warn md" style="left:38%;top:30%;" title="СПб · 42 точки">42</div>
+            <div class="map-pin good sm" style="left:55%;top:42%;" title="Казань · 14 точек">14</div>
+            <div class="map-pin warn sm" style="left:48%;top:48%;" title="Самара · 11 точек">11</div>
+            <div class="map-pin good sm" style="left:60%;top:50%;" title="Уфа · 9 точек">9</div>
+            <div class="map-pin good sm" style="left:50%;top:55%;" title="Ростов · 8 точек">8</div>
+            <div class="map-pin warn sm" style="left:45%;top:62%;" title="Краснодар · 12 точек">12</div>
+            <div class="map-pin good sm" style="left:40%;top:68%;" title="Сочи · 6 точек">6</div>
+            <div class="map-pin good md" style="left:68%;top:45%;" title="Екатеринбург · 18 точек">18</div>
+            <div class="map-pin warn sm" style="left:75%;top:52%;" title="Новосибирск · 11 точек">11</div>
+            <div class="map-pin good sm" style="left:82%;top:58%;" title="Красноярск · 4 точки">4</div>
+            <div class="map-pin good sm" style="left:88%;top:62%;" title="Иркутск · 3 точки">3</div>
+            <div class="map-pin good sm" style="left:35%;top:42%;" title="Тула · 5 точек">5</div>
+            <div class="map-pin good sm" style="left:32%;top:50%;" title="Воронеж · 7 точек">7</div>
+            <div class="map-mock-note">Карта · MVP-заглушка. В проде — реальные пины через Яндекс Карты API.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: COMPETITORS ========== -->
+      <section class="screen" id="screen-competitors">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Конкуренты</h1>
+            <div class="page-subtitle">Сравнение по 6 ключевым конкурентам · бенчмарк по городам и площадкам</div>
+          </div>
+          <button class="btn primary">+ Добавить конкурента</button>
+        </div>
+
+        <!-- Фильтры: город (важен — реальная конкуренция локальная) -->
+        <div class="filter-secondary" style="margin-bottom:16px;">
+          <div class="fs-group">
+            <span class="fs-label">Город:</span>
+            <button class="filter-chip mini active">Все 47 городов</button>
+            <button class="filter-chip mini">Москва</button>
+            <button class="filter-chip mini">СПб</button>
+            <button class="filter-chip mini">Казань</button>
+            <button class="filter-chip mini">Екатеринбург</button>
+            <button class="filter-chip mini">Краснодар</button>
+          </div>
+          <div class="fs-group">
+            <span class="fs-label">Площадка:</span>
+            <button class="filter-chip mini active">Все</button>
+            <button class="filter-chip mini">Я</button>
+            <button class="filter-chip mini">G</button>
+            <button class="filter-chip mini">2Г</button>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <table class="table">
+            <thead>
+              <tr><th style="width:32px;"></th><th>Компания</th><th>Точек в сравнении</th><th>Средний рейтинг</th><th>Отзывов</th><th>Распределение (5★ / 4★ / ≤3★)</th><th>Доля негатива</th><th>Скорость ответа</th></tr>
+            </thead>
+            <tbody>
+              <tr style="background:var(--surface-2);">
+                <td><span class="dot-color" style="background:var(--accent)"></span></td>
+                <td><b>Суши Мастер</b> <span class="muted">(вы)</span></td><td>250</td>
+                <td><span class="rating-pill high">4.36 ★</span></td><td>7 706</td>
+                <td>
+                  <div class="dist-grouped" title="5★: 86% · 4★: 8% · 1–3★: 6%">
+                    <span style="width:86%;background:#d4ff3a;" data-lbl="86%"></span>
+                    <span style="width:8%;background:#9ae600;" data-lbl="8%"></span>
+                    <span style="width:6%;background:#f87171;" data-lbl="6%"></span>
+                  </div>
+                </td>
+                <td>10.5%</td><td>22 мин</td>
+              </tr>
+              <tr><td><span class="dot-color" style="background:#60a5fa"></span></td><td>Суши Wok</td><td>189</td><td><span class="rating-pill high">4.51 ★</span></td><td>12 401</td>
+                <td>
+                  <div class="dist-grouped" title="5★: 90% · 4★: 8% · 1–3★: 2%">
+                    <span style="width:90%;background:#d4ff3a;" data-lbl="90%"></span>
+                    <span style="width:8%;background:#9ae600;" data-lbl="8%"></span>
+                    <span style="width:2%;background:#f87171;" data-lbl="2%"></span>
+                  </div>
+                </td>
+                <td>6.1%</td><td>2.3 ч</td>
+              </tr>
+              <tr><td><span class="dot-color" style="background:#f87171"></span></td><td>Якитория</td><td>340</td><td><span class="rating-pill high">4.42 ★</span></td><td>18 220</td>
+                <td>
+                  <div class="dist-grouped" title="5★: 85% · 4★: 10% · 1–3★: 5%">
+                    <span style="width:85%;background:#d4ff3a;" data-lbl="85%"></span>
+                    <span style="width:10%;background:#9ae600;" data-lbl="10%"></span>
+                    <span style="width:5%;background:#f87171;" data-lbl="5%"></span>
+                  </div>
+                </td>
+                <td>7.8%</td><td>5.1 ч</td>
+              </tr>
+              <tr><td><span class="dot-color" style="background:#fb923c"></span></td><td>Тануки</td><td>112</td><td><span class="rating-pill mid">4.18 ★</span></td><td>5 891</td>
+                <td>
+                  <div class="dist-grouped" title="5★: 78% · 4★: 10% · 1–3★: 12%">
+                    <span style="width:78%;background:#d4ff3a;" data-lbl="78%"></span>
+                    <span style="width:10%;background:#9ae600;" data-lbl="10%"></span>
+                    <span style="width:12%;background:#f87171;" data-lbl="12%"></span>
+                  </div>
+                </td>
+                <td>11.2%</td><td>8.4 ч</td>
+              </tr>
+              <tr><td><span class="dot-color" style="background:#a78bfa"></span></td><td>Суши Шоп</td><td>78</td><td><span class="rating-pill mid">4.05 ★</span></td><td>3 124</td>
+                <td>
+                  <div class="dist-grouped" title="5★: 72% · 4★: 12% · 1–3★: 16%">
+                    <span style="width:72%;background:#d4ff3a;" data-lbl="72%"></span>
+                    <span style="width:12%;background:#9ae600;" data-lbl="12%"></span>
+                    <span style="width:16%;background:#f87171;" data-lbl="16%"></span>
+                  </div>
+                </td>
+                <td>13.5%</td><td>12.1 ч</td>
+              </tr>
+              <tr><td><span class="dot-color" style="background:#2ecc71"></span></td><td>Ёбидоёби</td><td>205</td><td><span class="rating-pill high">4.28 ★</span></td><td>9 543</td>
+                <td>
+                  <div class="dist-grouped" title="5★: 83% · 4★: 11% · 1–3★: 6%">
+                    <span style="width:83%;background:#d4ff3a;" data-lbl="83%"></span>
+                    <span style="width:11%;background:#9ae600;" data-lbl="11%"></span>
+                    <span style="width:6%;background:#f87171;" data-lbl="6%"></span>
+                  </div>
+                </td>
+                <td>9.4%</td><td>4.8 ч</td>
+              </tr>
+              <tr><td><span class="dot-color" style="background:#fbbf24"></span></td><td>Япоша</td><td>95</td><td><span class="rating-pill mid">4.14 ★</span></td><td>4 218</td>
+                <td>
+                  <div class="dist-grouped" title="5★: 78% · 4★: 13% · 1–3★: 9%">
+                    <span style="width:78%;background:#d4ff3a;" data-lbl="78%"></span>
+                    <span style="width:13%;background:#9ae600;" data-lbl="13%"></span>
+                    <span style="width:9%;background:#f87171;" data-lbl="9%"></span>
+                  </div>
+                </td>
+                <td>10.8%</td><td>6.7 ч</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="legend" style="margin-top:14px;font-size:11px;">
+            <span><span class="legend-dot" style="background:#d4ff3a"></span>5★ (отлично)</span>
+            <span><span class="legend-dot" style="background:#9ae600"></span>4★ (хорошо)</span>
+            <span><span class="legend-dot" style="background:#f87171"></span>1–3★ (негатив)</span>
+            <span class="muted">· Наведите на полосу — подробнее</span>
+          </div>
+        </div>
+
+        <!-- Линейная диаграмма с переключателем гранулярности -->
+        <div class="panel chart-panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Динамика среднего рейтинга</div>
+              <div class="panel-meta">Выберите конкурентов для отображения и гранулярность</div>
+            </div>
+            <div class="granularity-toggle">
+              <button>День</button>
+              <button>Неделя</button>
+              <button class="active">Месяц</button>
+            </div>
+          </div>
+          <div class="competitor-toggles">
+            <label class="comp-toggle active"><input type="checkbox" checked=""> <span class="dot-color" style="background:var(--accent)"></span> Суши Мастер</label>
+            <label class="comp-toggle active"><input type="checkbox" checked=""> <span class="dot-color" style="background:#60a5fa"></span> Суши Wok</label>
+            <label class="comp-toggle active"><input type="checkbox" checked=""> <span class="dot-color" style="background:#f87171"></span> Якитория</label>
+            <label class="comp-toggle"><input type="checkbox"> <span class="dot-color" style="background:#fb923c"></span> Тануки</label>
+            <label class="comp-toggle"><input type="checkbox"> <span class="dot-color" style="background:#a78bfa"></span> Суши Шоп</label>
+            <label class="comp-toggle"><input type="checkbox"> <span class="dot-color" style="background:#2ecc71"></span> Ёбидоёби</label>
+            <label class="comp-toggle"><input type="checkbox"> <span class="dot-color" style="background:#fbbf24"></span> Япоша</label>
+          </div>
+          <div class="chart-box"><canvas id="competitorsChart" style="display: block; box-sizing: border-box; height: 320px; width: 1555px;" width="1555" height="320"></canvas></div>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: ACTIVITIES (маркетинговые активности) ========== -->
+      <section class="screen" id="screen-activities">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Активности</h1>
+            <div class="page-subtitle">Анализ эффективности и ROI маркетинговых кампаний по привлечению отзывов</div>
+          </div>
+          <button class="btn primary">+ Новая активность</button>
+        </div>
+
+        <!-- Тогл сравнения: с предыдущим периодом / с прошлым годом (учёт сезонности) -->
+        <div class="filter-secondary" style="margin-bottom:16px;">
+          <div class="fs-group">
+            <span class="fs-label">Сравнение:</span>
+            <button class="filter-chip mini active">vs предыдущий период</button>
+            <button class="filter-chip mini">vs прошлый год <span class="muted">(учёт сезонности)</span></button>
+          </div>
+        </div>
+
+        <!-- Сводка по активностям с ROI -->
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-label">Активных кампаний</div><div class="kpi-value">5</div><div class="kpi-delta">из 12 за период</div></div>
+          <div class="kpi"><div class="kpi-label">Δ отзывов (среднее)</div><div class="kpi-value" style="color:var(--good)">+38%</div><div class="kpi-delta up">после запуска</div></div>
+          <div class="kpi"><div class="kpi-label">Стоимость 1 отзыва</div><div class="kpi-value">42<span style="font-size:18px;color:var(--text-dim);"> ₽</span></div><div class="kpi-delta">по всем активным</div></div>
+          <div class="kpi"><div class="kpi-label">Лучший ROI</div><div class="kpi-value" style="font-size:18px;">«Отзыв за десерт»</div><div class="kpi-delta up">28 ₽/отзыв · пилот</div></div>
+        </div>
+
+        <!-- Таблица активностей с бюджетом и ROI -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Список активностей</div>
+              <div class="panel-meta">Δ = период активности vs аналогичный период до · ROI = бюджет / привлечённые отзывы</div>
+            </div>
+            <div class="filters">
+              <button class="filter-chip active">Все</button>
+              <button class="filter-chip">Активные</button>
+              <button class="filter-chip">Завершённые</button>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Название</th><th>Период</th><th>Гео</th><th>Город</th><th>Точек</th>
+                <th>Бюджет</th><th>Δ отзывов</th><th>₽/отзыв</th><th>Δ рейтинга</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="clickable activity-active">
+                <td><b>«Ролл в подарок»</b><div class="muted">бесплатный ролл за отзыв 4–5★</div></td>
+                <td>01.03 – 30.04.26</td>
+                <td><span class="platform-tag yandex">Я</span></td><td>Москва</td><td>1</td>
+                <td>3 600 ₽</td>
+                <td><b style="color:var(--good)">+120</b></td>
+                <td><b>30 ₽</b></td>
+                <td><span class="delta-mini up">▲ +0.15</span></td>
+                <td><button class="btn btn-sm">Подробнее</button></td>
+              </tr>
+              <tr class="clickable activity-active">
+                <td><b>Программа лояльности</b><div class="muted">скидка 10% постоянным гостям</div></td>
+                <td>01.02 – 31.03.26</td>
+                <td><span class="platform-tag google">G</span></td><td>СПб</td><td>2</td>
+                <td>18 400 ₽</td>
+                <td><b style="color:var(--good)">+98</b></td>
+                <td><b>188 ₽</b></td>
+                <td><span class="delta-mini up">▲ +0.15</span></td>
+                <td><button class="btn btn-sm">Подробнее</button></td>
+              </tr>
+              <tr class="clickable">
+                <td><b>«Семейный сет»</b><div class="muted">скидка на сет от 3000₽</div></td>
+                <td>15.01 – 28.02.26</td>
+                <td><span class="platform-tag gis">2Г</span></td><td>Казань</td><td>3</td>
+                <td>12 200 ₽</td>
+                <td><b style="color:var(--good)">+64</b></td>
+                <td><b>191 ₽</b></td>
+                <td><span class="delta-mini up">▲ +0.08</span></td>
+                <td><button class="btn btn-sm">Подробнее</button></td>
+              </tr>
+              <tr class="clickable">
+                <td><b>«Отзыв за десерт»</b><div class="muted">пилот по 5 точкам · самый выгодный</div></td>
+                <td>10.12.25 – 31.01.26</td>
+                <td><span class="platform-tag yandex">Я</span></td><td>Москва, СПб</td><td>5</td>
+                <td>4 760 ₽</td>
+                <td><b style="color:var(--good)">+170</b></td>
+                <td><b style="color:var(--good)">28 ₽</b></td>
+                <td><span class="delta-mini up">▲ +0.11</span></td>
+                <td><button class="btn btn-sm">Подробнее</button></td>
+              </tr>
+              <tr class="clickable">
+                <td><b>«Скидка постоянным»</b><div class="muted">−15% по карте лояльности</div></td>
+                <td>01.11 – 30.11.25</td>
+                <td><span class="platform-tag google">G</span></td><td>Екатеринбург</td><td>2</td>
+                <td>22 800 ₽</td>
+                <td><b>+38</b></td>
+                <td><b style="color:var(--bad)">600 ₽</b></td>
+                <td><span class="delta-mini flat">— +0.02</span></td>
+                <td><button class="btn btn-sm">Подробнее</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="loc-insight" style="border-left-color:var(--good);margin-top:14px;">
+            💡 <b>Лучший ROI</b> — «Отзыв за десерт» (28 ₽/отзыв). <b>Худший</b> — «Скидка постоянным» (600 ₽/отзыв) — скидка размывается на всех покупателей, не только тех, кто оставит отзыв.
+          </div>
+        </div>
+
+        <!-- График динамики выбранной активности -->
+        <div class="panel chart-panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Динамика «до / после» — «Ролл в подарок»</div>
+              <div class="panel-meta">Москва · сравнение с аналогичным периодом до запуска</div>
+            </div>
+            <div class="legend">
+              <span><span class="legend-dot" style="background:var(--text-faint)"></span>До запуска</span>
+              <span><span class="legend-dot" style="background:var(--accent)"></span>Во время акции</span>
+            </div>
+          </div>
+          <div class="chart-box"><canvas id="activityChart" style="display: block; box-sizing: border-box; height: 320px; width: 1555px;" width="1555" height="320"></canvas></div>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: ORDERED REVIEWS (заказные отзывы) ========== -->
+      <section class="screen" id="screen-ordered-reviews">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Заказные отзывы</h1>
+            <div class="page-subtitle">Учёт и аналитика покупных отзывов · отметка происходит в карточке отзыва</div>
+          </div>
+          <div class="filters">
+            <button class="filter-chip active">30 дней</button>
+            <button class="filter-chip">90 дней</button>
+            <button class="filter-chip">Год</button>
+            <button class="filter-chip">Всё время</button>
+          </div>
+        </div>
+
+        <!-- Индикаторы -->
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-label">Всего заказных</div><div class="kpi-value">10</div><div class="kpi-delta">за период</div></div>
+          <div class="kpi"><div class="kpi-label">Активных</div><div class="kpi-value" style="color:var(--good)">7</div><div class="kpi-delta">не удалены</div></div>
+          <div class="kpi"><div class="kpi-label">Выживаемость</div><div class="kpi-value" style="color:var(--good)">70<span style="font-size:18px;color:var(--text-dim);">%</span></div><div class="kpi-delta">% активных от куплённых</div></div>
+          <div class="kpi"><div class="kpi-label">Ср. стоимость (акт.)</div><div class="kpi-value">570<span style="font-size:18px;color:var(--text-dim);"> ₽</span></div><div class="kpi-delta">за 1 активный отзыв</div></div>
+        </div>
+
+        <!-- Удаления по времени жизни (вместо плоского bar-chart) -->
+        <div class="panel chart-panel" style="margin-bottom:16px;">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Когда отзывы удаляются</div>
+              <div class="panel-meta">Распределение удалённых отзывов по времени жизни · сколько прожили до удаления</div>
+            </div>
+            <div class="legend">
+              <span><span class="legend-dot" style="background:var(--accent)"></span>Доля от всех удалённых</span>
+            </div>
+          </div>
+          <div class="chart-box"><canvas id="lifetimeChart" style="display: block; box-sizing: border-box; height: 320px; width: 1555px;" width="1555" height="320"></canvas></div>
+          <div class="loc-insight" style="border-left-color:var(--warn);margin-top:14px;">
+            💡 <b>Большинство удалений</b> приходится на 14–30 день — алгоритмы площадок чаще всего отслеживают подозрительную активность именно в этом окне.
+          </div>
+        </div>
+
+        <!-- Таблица заказных отзывов -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Список заказных отзывов</div>
+            <div class="panel-meta">Помечается прямо в карточке отзыва · чекбокс «Покупной»</div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr><th>Дата</th><th>Площадка</th><th>Точка</th><th>Город</th><th>Рейтинг</th><th>Стоимость</th><th>Прожил</th><th>Статус</th><th>Автор</th></tr>
+            </thead>
+            <tbody>
+              <tr class="clickable"><td>14.05.2026</td><td><span class="platform-tag yandex">Я</span></td><td>Тверская, 17</td><td>Москва</td><td><span class="rating-pill high">5 ★</span></td><td>500 ₽</td><td>4 дня</td><td><span class="status-pill active">Активен</span></td><td>Мария А.</td></tr>
+              <tr class="clickable"><td>12.05.2026</td><td><span class="platform-tag google">G</span></td><td>Невский, 88</td><td>СПб</td><td><span class="rating-pill high">5 ★</span></td><td>600 ₽</td><td>6 дней</td><td><span class="status-pill active">Активен</span></td><td>Мария А.</td></tr>
+              <tr class="clickable"><td>10.05.2026</td><td><span class="platform-tag yandex">Я</span></td><td>Арбат, 24</td><td>Москва</td><td><span class="rating-pill high">5 ★</span></td><td>500 ₽</td><td>23 дня</td><td><span class="status-pill deleted">Удалён</span></td><td>Дмитрий К.</td></tr>
+              <tr class="clickable"><td>05.05.2026</td><td><span class="platform-tag gis">2Г</span></td><td>Кремлёвская, 5</td><td>Казань</td><td><span class="rating-pill high">5 ★</span></td><td>450 ₽</td><td>13 дней</td><td><span class="status-pill active">Активен</span></td><td>Мария А.</td></tr>
+              <tr class="clickable"><td>02.05.2026</td><td><span class="platform-tag google">G</span></td><td>Малышева, 51</td><td>Екатеринбург</td><td><span class="rating-pill high">4 ★</span></td><td>550 ₽</td><td>16 дней</td><td><span class="status-pill active">Активен</span></td><td>Алина С.</td></tr>
+              <tr class="clickable"><td>28.04.2026</td><td><span class="platform-tag yandex">Я</span></td><td>Покровка, 7</td><td>Москва</td><td><span class="rating-pill high">5 ★</span></td><td>500 ₽</td><td>20 дней</td><td><span class="status-pill active">Активен</span></td><td>Мария А.</td></tr>
+              <tr class="clickable"><td>20.04.2026</td><td><span class="platform-tag gis">2Г</span></td><td>Красный пр-т, 17</td><td>Новосибирск</td><td><span class="rating-pill high">5 ★</span></td><td>450 ₽</td><td>17 дней</td><td><span class="status-pill deleted">Удалён</span></td><td>Дмитрий К.</td></tr>
+              <tr class="clickable"><td>15.04.2026</td><td><span class="platform-tag yandex">Я</span></td><td>Лиговский, 30</td><td>СПб</td><td><span class="rating-pill high">5 ★</span></td><td>500 ₽</td><td>22 дня</td><td><span class="status-pill deleted">Удалён</span></td><td>Мария А.</td></tr>
+              <tr class="clickable"><td>10.04.2026</td><td><span class="platform-tag google">G</span></td><td>Курортный, 12</td><td>Сочи</td><td><span class="rating-pill high">4 ★</span></td><td>500 ₽</td><td>38 дней</td><td><span class="status-pill active">Активен</span></td><td>Алина С.</td></tr>
+              <tr class="clickable"><td>05.04.2026</td><td><span class="platform-tag yandex">Я</span></td><td>Красная, 100</td><td>Краснодар</td><td><span class="rating-pill high">5 ★</span></td><td>440 ₽</td><td>43 дня</td><td><span class="status-pill active">Активен</span></td><td>Мария А.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: MANAGEMENT (заглушка) ========== -->
+      <section class="screen" id="screen-management">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Управление</h1>
+            <div class="page-subtitle">Раздел в разработке</div>
+          </div>
+        </div>
+        <div class="panel placeholder-panel">
+          <div class="placeholder-emoji">⚙</div>
+          <div class="placeholder-title">Раздел «Управление» в работе</div>
+          <div class="placeholder-text">Здесь появятся настройки карточек точек, команда, роли и оповещения.<br>Пока этот блок SERM-отчёта в разработке.</div>
+        </div>
+      </section>
+
+      <!-- ========== SCREEN: SYSTEM (заглушка) ========== -->
+      <section class="screen" id="screen-system">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Система</h1>
+            <div class="page-subtitle">Раздел в разработке</div>
+          </div>
+        </div>
+        <div class="panel placeholder-panel">
+          <div class="placeholder-emoji">🔧</div>
+          <div class="placeholder-title">Раздел «Система» в работе</div>
+          <div class="placeholder-text">Здесь появятся интеграции с Яндекс Бизнес / 2ГИС / Google, настройки SLA, журналы.<br>Пока этот блок SERM-отчёта в разработке.</div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: LOCATION CARD (карточка точки с аспектами) -->
+<div class="modal-backdrop" id="modalLocationCard" onclick="if(event.target===this)closeModal(&#39;locationCard&#39;)">
+  <div class="modal modal-wide">
+    <div class="modal-title">📍 <span id="locCardTitle">Севастопольский</span></div>
+    <div class="modal-sub">Москва · собственная точка · 176 отзывов за 30 дней</div>
+
+    <!-- KPI точки -->
+    <div class="kpi-strip" style="margin-bottom:16px;">
+      <div class="kpi-mini">
+        <div class="kpi-mini-label">Ср. рейтинг</div>
+        <div class="kpi-mini-value" style="color:var(--bad)">3.78</div>
+        <div class="kpi-mini-delta down">▼ −0.22</div>
+      </div>
+      <div class="kpi-mini">
+        <div class="kpi-mini-label">Негатив 1–3★</div>
+        <div class="kpi-mini-value" style="color:var(--bad)">18</div>
+        <div class="kpi-mini-delta down">▲ +5</div>
+      </div>
+      <div class="kpi-mini">
+        <div class="kpi-mini-label">Без ответа</div>
+        <div class="kpi-mini-value" style="color:var(--bad)">3</div>
+        <div class="kpi-mini-delta muted">2 просрочены</div>
+      </div>
+      <div class="kpi-mini">
+        <div class="kpi-mini-label">Ср. время ответа</div>
+        <div class="kpi-mini-value">42<span class="kpi-mini-unit"> мин</span></div>
+        <div class="kpi-mini-delta up">▲ −12 мин</div>
+      </div>
+    </div>
+
+    <!-- Аспектный анализ ИМЕННО для этой точки -->
+    <div style="margin-bottom:8px; font-size:13px; color:var(--text-dim); font-weight:600;">Причины негатива на этой точке</div>
+    <table class="table" style="margin-bottom:18px;">
+      <thead><tr><th>Аспект</th><th>Упом.</th><th>Тональность</th><th>vs сеть</th></tr></thead>
+      <tbody>
+        <tr><td><b>Курьер</b></td><td>54</td>
+          <td><div class="sentiment-bar"><div class="pos" style="width:38%"></div><div class="neu" style="width:18%"></div><div class="neg" style="width:44%"></div></div></td>
+          <td><span class="delta-mini down">▲ +34% негатива</span></td></tr>
+        <tr><td><b>Опоздание</b></td><td>47</td>
+          <td><div class="sentiment-bar"><div class="pos" style="width:6%"></div><div class="neu" style="width:14%"></div><div class="neg" style="width:80%"></div></div></td>
+          <td><span class="delta-mini down">▲ +15 п.п. негатива</span></td></tr>
+        <tr><td><b>Комплектность</b></td><td>32</td>
+          <td><div class="sentiment-bar"><div class="pos" style="width:18%"></div><div class="neu" style="width:20%"></div><div class="neg" style="width:62%"></div></div></td>
+          <td><span class="delta-mini down">▲ +18 п.п. негатива</span></td></tr>
+        <tr><td><b>Температура</b></td><td>28</td>
+          <td><div class="sentiment-bar"><div class="pos" style="width:42%"></div><div class="neu" style="width:18%"></div><div class="neg" style="width:40%"></div></div></td>
+          <td><span class="delta-mini flat">— на уровне сети</span></td></tr>
+      </tbody>
+    </table>
+    <div class="loc-insight">
+      💡 <b>Основная проблема точки</b> — опоздания и комплектность (62–80% упоминаний — негатив). Логистика и сборка заказов требуют разбора.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal(&#39;locationCard&#39;)">Закрыть</button>
+      <button class="btn" onclick="closeModal(&#39;locationCard&#39;); switchScreen(&#39;reviews&#39;)">📋 Все отзывы точки</button>
+      <button class="btn primary">📋 Поставить задачу управляющему</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: TEMPLATES (шаблоны ответов) -->
+<div class="modal-backdrop" id="modalTemplates" onclick="if(event.target===this)closeModal(&#39;templates&#39;)">
+  <div class="modal modal-wide">
+    <div class="modal-title">📝 Шаблоны ответов</div>
+    <div class="modal-sub">Библиотека готовых ответов с переменными · можно вставить в карточку отзыва одним кликом</div>
+
+    <div class="template-cats">
+      <button class="filter-chip active">Все</button>
+      <button class="filter-chip">🙏 Благодарность</button>
+      <button class="filter-chip">⏰ Извинение за опоздание</button>
+      <button class="filter-chip">📦 Извинение за комплектность</button>
+      <button class="filter-chip">💬 Разбор негатива</button>
+      <button class="filter-chip">🍣 Качество блюд</button>
+    </div>
+
+    <div class="template-list">
+      <div class="template-item">
+        <div class="template-head">
+          <div class="template-cat">🙏 Благодарность · общая</div>
+          <div class="template-meta">Использовано 247 раз</div>
+        </div>
+        <div class="template-body">{имя}, спасибо большое за тёплые слова! Очень рады, что вам понравилось в {точка}. Будем стараться и дальше держать планку — ждём вас снова!</div>
+        <div class="template-vars">Переменные: <code>{имя}</code> <code>{точка}</code></div>
+      </div>
+      <div class="template-item">
+        <div class="template-head">
+          <div class="template-cat">⏰ Извинение за опоздание</div>
+          <div class="template-meta">Использовано 184 раза</div>
+        </div>
+        <div class="template-body">{имя}, нам очень жаль, что заказ {номер_заказа} приехал с опозданием. Это недопустимо — мы разберём ситуацию с курьером и менеджером смены. В качестве компенсации зачислим вам {компенсация} на следующий заказ.</div>
+        <div class="template-vars">Переменные: <code>{имя}</code> <code>{номер_заказа}</code> <code>{компенсация}</code></div>
+      </div>
+      <div class="template-item">
+        <div class="template-head">
+          <div class="template-cat">📦 Извинение за комплектность</div>
+          <div class="template-meta">Использовано 156 раз</div>
+        </div>
+        <div class="template-body">{имя}, приносим извинения — забыли {забытая_позиция} в заказе {номер_заказа}. Это наша ошибка, передадим менеджеру смены на {точка}. В следующий раз положим дополнительно, спасибо за обратную связь!</div>
+        <div class="template-vars">Переменные: <code>{имя}</code> <code>{забытая_позиция}</code> <code>{номер_заказа}</code> <code>{точка}</code></div>
+      </div>
+      <div class="template-item">
+        <div class="template-head">
+          <div class="template-cat">💬 Разбор негатива · холодная еда</div>
+          <div class="template-meta">Использовано 94 раза</div>
+        </div>
+        <div class="template-body">{имя}, очень жаль, что еда приехала холодной. Это связано с долгой доставкой по заказу {номер_заказа}. Мы пересмотрим логистику этой зоны. Свяжемся с вами для возврата средств — оставьте, пожалуйста, контакт через личное сообщение.</div>
+        <div class="template-vars">Переменные: <code>{имя}</code> <code>{номер_заказа}</code></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal(&#39;templates&#39;)">Закрыть</button>
+      <button class="btn primary">+ Создать шаблон</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD LOCATION -->
+<div class="modal-backdrop" id="modalAddLocation" onclick="if(event.target===this)closeModal(&#39;addLocation&#39;)">
+  <div class="modal">
+    <div class="modal-title">Добавить новую точку</div>
+    <div class="modal-sub">Карточка будет создана и отправлена на верификацию на все выбранные площадки</div>
+    <div class="field">
+      <label class="field-label">Название точки</label>
+      <input class="field-input" placeholder="Например, Тверская, 17">
+    </div>
+    <div class="row r-1-1" style="margin-bottom:0;">
+      <div class="field">
+        <label class="field-label">Город</label>
+        <select class="field-select"><option>Москва</option><option>СПб</option><option>Казань</option></select>
+      </div>
+      <div class="field">
+        <label class="field-label">Категория</label>
+        <select class="field-select"><option>Магазин</option><option>Кафе</option><option>Услуги</option></select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Полный адрес</label>
+      <input class="field-input" placeholder="ул. Тверская, д. 17, Москва">
+    </div>
+    <div class="row r-1-1" style="margin-bottom:0;">
+      <div class="field">
+        <label class="field-label">Телефон</label>
+        <input class="field-input" placeholder="+7 (495) ...">
+      </div>
+      <div class="field">
+        <label class="field-label">Часы работы</label>
+        <input class="field-input" placeholder="Пн-Вс: 09:00–22:00">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Опубликовать на</label>
+      <div style="display:flex;gap:8px;">
+        <button class="filter-chip active">Яндекс Карты</button>
+        <button class="filter-chip active">Google Maps</button>
+        <button class="filter-chip active">2ГИС</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal(&#39;addLocation&#39;)">Отмена</button>
+      <button class="btn primary" onclick="closeModal(&#39;addLocation&#39;)">Создать на 3 площадках</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// NAVIGATION
+const screens = document.querySelectorAll('.screen');
+const navItems = document.querySelectorAll('.nav-item');
+function switchScreen(id) {
+  screens.forEach(s => s.classList.remove('active'));
+  navItems.forEach(n => n.classList.remove('active'));
+  const target = document.getElementById('screen-' + id);
+  if (target) target.classList.add('active');
+  const nav = document.querySelector(`.nav-item[data-screen="${id}"]`);
+  if (nav) nav.classList.add('active');
+  // Ленивая инициализация графиков для этого экрана
+  if (typeof initCharts === 'function') {
+    requestAnimationFrame(() => initCharts(id));
+  }
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+navItems.forEach(n => n.addEventListener('click', () => switchScreen(n.dataset.screen)));
+
+// MODAL
+function openModal(name) {
+  const el = document.getElementById('modal' + name[0].toUpperCase() + name.slice(1));
+  if (el) el.classList.add('show');
+}
+function closeModal(name) {
+  const el = document.getElementById('modal' + name[0].toUpperCase() + name.slice(1));
+  if (el) el.classList.remove('show');
+}
+
+// Тогл "Таблица / Карта" в разделе Локаций
+function toggleLocView(btn, view) {
+  document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.loc-view').forEach(v => v.classList.remove('active'));
+  const target = document.querySelector('.loc-view-' + view);
+  if (target) target.classList.add('active');
+}
+
+// Карточка точки (заглушка-уведомление)
+function openLocCard(name) {
+  openModal('locationCard');
+  const t = document.getElementById('locCardTitle');
+  if (t) t.textContent = name;
+}
+
+// Кликабельные аспекты в Отзывах
+document.querySelectorAll('.aspect-row').forEach(row => {
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.aspect-row').forEach(r => r.classList.remove('active'));
+    row.classList.add('active');
+  });
+});
+
+// Кликабельные status-tabs в Отзывах
+document.querySelectorAll('.status-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+// ROLE CYCLER (4 роли по ТЗ)
+const roles = [
+  { name: 'Мария Антонова', role: 'Маркетолог · головной', initials: 'МА' },
+  { name: 'Алина Соколова', role: 'Менеджер КЦ', initials: 'АС' },
+  { name: 'Дмитрий Петров', role: 'Управляющий · Тверская 17', initials: 'ДП' },
+  { name: 'Иван Лебедев', role: 'Админ · полный доступ', initials: 'ИЛ' }
+];
+let roleIdx = 0;
+function cycleRole() {
+  roleIdx = (roleIdx + 1) % roles.length;
+  const r = roles[roleIdx];
+  document.getElementById('userName').textContent = r.name;
+  document.getElementById('userRole').textContent = r.role;
+  document.getElementById('userAvatar').textContent = r.initials;
+}
+
+// Competitor toggles — визуальная обратная связь
+document.querySelectorAll('.comp-toggle').forEach(t => {
+  t.addEventListener('click', e => {
+    if (e.target.tagName !== 'INPUT') {
+      const inp = t.querySelector('input');
+      inp.checked = !inp.checked;
+    }
+    t.classList.toggle('active', t.querySelector('input').checked);
+  });
+});
+
+// ================ CHARTS ================
+const baseOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#5a6175', font: {size:10} }, grid: { color: '#2a3041', display:false } },
+    y: { ticks: { color: '#5a6175', font: {size:10} }, grid: { color: '#262b38' } }
+  }
+};
+
+// ----- ОБЗОР: 3 круговые диаграммы -----
+function donut(id, labels, data, colors) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#171a23', borderWidth: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: { legend: { display: false }, tooltip: { enabled: true } }
+    }
+  });
+}
+
+const months = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+
+// Lazy-инициализация графиков: рендеримся, только когда экран реально виден
+// (иначе Chart.js не может определить размер canvas)
+const chartInits = {
+  overview: () => {
+    donut('donutTone', ['Положительные','Нейтральные','Отрицательные'], [6036, 65, 114], ['#4ade80','#8b91a3','#f87171']);
+    donut('donutPlatforms', ['Яндекс','2ГИС','Google'], [2070, 1480, 4156], ['#ffcc00','#2ecc71','#4285f4']);
+  },
+  reviews: () => {
+    const ctx = document.getElementById('aspectTrendChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['12 нед.','11','10','9','8','7','6','5','4','3','2','тек.'],
+        datasets: [{ label: 'Опоздание', data: [38,42,40,44,45,47,48,47,52,58,64,67],
+          borderColor:'#f87171', backgroundColor:'rgba(248,113,113,0.18)',
+          tension:0.4, borderWidth:2, pointRadius:0, fill:true }]
+      },
+      options: {
+        ...baseOpts,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#5a6175', font: {size:9} }, grid: { display:false } },
+          y: { ticks: { color: '#5a6175', font: {size:9}, maxTicksLimit: 3 }, grid: { color: '#262b38' } }
+        }
+      }
+    });
+  },
+  rating: () => {
+    // 3 линии без накопления
+    const c1 = document.getElementById('ratingLinesChart');
+    if (c1) new Chart(c1, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          { label: 'Яндекс', data: [4.30,4.32,4.34,4.36,4.37,4.38,4.39,4.40,4.41,4.41,4.42,4.44],
+            borderColor:'#ffcc00', tension:0.4, borderWidth:2.5, pointRadius:0, fill:false },
+          { label: 'Google', data: [4.46,4.47,4.48,4.48,4.49,4.49,4.50,4.50,4.51,4.51,4.51,4.51],
+            borderColor:'#4285f4', tension:0.4, borderWidth:2.5, pointRadius:0, fill:false },
+          { label: '2ГИС', data: [4.24,4.23,4.22,4.21,4.20,4.19,4.18,4.17,4.17,4.16,4.16,4.16],
+            borderColor:'#2ecc71', tension:0.4, borderWidth:2.5, pointRadius:0, fill:false }
+        ]
+      },
+      options: {
+        ...baseOpts,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#5a6175', font: {size:11} }, grid: { color: '#2a3041', display:false } },
+          y: { min: 4.0, max: 4.7, ticks: { color: '#5a6175', font: {size:10} }, grid: { color: '#262b38' } }
+        }
+      }
+    });
+    // Количество отзывов — аддитивный stack
+    const c2 = document.getElementById('volumeStackedChart');
+    if (c2) new Chart(c2, {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [
+          { label: 'Яндекс', data: [148,152,162,170,175,178,181,184,186,188,189,191], backgroundColor:'#ffcc00', borderRadius: 3, stack: 'a' },
+          { label: 'Google', data: [298,310,322,335,340,344,348,352,356,358,360,362], backgroundColor:'#4285f4', borderRadius: 3, stack: 'a' },
+          { label: '2ГИС', data: [108,112,118,122,124,126,128,130,131,132,133,134], backgroundColor:'#2ecc71', borderRadius: 3, stack: 'a' }
+        ]
+      },
+      options: {
+        ...baseOpts,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { stacked: true, ticks: { color: '#5a6175', font: {size:11} }, grid: { display:false } },
+          y: { stacked: true, ticks: { color: '#5a6175', font: {size:10} }, grid: { color: '#262b38' } }
+        }
+      }
+    });
+    // Скорость ответа: медиана / p95 / SLA
+    const c3 = document.getElementById('responseSpeedChart');
+    if (c3) {
+      const weeks = ['нед.1','нед.2','нед.3','нед.4','нед.5','нед.6','нед.7','нед.8','нед.9','нед.10','нед.11','нед.12'];
+      new Chart(c3, {
+        type: 'line',
+        data: {
+          labels: weeks,
+          datasets: [
+            { label: 'Медиана (мин)', data: [22,20,18,17,15,14,14,13,13,14,14,14],
+              borderColor:'#d4ff3a', tension:0.35, borderWidth:3, pointRadius:3, pointBackgroundColor:'#d4ff3a', fill:false },
+            { label: 'p95 (мин)', data: [380,360,340,310,290,275,260,250,255,260,255,252],
+              borderColor:'#fbbf24', tension:0.35, borderWidth:2.5, pointRadius:0, borderDash:[2,3], fill:false },
+            { label: 'SLA-цель', data: [120,120,120,120,120,120,120,120,120,120,120,120],
+              borderColor:'#5a6175', tension:0, borderWidth:1.5, pointRadius:0, borderDash:[6,4], fill:false }
+          ]
+        },
+        options: {
+          ...baseOpts,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y + ' мин' } } },
+          scales: {
+            x: { ticks: { color: '#5a6175', font: {size:11} }, grid: { display:false } },
+            y: { ticks: { color: '#5a6175', font: {size:10}, callback: (v) => v + ' мин' }, grid: { color: '#262b38' } }
+          }
+        }
+      });
+    }
+  },
+  competitors: () => {
+    const ctx = document.getElementById('competitorsChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          { label: 'Суши Мастер', data: [4.21,4.23,4.25,4.27,4.28,4.30,4.31,4.32,4.33,4.34,4.35,4.36],
+            borderColor:'#d4ff3a', tension:0.4, borderWidth:3, pointRadius:4, pointBackgroundColor:'#d4ff3a' },
+          { label: 'Суши Wok', data: [4.42,4.43,4.44,4.45,4.46,4.47,4.48,4.49,4.50,4.50,4.51,4.51],
+            borderColor:'#60a5fa', tension:0.4, borderWidth:2, pointRadius:0 },
+          { label: 'Якитория', data: [4.35,4.36,4.37,4.38,4.39,4.40,4.40,4.41,4.41,4.42,4.42,4.42],
+            borderColor:'#f87171', tension:0.4, borderWidth:2, pointRadius:0 }
+        ]
+      },
+      options: {
+        ...baseOpts,
+        plugins: { legend: { display: true, labels: { color: '#8b91a3', font: {size:11}, boxWidth: 12 } } },
+        scales: { ...baseOpts.scales, y: { ...baseOpts.scales.y, min: 4.1, max: 4.6 } }
+      }
+    });
+  },
+  activities: () => {
+    const ctx = document.getElementById('activityChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['нед.-4','нед.-3','нед.-2','нед.-1','СТАРТ','нед.+1','нед.+2','нед.+3','нед.+4'],
+        datasets: [
+          { label: 'Отзывов/нед (до)', data: [28, 30, 27, 31, null, null, null, null, null],
+            borderColor:'#5a6175', borderDash:[4,4], tension:0.3, borderWidth:2, pointRadius:3 },
+          { label: 'Отзывов/нед (акция)', data: [null, null, null, null, 31, 42, 48, 51, 44],
+            borderColor:'#d4ff3a', tension:0.3, borderWidth:3, pointRadius:4, pointBackgroundColor:'#d4ff3a' }
+        ]
+      },
+      options: {
+        ...baseOpts,
+        plugins: { legend: { display: true, labels: { color: '#8b91a3', font: {size:11}, boxWidth: 12 } } },
+        scales: { ...baseOpts.scales, y: { ...baseOpts.scales.y, min: 0 } }
+      }
+    });
+  },
+  'ordered-reviews': () => {
+    const ctx = document.getElementById('lifetimeChart');
+    if (!ctx) return;
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['0–7 дн.','8–14 дн.','15–30 дн.','31–60 дн.','60+ дн.','Не удалён'],
+        datasets: [
+          { label: '% от всех удалённых', data: [8, 22, 41, 18, 11, 0],
+            backgroundColor:['#fb923c','#f87171','#f87171','#fbbf24','#9ae600','#4ade80'],
+            borderRadius: 6, barThickness: 56 }
+        ]
+      },
+      options: {
+        ...baseOpts,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => c.parsed.y + '% удалений в этом окне' } }
+        },
+        scales: {
+          x: { ticks: { color: '#5a6175', font: {size:11} }, grid: { display: false } },
+          y: { ticks: { color: '#5a6175', font: {size:10}, callback: v => v + '%' }, grid: { color: '#262b38' } }
+        }
+      }
+    });
+  }
+};
+const chartInited = {};
+function initCharts(screen) {
+  if (chartInited[screen]) return;
+  if (typeof Chart === 'undefined') {
+    // Chart.js ещё не загрузился — попробуем через 200мс
+    setTimeout(() => initCharts(screen), 200);
+    return;
+  }
+  if (typeof chartInits[screen] === 'function') {
+    chartInits[screen]();
+    chartInited[screen] = true;
+  }
+}
+// инициализируем сразу видимый по умолчанию экран, но только после загрузки Chart.js с CDN
+if (document.readyState === 'complete') {
+  initCharts('overview');
+} else {
+  window.addEventListener('load', () => initCharts('overview'));
+}
+</script>
+
+
+</body></html>
