@@ -22,6 +22,8 @@ class ReviewResponse(BaseModel):
     review_date_text: str | None
     review_date: date | None
     response_text: str | None
+    # Time we first observed a response on this review (feature 007); null when none seen.
+    response_first_seen_at: datetime | None = None
     first_seen_at: datetime
     last_seen_at: datetime
     # Derived analytics (feature 002); null when not yet analyzed.

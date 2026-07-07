@@ -45,6 +45,9 @@ class Review(Base):
     review_date_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     response_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Observation-time proxy: set once when response_text first goes absent->present, immutable
+    # thereafter, NULL while a review has no stored response. Never feeds content_hash (feature 007).
+    response_first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

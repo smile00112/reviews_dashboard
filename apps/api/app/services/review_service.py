@@ -60,7 +60,12 @@ class ReviewService:
             )
             if existing:
                 existing.last_seen_at = now
-                if parsed.response_text:
+                if parsed.response_text and not existing.response_text:
+                    # Response first appears on this run: record text + first-observed time (once).
+                    existing.response_text = parsed.response_text
+                    existing.response_first_seen_at = now
+                elif parsed.response_text:
+                    # Response already recorded: refresh text (e.g. business edit), keep the timestamp.
                     existing.response_text = parsed.response_text
                 if existing.analyzed_at is None:
                     self._apply_analysis(existing, now)
@@ -79,6 +84,7 @@ class ReviewService:
                 review_date_text=parsed.review_date_text,
                 review_date=parsed.review_date,
                 response_text=parsed.response_text,
+                response_first_seen_at=now if parsed.response_text else None,
                 content_hash=content_hash,
                 first_seen_at=now,
                 last_seen_at=now,
