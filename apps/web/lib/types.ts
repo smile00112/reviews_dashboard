@@ -32,8 +32,39 @@ export interface Organization {
   preferred_scrape_mode: ScrapeMode;
   last_successful_scrape_at: string | null;
   last_scrape_status: OrganizationScrapeStatus;
+  city: string | null;
+  region: string | null;
+  company_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type UserRole = "admin" | "review_operator";
+
+export interface CurrentUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  is_active: boolean;
+  branch_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BranchCityGroup {
+  city: string;
+  branches: Organization[];
+}
+
+export interface CompanyBranches {
+  company_id: string;
+  groups: BranchCityGroup[];
 }
 
 export interface Review {

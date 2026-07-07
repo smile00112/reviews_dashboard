@@ -20,7 +20,7 @@ export function OrganizationForm({ onCreated }: OrganizationFormProps) {
     setLoading(true);
     setError(null);
     try {
-      await createOrganization(url, mode);
+      await createOrganization({ yandex_url: url, preferred_scrape_mode: mode });
       setUrl("");
       onCreated();
     } catch (err) {

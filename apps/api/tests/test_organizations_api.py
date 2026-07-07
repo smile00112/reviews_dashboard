@@ -1,4 +1,5 @@
-def test_create_list_update_delete_organization(client):
+def test_create_list_update_delete_organization(admin_client):
+    client = admin_client
     create_resp = client.post(
         "/api/organizations",
         json={
@@ -30,9 +31,18 @@ def test_create_list_update_delete_organization(client):
     assert len(list_after.json()["items"]) == 0
 
 
-def test_create_organization_invalid_url(client):
-    resp = client.post(
+def test_create_organization_invalid_url(admin_client):
+    resp = admin_client.post(
         "/api/organizations",
         json={"yandex_url": "https://google.com/maps/place/test"},
     )
     assert resp.status_code == 422
+
+
+def test_create_organization_requires_admin(client):
+    """Unauthenticated create is rejected (feature 008 guard)."""
+    resp = client.post(
+        "/api/organizations",
+        json={"yandex_url": "https://yandex.ru/maps/org/test/123456789/"},
+    )
+    assert resp.status_code == 401

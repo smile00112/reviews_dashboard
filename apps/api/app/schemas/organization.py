@@ -9,11 +9,22 @@ from app.models.enums import OrganizationScrapeStatus, ScrapeMode
 class OrganizationCreate(BaseModel):
     yandex_url: str
     preferred_scrape_mode: ScrapeMode = ScrapeMode.public
+    # Branch fields (feature 008, additive/optional)
+    name: str | None = None
+    city: str | None = None
+    region: str | None = None
+    address: str | None = None
+    company_id: UUID | None = None
 
 
 class OrganizationUpdate(BaseModel):
     preferred_scrape_mode: ScrapeMode | None = None
     name: str | None = None
+    # Branch fields (feature 008, additive/optional)
+    city: str | None = None
+    region: str | None = None
+    address: str | None = None
+    company_id: UUID | None = None
 
 
 class OrganizationResponse(BaseModel):
@@ -30,6 +41,9 @@ class OrganizationResponse(BaseModel):
     preferred_scrape_mode: ScrapeMode
     last_successful_scrape_at: datetime | None
     last_scrape_status: OrganizationScrapeStatus
+    city: str | None = None
+    region: str | None = None
+    company_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

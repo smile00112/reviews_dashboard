@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.models.company import Company
 from app.models.enums import OrganizationScrapeStatus, ScrapeMode
 from app.models.organization import Organization
 from app.schemas.organization import OrganizationCreate, OrganizationUpdate
@@ -12,14 +13,24 @@ class OrganizationService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_all(self) -> list[Organization]:
-        return self.db.query(Organization).order_by(Organization.created_at.desc()).all()
+    def list_all(self, company_id: UUID | None = None) -> list[Organization]:
+        query = self.db.query(Organization)
+        if company_id is not None:
+            query = query.filter(Organization.company_id == company_id)
+        return query.order_by(Organization.created_at.desc()).all()
+
+    def _validate_company(self, company_id: UUID | None) -> None:
+        if company_id is None:
+            return
+        if not self.db.query(Company.id).filter(Company.id == company_id).first():
+            raise ValueError("Company not found")
 
     def get(self, organization_id: UUID) -> Organization | None:
         return self.db.query(Organization).filter(Organization.id == organization_id).first()
 
     def create(self, data: OrganizationCreate) -> Organization:
         validate_yandex_url(data.yandex_url)
+        self._validate_company(data.company_id)
         normalized = normalize_yandex_url(data.yandex_url)
         org = Organization(
             yandex_url=data.yandex_url.strip(),
@@ -27,6 +38,11 @@ class OrganizationService:
             external_id=extract_external_id(normalized),
             preferred_scrape_mode=data.preferred_scrape_mode,
             last_scrape_status=OrganizationScrapeStatus.pending,
+            name=data.name,
+            city=data.city,
+            region=data.region,
+            address=data.address,
+            company_id=data.company_id,
         )
         self.db.add(org)
         self.db.commit()
@@ -37,10 +53,21 @@ class OrganizationService:
         org = self.get(organization_id)
         if not org:
             return None
+        fields_set = data.model_fields_set
         if data.preferred_scrape_mode is not None:
             org.preferred_scrape_mode = data.preferred_scrape_mode
         if data.name is not None:
             org.name = data.name
+        # city/region/address/company_id honor explicit values (incl. clearing to null).
+        if "city" in fields_set:
+            org.city = data.city
+        if "region" in fields_set:
+            org.region = data.region
+        if "address" in fields_set:
+            org.address = data.address
+        if "company_id" in fields_set:
+            self._validate_company(data.company_id)
+            org.company_id = data.company_id
         self.db.commit()
         self.db.refresh(org)
         return org

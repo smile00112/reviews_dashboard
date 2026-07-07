@@ -1,37 +1,20 @@
-import Link from "next/link";
 import "./globals.css";
 import type { ReactNode } from "react";
+import { Fraunces, Manrope, JetBrains_Mono } from "next/font/google";
+
+const manrope = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-manrope" });
+const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
+const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
 
 export const metadata = {
-  title: "Yandex Reviews Dashboard",
-  description: "Internal dashboard for Yandex Maps reviews",
+  title: "SERM Dashboard",
+  description: "Панель управления сбором отзывов с карт",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ru">
-      <body>
-        <header className="border-b bg-white">
-          <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3 text-sm font-medium">
-            <Link href="/organizations" className="font-semibold text-slate-900">
-              Yandex Reviews
-            </Link>
-            <Link href="/organizations" className="text-slate-600 hover:text-slate-900">
-              Организации
-            </Link>
-            <Link href="/reviews" className="text-slate-600 hover:text-slate-900">
-              Все отзывы
-            </Link>
-            <Link href="/scrape-runs" className="text-slate-600 hover:text-slate-900">
-              История сборов
-            </Link>
-            <Link href="/http-scraper" className="text-slate-600 hover:text-slate-900">
-              HTTP-парсер
-            </Link>
-          </nav>
-        </header>
-        <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
-      </body>
+    <html lang="ru" className={`${manrope.variable} ${fraunces.variable} ${jetbrains.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

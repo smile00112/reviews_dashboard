@@ -1,0 +1,138 @@
+"use client";
+
+import { useState } from "react";
+import { createOrganization, updateOrganization } from "@/lib/api";
+import type { Organization, ScrapeMode } from "@/lib/types";
+import { ModeSelect } from "./mode-select";
+
+interface BranchFormProps {
+  companyId: string;
+  branch?: Organization | null;
+  onSaved: () => void;
+  onClose: () => void;
+}
+
+const fieldLabel = "mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-text-faint";
+const fieldInput =
+  "w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[13.5px] text-text outline-none focus:border-accent";
+
+export function BranchForm({ companyId, branch, onSaved, onClose }: BranchFormProps) {
+  const editing = Boolean(branch);
+  const [name, setName] = useState(branch?.name ?? "");
+  const [city, setCity] = useState(branch?.city ?? "");
+  const [url, setUrl] = useState(branch?.yandex_url ?? "");
+  const [address, setAddress] = useState(branch?.address ?? "");
+  const [mode, setMode] = useState<ScrapeMode>(branch?.preferred_scrape_mode ?? "public");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!city.trim()) {
+      setError("Укажите город филиала");
+      return;
+    }
+    if (!editing && !url.trim()) {
+      setError("Укажите ссылку на карточку (URL)");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      if (editing && branch) {
+        await updateOrganization(branch.id, {
+          name: name.trim() || null,
+          city: city.trim(),
+          address: address.trim() || null,
+          preferred_scrape_mode: mode,
+        });
+      } else {
+        await createOrganization({
+          yandex_url: url.trim(),
+          preferred_scrape_mode: mode,
+          name: name.trim() || null,
+          city: city.trim(),
+          address: address.trim() || null,
+          company_id: companyId,
+        });
+      }
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось сохранить филиал");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-10 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-surface p-7">
+        <h2 className="mb-1 font-display text-2xl font-medium">
+          {editing ? "Редактировать филиал" : "Добавить филиал"}
+        </h2>
+        <p className="mb-6 text-[13px] text-text-dim">
+          Филиал — точка на карте, для которой собираются отзывы.
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className={fieldLabel}>Название точки</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Тверская, 17" className={fieldInput} />
+          </div>
+
+          <div className="mb-4 grid grid-cols-2 gap-4">
+            <div>
+              <label className={fieldLabel}>Город *</label>
+              <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Москва" className={fieldInput} />
+            </div>
+            <div>
+              <label className={fieldLabel}>Режим сбора</label>
+              <ModeSelect value={mode} onChange={setMode} />
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className={fieldLabel}>URL карточки (Яндекс/2ГИС){editing ? "" : " *"}</label>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={editing}
+              placeholder="https://yandex.ru/maps/org/..."
+              className={`${fieldInput} ${editing ? "opacity-60" : ""}`}
+            />
+            {editing && <p className="mt-1 text-[11px] text-text-faint">URL нельзя изменить после создания.</p>}
+          </div>
+
+          <div className="mb-2">
+            <label className={fieldLabel}>Полный адрес</label>
+            <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="ул. Тверская, д. 17" className={fieldInput} />
+          </div>
+
+          {error && <p className="mt-3 text-[13px] text-bad">{error}</p>}
+
+          <div className="mt-6 flex justify-end gap-3 border-t border-border pt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-[13px] font-medium text-text hover:bg-surface-3"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-accent px-4 py-2.5 text-[13px] font-semibold text-bg hover:bg-accent-dim disabled:opacity-50"
+            >
+              {loading ? "Сохранение…" : editing ? "Сохранить" : "Создать филиал"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

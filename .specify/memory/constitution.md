@@ -1,20 +1,23 @@
 <!--
 Sync Impact Report
-Version change: 1.2.0 → 1.3.0
+Version change: 1.3.0 → 1.4.0
 Modified principles:
-  - I. MVP Scope Discipline — 2GIS removed from the excluded list; now an in-scope provider
-  - II. Read-Only Review Collection — broadened from "Yandex only" to "Yandex and 2GIS"
+  - I. MVP Scope Discipline — custom Next.js control panel + Company parent entity
+    added as in-scope (v1.4.0)
+  - VII. Admin Panel Security — extended to cover a custom Next.js control panel that
+    MUST reuse the same feature-004 auth (users/roles/bcrypt/session) and RBAC; no
+    second auth system
 Added sections:
-  - Principle VIII. Multi-Provider Collection (new principle)
-Modified sections:
-  - MVP Scope Boundaries — added "2GIS review collection via public reviews API"
-    to in-scope; "other map providers" narrowed to exclude only Google (2GIS now allowed)
+  - MVP Scope Boundaries — "Company" additive parent entity above organizations;
+    custom authenticated Next.js control panel (login + admin cabinet + Company/Branch
+    management) added to in-scope
+Modified sections: None (dedup contract build_review_hash / uq_review_org_hash unchanged)
 Removed sections: None
 Templates requiring updates:
   ✅ .specify/templates/plan-template.md — Constitution Check section aligns (no changes needed)
   ✅ .specify/templates/spec-template.md — scope alignment verified (no changes needed)
   ✅ .specify/templates/tasks-template.md — task categorization aligns (no changes needed)
-Follow-up TODOs: Feature 006 (2gis reviews) spec/plan to cite Principle VIII.
+Follow-up TODOs: Feature 008 (admin-dashboard) spec/plan to cite Principles I & VII.
 -->
 
 # ReviewsDashboard Constitution
@@ -30,7 +33,10 @@ introduced without a constitution amendment and spec update. Deterministic, rule
 local analytics over already-collected reviews (see Principle VI) are in scope and do
 NOT count as excluded "LLM analysis". The internal admin panel with RBAC (see
 Principle VII) is in scope as of v1.2.0. 2GIS review collection via its public reviews
-API (see Principle VIII) is in scope as of v1.3.0; Google Maps remains excluded.
+API (see Principle VIII) is in scope as of v1.3.0; Google Maps remains excluded. A custom
+authenticated Next.js control panel (login + admin cabinet + Company/Branch management)
+and a `Company` additive parent entity above organizations (see Principle VII) are in
+scope as of v1.4.0.
 
 **Rationale**: The product is an internal read-only review collector; scope creep delays
 the first working vertical slice.
@@ -102,8 +108,20 @@ additive: it MUST NOT modify existing API routes, scraper logic, or ORM models b
 additive column additions. The application MUST start cleanly after each implementation
 phase.
 
+As of v1.4.0 a custom Next.js control panel (login + admin cabinet + Company/Branch
+management) is permitted. It MUST reuse the SAME authentication system as the sqladmin
+panel — the existing `users` table, `UserRole` roles, bcrypt hashes, and the session
+cookie signed with `ADMIN_SECRET_KEY`; introducing a second auth system (e.g. a parallel
+JWT identity store) is FORBIDDEN. It MUST enforce the same RBAC: `admin` = full CRUD,
+`review_operator` = read-only. Management (write) API routes it consumes MUST be guarded
+by a server-side authentication dependency; unauthenticated requests MUST receive 401.
+The control panel and its `Company` parent entity are additive: ORM changes stay
+additive-only, and the reviews deduplication contract (`build_review_hash`,
+`uq_review_org_hash`) MUST remain unchanged — `organizations` stays the scrape/dedup unit.
+
 **Rationale**: The panel exposes all collected data and scrape controls; authentication
-and RBAC protect it from unauthorized access in a shared internal environment.
+and RBAC protect it from unauthorized access in a shared internal environment. Reusing one
+auth system and keeping the dedup contract frozen makes the richer UI additive and low-risk.
 
 ### VIII. Multi-Provider Collection
 
@@ -129,12 +147,15 @@ debug artifacts for failures, structured (BeautifulSoup) review parsing with dat
 normalization, deterministic rule-based review analytics (sentiment, problem
 categorization, rating↔sentiment mismatch) per Principle VI, an internal admin
 panel with authentication and role-based access control (admin + review_operator) per
-Principle VII, and 2GIS review collection via its public reviews API (catalog + reviews
-endpoints) per Principle VIII.
+Principle VII, 2GIS review collection via its public reviews API (catalog + reviews
+endpoints) per Principle VIII, a `Company` additive parent entity grouping organizations
+(branches) by city, and a custom authenticated Next.js control panel (login + admin
+cabinet + Company/Branch CRUD) reusing the Principle VII auth per v1.4.0.
 
 **Out of scope**: Posting replies, Google Maps and other map providers (except Yandex
 and 2GIS), LLM/external-ML analysis, real-time notifications, TimescaleDB, forced
-captcha bypass.
+captcha bypass, a second/parallel authentication system, and changes to the review
+deduplication contract.
 
 **Scale assumption**: Internal tool for a small operator team tracking on the order of
 tens of organizations, not thousands of concurrent users.
@@ -173,4 +194,4 @@ This constitution supersedes ad-hoc implementation choices. Amendments require:
 Compliance review: every plan MUST include a Constitution Check gate; violations MUST be
 documented in Complexity Tracking with rejected simpler alternatives.
 
-**Version**: 1.3.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-07-03
+**Version**: 1.4.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-07-07

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.admin import setup_admin
-from app.api import organizations, reviews, scrape_runs, scraper_sessions
+from app.api import auth, companies, organizations, reviews, scrape_runs, scraper_sessions
 from app.core.config import settings
 from app.core.database import engine
 
@@ -31,6 +31,8 @@ def health() -> dict[str, str]:
 
 setup_admin(app, engine)
 
+app.include_router(auth.router)
+app.include_router(companies.router)
 app.include_router(organizations.router)
 app.include_router(reviews.router)
 app.include_router(scrape_runs.router)
