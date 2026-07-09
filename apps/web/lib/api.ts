@@ -44,7 +44,12 @@ export async function createOrganization(
 
 export async function updateOrganization(
   id: string,
-  payload: { preferred_scrape_mode?: ScrapeMode; name?: string },
+  payload: {
+    preferred_scrape_mode?: ScrapeMode;
+    name?: string;
+    twogis_url?: string | null;
+    google_url?: string | null;
+  },
 ): Promise<Organization> {
   return request<Organization>(`/api/organizations/${id}`, {
     method: "PATCH",
