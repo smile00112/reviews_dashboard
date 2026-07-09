@@ -16,6 +16,10 @@ class Organization(Base):
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
     yandex_url: Mapped[str] = mapped_column(Text, nullable=False)
     normalized_url: Mapped[str] = mapped_column(Text, nullable=False)
+    # Additional map-provider links for the same point (feature 008, additive).
+    # Display/reference only; never feed the scrape URL or the dedup hash.
+    twogis_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    google_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     external_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     rating: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { getOrganization, listOrganizationReviews } from "@/lib/api";
 import type { Organization, Review } from "@/lib/types";
 import { ReviewsTable } from "@/components/reviews-table";
+import { OrgLinksEditor } from "@/components/org-links-editor";
 
 export default function OrganizationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -38,6 +39,7 @@ export default function OrganizationDetailPage() {
           Статус: {org.last_scrape_status} · Рейтинг: {org.rating ?? "—"} · Отзывов: {org.review_count ?? "—"}
         </p>
       </div>
+      <OrgLinksEditor org={org} onSaved={setOrg} />
       <ReviewsTable items={reviews} emptyMessage="Отзывы для этой организации ещё не собраны." />
     </div>
   );

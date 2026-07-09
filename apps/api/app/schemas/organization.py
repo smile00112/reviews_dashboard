@@ -14,6 +14,8 @@ class OrganizationCreate(BaseModel):
 class OrganizationUpdate(BaseModel):
     preferred_scrape_mode: ScrapeMode | None = None
     name: str | None = None
+    twogis_url: str | None = None
+    google_url: str | None = None
 
 
 class OrganizationResponse(BaseModel):
@@ -23,6 +25,8 @@ class OrganizationResponse(BaseModel):
     name: str | None
     yandex_url: str
     normalized_url: str
+    twogis_url: str | None
+    google_url: str | None
     external_id: str | None
     address: str | None
     rating: float | None

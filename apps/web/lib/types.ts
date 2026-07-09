@@ -1,4 +1,9 @@
-export type ScrapeMode = "public" | "operator_auth" | "public_http";
+export type ScrapeMode =
+  | "public"
+  | "operator_auth"
+  | "public_http"
+  | "scrapeops"
+  | "twogis_api";
 
 export type OrganizationScrapeStatus =
   | "pending"
@@ -25,6 +30,8 @@ export interface Organization {
   name: string | null;
   yandex_url: string;
   normalized_url: string;
+  twogis_url: string | null;
+  google_url: string | null;
   external_id: string | null;
   address: string | null;
   rating: number | null;
