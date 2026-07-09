@@ -41,6 +41,14 @@ class OrganizationService:
             org.preferred_scrape_mode = data.preferred_scrape_mode
         if data.name is not None:
             org.name = data.name
+        # Link fields are applied by presence (not `is not None`) so a caller can
+        # clear a link with "" / null; an absent field leaves it unchanged.
+        # Empty string normalizes to None. Display/reference only — never scraped.
+        fields_set = data.model_fields_set
+        if "twogis_url" in fields_set:
+            org.twogis_url = data.twogis_url or None
+        if "google_url" in fields_set:
+            org.google_url = data.google_url or None
         self.db.commit()
         self.db.refresh(org)
         return org
