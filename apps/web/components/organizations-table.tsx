@@ -5,6 +5,7 @@ import { useState } from "react";
 import { deleteOrganization, scrapeOrganization, updateOrganization } from "@/lib/api";
 import type { Organization, ScrapeMode } from "@/lib/types";
 import { ModeSelect } from "./mode-select";
+import { ProviderBadges } from "./provider-badges";
 
 function statusClass(status: Organization["last_scrape_status"]) {
   if (status === "success") return "bg-green-100 text-green-800";
@@ -57,6 +58,7 @@ export function OrganizationsTable({ items, onRefresh }: OrganizationsTableProps
           <tr>
             <th className="px-3 py-2">Название</th>
             <th className="px-3 py-2">URL</th>
+            <th className="px-3 py-2">Карты</th>
             <th className="px-3 py-2">Рейтинг</th>
             <th className="px-3 py-2">Отзывов</th>
             <th className="px-3 py-2">Режим</th>
@@ -75,6 +77,9 @@ export function OrganizationsTable({ items, onRefresh }: OrganizationsTableProps
               </td>
               <td className="max-w-xs truncate px-3 py-2" title={org.yandex_url}>
                 {org.yandex_url}
+              </td>
+              <td className="px-3 py-2">
+                <ProviderBadges org={org} />
               </td>
               <td className="px-3 py-2">{org.rating ?? "—"}</td>
               <td className="px-3 py-2">{org.review_count ?? "—"}</td>
