@@ -77,13 +77,14 @@ For each selected org, for each requested platform:
 
 ## Column mapping
 
-| Platform | rating column | count column   |
-|----------|---------------|----------------|
-| yandex   | `rating`      | `review_count` |
-| 2gis     | `gis2_rating` | `gis2_review_count` |
+| Platform | rating column | отзывы column        | оценки column         |
+|----------|---------------|----------------------|-----------------------|
+| yandex   | `rating`      | `review_count`       | `yandex_rating_count` |
+| 2gis     | `gis2_rating` | `gis2_review_count`  | `gis2_rating_count`   |
 
-`yandex_rating_count` / `gis2_rating_count` (кол-во оценок, distinct from review count)
-are **not** populated — the scrapers do not expose that figure separately. Left as-is.
+Both platforms expose оценки (all ratings) separately from отзывы (reviews with text):
+Yandex via schema.org `ratingCount`, 2GIS via catalog `org_review_count_with_stars`.
+All three metrics are written per platform.
 
 ## Overwrite policy
 

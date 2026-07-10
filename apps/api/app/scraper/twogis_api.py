@@ -161,8 +161,11 @@ class TwogisApiScraper:
         organization = ParsedOrganization(
             name=item.get("name"),
             rating=reviews_meta.get("org_rating") or reviews_meta.get("general_rating"),
+            # org_review_count = отзывы (with text); *_with_stars = оценки (all ratings).
             review_count=reviews_meta.get("org_review_count")
             or reviews_meta.get("general_review_count"),
+            rating_count=reviews_meta.get("org_review_count_with_stars")
+            or reviews_meta.get("general_review_count_with_stars"),
         )
         org_id = org.get("id")
         if not org_id:
