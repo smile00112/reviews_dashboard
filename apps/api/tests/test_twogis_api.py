@@ -16,11 +16,15 @@ CATALOG = {
             {
                 "name": "Суши мастер, служба доставки",
                 "org": {"id": "70000001027742088"},
+                # general_* = this branch; org_* = parent franchise aggregate.
+                # A multi-branch franchise must report the BRANCH figures.
                 "reviews": {
                     "org_rating": 4.2,
                     "org_review_count": 654,
+                    "org_review_count_with_stars": 700,
                     "general_rating": 4.7,
                     "general_review_count": 294,
+                    "general_review_count_with_stars": 320,
                 },
             }
         ]
@@ -122,8 +126,10 @@ def test_scrape_collects_and_maps_reviews(monkeypatch):
     assert result.error_code is None
     assert result.needs_manual_action is False
     assert result.organization.name == "Суши мастер, служба доставки"
-    assert result.organization.rating == 4.2
-    assert result.organization.review_count == 654
+    # Branch-level (general_*), not the franchise aggregate (org_*).
+    assert result.organization.rating == 4.7
+    assert result.organization.review_count == 294
+    assert result.organization.rating_count == 320
     assert len(result.reviews) == 2
     assert result.reviews[0].author_name == "Ната Филипова"
 
