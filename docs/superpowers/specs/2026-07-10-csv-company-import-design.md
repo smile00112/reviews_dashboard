@@ -7,7 +7,8 @@
 
 One-off, re-runnable script that reads `docs/companies_data.csv` and fills the
 database: parent **Companies** (from `RetailNetwork`) and their **Organization**
-branches (one per CSV data row that has a valid Yandex Maps URL).
+branches (one per CSV data row). Every data row becomes an organization —
+including the 29 rows with no valid Yandex Maps URL.
 
 ## Source data
 
@@ -33,12 +34,22 @@ row (573 distinct organizations).
 - `RetailNetwork` → `Company.name`
 - `Department`    → `Organization.name`
 - `BusinessRegion`→ `Organization.city`
-- `ЯК` (col 5)    → `Organization.yandex_url` (+ `normalized_url`, `external_id`)
+- `ЯК` (col 5)    → `Organization.yandex_url` (+ `normalized_url`, `external_id`);
+  missing/invalid → all three left `null`
 - `Рейтинг ЯК`    → `Organization.rating` — parse `"4,2"`→`4.2`; `-`, `-0`,
   empty → `null`
 - `количество`    → `Organization.review_count` — int; empty/non-numeric → `null`
 - `region`, `address` → left `null`
 - `preferred_scrape_mode` = `public`, `last_scrape_status` = `pending`
+
+## Schema change (Alembic migration)
+
+`organizations.yandex_url` and `organizations.normalized_url` are currently
+`NOT NULL`. Add an additive migration making **both nullable** so URL-less
+branches can be stored. Model (`app/models/organization.py`) updated to
+`Mapped[str | None]` for both. Scrape flow already treats `pending` orgs as
+not-yet-scraped; an org with `yandex_url IS NULL` is simply never dispatched to
+a scraper (no code path forces a scrape on import).
 
 ## Behavior
 
@@ -51,30 +62,35 @@ Run: `python -m scripts.import_companies_csv docs/companies_data.csv [--dry-run]
 Per data row:
 1. **Company get-or-create** by exact `name` (trimmed). Cached in-process so the
    5 companies are resolved once.
-2. **Yandex URL** from col 5, trimmed. If missing or `validate_yandex_url`
-   rejects it → **skip the organization** (the company is still created) and
-   record the row in a skipped list. → 29 skips expected.
-3. **Organization upsert** keyed on `normalized_url`:
-   - not present → insert (all mapped fields, `company_id` = resolved company).
-   - present → update `name`, `city`, `rating`, `review_count`, `company_id`.
-   The 3 duplicate-URL rows collapse onto the same organization (last wins).
+2. **Yandex URL** from col 5, trimmed. If present and `validate_yandex_url`
+   passes → set `yandex_url`, `normalized_url`, `external_id`. Otherwise
+   (missing/invalid, ~29 rows) → leave all three `null` and record the row in a
+   `no-url` list (reported, **not** skipped — the org is still created).
+3. **Organization upsert:**
+   - **has URL** → key on `normalized_url`. Not present → insert; present →
+     update `name`, `city`, `rating`, `review_count`, `company_id`. The 3
+     duplicate-URL rows collapse onto the same organization (last wins).
+   - **no URL** → key on `(company_id, name, city)`. Not present → insert;
+     present → update `rating`, `review_count`.
 
 **Idempotent:** re-running updates existing rows, never duplicates. Company keyed
-by name, organization keyed by `normalized_url`.
+by name; organization keyed by `normalized_url` (URL rows) or
+`(company_id, name, city)` (URL-less rows).
 
 ## Output
 
 Printed summary:
 - companies created / found
 - organizations inserted / updated
-- rows skipped, with a list of `BusinessRegion | RetailNetwork | Department`
-  and the skip reason (no URL / invalid URL)
+- organizations stored without a URL, with a list of
+  `BusinessRegion | RetailNetwork | Department` (reason: no/invalid URL)
 
 `--dry-run`: parse, validate, and print the same summary **without** writing to
 the database (no commit).
 
 ## Out of scope
 
-- No Alembic migration (tables `companies`, `organizations` already exist).
+- No new columns beyond the nullable change (tables `companies`,
+  `organizations` already exist).
 - No scraping, no review dedup changes, no rating for 2GIS/Google columns.
 - Not wired into the API or a scheduled job — manual operator script.
