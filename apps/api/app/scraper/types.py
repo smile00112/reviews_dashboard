@@ -18,6 +18,7 @@ class ParsedOrganization:
     name: str | None = None
     rating: float | None = None
     review_count: int | None = None
+    rating_count: int | None = None
     address: str | None = None
 
 
