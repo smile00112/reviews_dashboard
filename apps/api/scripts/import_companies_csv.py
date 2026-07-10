@@ -193,3 +193,37 @@ def import_rows(session, rows: list[RowData], dry_run: bool = False) -> ImportSu
     else:
         session.commit()
     return summary
+
+
+def _print_summary(summary: ImportSummary, dry_run: bool) -> None:
+    mode = "DRY RUN (nothing written)" if dry_run else "committed"
+    print(f"Import {mode}:")
+    print(f"  companies: {summary.companies_created} created, {summary.companies_found} found")
+    print(f"  organizations: {summary.orgs_inserted} inserted, {summary.orgs_updated} updated")
+    print(f"  organizations without URL: {summary.orgs_without_url}")
+    if summary.no_url_rows:
+        print("  URL-less branches (city | company | name):")
+        for city, company, name in summary.no_url_rows:
+            print(f"    - {city} | {company} | {name}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Import companies + branches from a CSV.")
+    parser.add_argument("csv_path", help="Path to companies_data.csv")
+    parser.add_argument("--dry-run", action="store_true", help="Parse and report without writing to the DB")
+    args = parser.parse_args(argv)
+
+    from app.core.database import SessionLocal
+
+    rows = read_rows(args.csv_path)
+    session = SessionLocal()
+    try:
+        summary = import_rows(session, rows, dry_run=args.dry_run)
+    finally:
+        session.close()
+    _print_summary(summary, args.dry_run)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
