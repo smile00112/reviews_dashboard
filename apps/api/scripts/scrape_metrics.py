@@ -60,10 +60,10 @@ class Scrapers:
 
     def scrape(self, platform: str, url: str) -> ScrapeResult:
         if platform == "2gis":
-            return self.twogis.scrape(url)
+            return self.twogis.scrape(url, metrics_only=True)
         # yandex: browserless first, ScrapeOps proxy fallback on failure/challenge
         # or when the page yielded no rating.
-        result = self.yandex_http.scrape(url)
+        result = self.yandex_http.scrape(url, metrics_only=True)
         if result.needs_manual_action or result.error_code or result.organization.rating is None:
             fallback = self.yandex_proxy.scrape(url)
             if not (fallback.needs_manual_action or fallback.error_code) and fallback.organization.rating is not None:

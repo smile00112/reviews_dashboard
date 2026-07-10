@@ -46,7 +46,7 @@ class YandexHttpScraper:
             }
         )
 
-    def scrape(self, url: str) -> ScrapeResult:
+    def scrape(self, url: str, metrics_only: bool = False) -> ScrapeResult:
         url = self._resolve_reviews_url(url)
         result = ScrapeResult()
         limit = settings.http_scrape_limit
@@ -80,6 +80,8 @@ class YandexHttpScraper:
                 org, reviews = parse_reviews_from_html(html)
                 if page == 1:
                     organization = org
+                if metrics_only:
+                    break  # page-1 org metrics are all we need; skip review pagination
 
                 fresh = 0
                 for review in reviews:

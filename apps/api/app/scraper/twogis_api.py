@@ -49,7 +49,7 @@ class TwogisApiScraper:
     REQUEST_TIMEOUT_SECONDS = 30
     PROXY_TIMEOUT_SECONDS = 90
 
-    def scrape(self, url: str) -> ScrapeResult:
+    def scrape(self, url: str, metrics_only: bool = False) -> ScrapeResult:
         result = ScrapeResult()
         try:
             firm_id, challenge = self._resolve_firm_id(url)
@@ -65,7 +65,8 @@ class TwogisApiScraper:
                 return err
 
             result.organization = organization
-            result.reviews = self._fetch_reviews(org_id)
+            # catalog already carries rating/counts; skip the reviews pagination.
+            result.reviews = [] if metrics_only else self._fetch_reviews(org_id)
             return result
         except Exception as exc:  # never raise out of a scrape attempt (constitution IV)
             result.error_code = "twogis_error"
