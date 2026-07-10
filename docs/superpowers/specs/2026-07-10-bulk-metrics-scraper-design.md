@@ -114,6 +114,13 @@ Plus a one-line-per-org progress log (name, platform, outcome, rating/count).
 
 - Scraper internals / dedup / review persistence (unchanged).
 - Google Maps metrics (no scraper; stays operator-editable).
-- `metrics_only` optimization to skip review pagination — deferred; only worth adding
-  before a full ~600-org run to cut wasted fetches. Test batch runs scrapers as-is.
-```
+
+## Implemented extensions (post-design)
+
+- `--offset N` for batch paging alongside `--limit`.
+- `metrics_only=True` on `YandexHttpScraper` / `TwogisApiScraper`: skip review
+  pagination (Yandex stops after page 1; 2GIS skips the reviews API). Default False
+  keeps the /scrape API unchanged. The CLI always passes it.
+- 2GIS metric tier fix: use branch-level `general_*` fields, not the parent-franchise
+  `org_*` aggregate (identical across all branches of a chain). See
+  `app/scraper/twogis_api.py` `_catalog_lookup`.
