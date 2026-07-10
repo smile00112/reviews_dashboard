@@ -71,9 +71,11 @@ class Scrapers:
         return result
 
 
-def select_orgs(session, limit: int | None) -> list[Organization]:
+def select_orgs(session, limit: int | None, offset: int = 0) -> list[Organization]:
     # created_at ties on bulk-imported rows; id breaks them so "first N" is stable.
     query = session.query(Organization).order_by(Organization.created_at, Organization.id)
+    if offset:
+        query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)
     return query.all()
@@ -118,9 +120,10 @@ def run(
     limit: int | None,
     only_missing: bool,
     dry_run: bool,
+    offset: int = 0,
 ) -> RunSummary:
     summary = RunSummary()
-    orgs = select_orgs(session, limit)
+    orgs = select_orgs(session, limit, offset)
     for org in orgs:
         label = org.name or str(org.id)
         for platform in platforms:
@@ -164,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Refresh org rating/review_count from platform links.")
     parser.add_argument("--platform", choices=["yandex", "2gis", "both"], default="both")
     parser.add_argument("--limit", type=int, default=None, help="Max organizations to process")
+    parser.add_argument("--offset", type=int, default=0, help="Skip the first N organizations")
     parser.add_argument("--only-missing", action="store_true", help="Skip orgs that already have the metric")
     parser.add_argument("--dry-run", action="store_true", help="Scrape and report without writing to the DB")
     args = parser.parse_args(argv)
@@ -182,6 +186,7 @@ def main(argv: list[str] | None = None) -> int:
             limit=args.limit,
             only_missing=args.only_missing,
             dry_run=args.dry_run,
+            offset=args.offset,
         )
     finally:
         session.close()
