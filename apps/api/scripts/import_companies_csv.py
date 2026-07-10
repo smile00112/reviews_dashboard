@@ -28,6 +28,11 @@ COL_COMPANY = 3
 COL_URL = 5
 COL_RATING = 6
 COL_COUNT = 7
+COL_GIS2_URL = 8
+COL_GIS2_RATING = 9
+COL_GIS2_COUNT = 10
+COL_GOOGLE_URL = 11
+COL_GOOGLE_RATING = 12
 
 
 @dataclass
@@ -38,6 +43,11 @@ class RowData:
     yandex_url: str | None
     rating: float | None
     review_count: int | None
+    gis2_url: str | None = None
+    gis2_rating: float | None = None
+    gis2_review_count: int | None = None
+    google_url: str | None = None
+    google_rating: float | None = None
 
 
 def parse_rating(raw: str) -> float | None:
@@ -77,6 +87,14 @@ def select_yandex_url(raw: str) -> str | None:
     return value
 
 
+def clean_url(raw: str) -> str | None:
+    """Return a trimmed http(s) URL, else None. Rejects placeholders ('-', '-0')."""
+    value = (raw or "").strip()
+    if value.startswith(("http://", "https://")):
+        return value
+    return None
+
+
 def _cell(row: list[str], index: int) -> str:
     return row[index].strip() if len(row) > index else ""
 
@@ -93,6 +111,11 @@ def parse_row(row: list[str]) -> RowData | None:
         yandex_url=select_yandex_url(_cell(row, COL_URL)),
         rating=parse_rating(_cell(row, COL_RATING)),
         review_count=parse_count(_cell(row, COL_COUNT)),
+        gis2_url=clean_url(_cell(row, COL_GIS2_URL)),
+        gis2_rating=parse_rating(_cell(row, COL_GIS2_RATING)),
+        gis2_review_count=parse_count(_cell(row, COL_GIS2_COUNT)),
+        google_url=clean_url(_cell(row, COL_GOOGLE_URL)),
+        google_rating=parse_rating(_cell(row, COL_GOOGLE_RATING)),
     )
 
 
@@ -164,6 +187,11 @@ def _upsert_org(session, company: Company, rd: RowData, summary: ImportSummary) 
             external_id=extract_external_id(normalized) if normalized else None,
             rating=rd.rating,
             review_count=rd.review_count,
+            gis2_url=rd.gis2_url,
+            gis2_rating=rd.gis2_rating,
+            gis2_review_count=rd.gis2_review_count,
+            google_url=rd.google_url,
+            google_rating=rd.google_rating,
             company_id=company.id,
             preferred_scrape_mode=ScrapeMode.public,
             last_scrape_status=OrganizationScrapeStatus.pending,
@@ -179,6 +207,16 @@ def _upsert_org(session, company: Company, rd: RowData, summary: ImportSummary) 
             org.rating = rd.rating
         if rd.review_count is not None:
             org.review_count = rd.review_count
+        if rd.gis2_url is not None:
+            org.gis2_url = rd.gis2_url
+        if rd.gis2_rating is not None:
+            org.gis2_rating = rd.gis2_rating
+        if rd.gis2_review_count is not None:
+            org.gis2_review_count = rd.gis2_review_count
+        if rd.google_url is not None:
+            org.google_url = rd.google_url
+        if rd.google_rating is not None:
+            org.google_rating = rd.google_rating
         summary.orgs_updated += 1
 
 

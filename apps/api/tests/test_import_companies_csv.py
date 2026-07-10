@@ -157,3 +157,85 @@ def test_import_dry_run_writes_nothing(db_session):
     assert summary.orgs_inserted == 3
     assert db_session.query(Company).count() == 0
     assert db_session.query(Organization).count() == 0
+
+
+# --- 2GIS / Google Maps columns -------------------------------------------
+
+from scripts.import_companies_csv import clean_url
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("https://go.2gis.com/Sf64K", "https://go.2gis.com/Sf64K"),
+    ("http://x.test/a", "http://x.test/a"),
+    ("  https://y.test/b  ", "https://y.test/b"),
+    ("-", None),
+    ("-0", None),
+    ("", None),
+    ("not a url", None),
+])
+def test_clean_url(raw, expected):
+    assert clean_url(raw) == expected
+
+
+def test_parse_row_maps_2gis_and_google():
+    row = [""] * 16
+    row[2] = "Сочи-04"
+    row[3] = "SPOKE Россия"
+    row[8] = "https://go.2gis.com/Sf64K"
+    row[9] = "4,2"
+    row[10] = "18"
+    row[11] = "https://maps.app.goo.gl/SS9FqB6zzstGf3oN6"
+    row[12] = "4,4"
+    rd = parse_row(row)
+    assert rd.gis2_url == "https://go.2gis.com/Sf64K"
+    assert rd.gis2_rating == 4.2
+    assert rd.gis2_review_count == 18
+    assert rd.google_url == "https://maps.app.goo.gl/SS9FqB6zzstGf3oN6"
+    assert rd.google_rating == 4.4
+
+
+def test_parse_row_junk_2gis_google_urls_are_none():
+    row = [""] * 16
+    row[2] = "Точка"
+    row[3] = "SPOKE Россия"
+    row[8] = "-"
+    row[11] = "-0"
+    rd = parse_row(row)
+    assert rd.gis2_url is None
+    assert rd.google_url is None
+
+
+def test_import_sets_2gis_and_google_fields(db_session):
+    rows = [
+        RowData(
+            "SPOKE Россия", "Сочи-04", "Адлер",
+            "https://yandex.ru/maps/org/spoke/163787997704/", 4.2, 18,
+            gis2_url="https://go.2gis.com/Sf64K", gis2_rating=3.9, gis2_review_count=116,
+            google_url="https://maps.app.goo.gl/SS9FqB6zzstGf3oN6", google_rating=4.4,
+        ),
+    ]
+    import_rows(db_session, rows)
+    org = db_session.query(Organization).filter(Organization.name == "Сочи-04").one()
+    assert org.gis2_url == "https://go.2gis.com/Sf64K"
+    assert float(org.gis2_rating) == 3.9
+    assert org.gis2_review_count == 116
+    assert org.google_url == "https://maps.app.goo.gl/SS9FqB6zzstGf3oN6"
+    assert float(org.google_rating) == 4.4
+
+
+def test_import_update_does_not_clobber_2gis_with_none(db_session):
+    rows = [
+        RowData(
+            "SPOKE Россия", "Сочи-04", "Адлер",
+            "https://yandex.ru/maps/org/spoke/163787997704/", 4.2, 18,
+            gis2_url="https://go.2gis.com/Sf64K", gis2_rating=3.9,
+        ),
+    ]
+    import_rows(db_session, rows)
+    # Re-import same branch with no 2GIS data -> existing gis2 fields preserved.
+    again = [RowData("SPOKE Россия", "Сочи-04", "Адлер",
+                     "https://yandex.ru/maps/org/spoke/163787997704/", 4.2, 18)]
+    import_rows(db_session, again)
+    org = db_session.query(Organization).filter(Organization.name == "Сочи-04").one()
+    assert org.gis2_url == "https://go.2gis.com/Sf64K"
+    assert float(org.gis2_rating) == 3.9
