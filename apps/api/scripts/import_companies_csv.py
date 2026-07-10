@@ -11,6 +11,9 @@ import argparse
 import csv
 from dataclasses import dataclass
 
+from app.models.company import Company
+from app.models.enums import OrganizationScrapeStatus, ScrapeMode
+from app.models.organization import Organization
 from app.services.url_utils import (
     extract_external_id,
     normalize_yandex_url,
@@ -102,3 +105,91 @@ def read_rows(path: str) -> list[RowData]:
         if record is not None:
             parsed.append(record)
     return parsed
+
+
+@dataclass
+class ImportSummary:
+    companies_created: int = 0
+    companies_found: int = 0
+    orgs_inserted: int = 0
+    orgs_updated: int = 0
+    orgs_without_url: int = 0
+    no_url_rows: list[tuple[str, str, str]] = None  # (city, company, name)
+
+    def __post_init__(self) -> None:
+        if self.no_url_rows is None:
+            self.no_url_rows = []
+
+
+def _get_or_create_company(session, cache: dict[str, Company], name: str, summary: ImportSummary) -> Company:
+    if name in cache:
+        return cache[name]
+    company = session.query(Company).filter(Company.name == name).first()
+    if company is None:
+        company = Company(name=name)
+        session.add(company)
+        session.flush()  # assign id
+        summary.companies_created += 1
+    else:
+        summary.companies_found += 1
+    cache[name] = company
+    return company
+
+
+def _upsert_org(session, company: Company, rd: RowData, summary: ImportSummary) -> None:
+    if rd.yandex_url:
+        normalized = normalize_yandex_url(rd.yandex_url)
+        org = session.query(Organization).filter(Organization.normalized_url == normalized).first()
+    else:
+        normalized = None
+        summary.orgs_without_url += 1
+        summary.no_url_rows.append((rd.city, rd.company_name, rd.name))
+        org = (
+            session.query(Organization)
+            .filter(
+                Organization.company_id == company.id,
+                Organization.name == rd.name,
+                Organization.city == rd.city,
+                Organization.normalized_url.is_(None),
+            )
+            .first()
+        )
+
+    if org is None:
+        org = Organization(
+            name=rd.name,
+            city=rd.city,
+            yandex_url=rd.yandex_url,
+            normalized_url=normalized,
+            external_id=extract_external_id(normalized) if normalized else None,
+            rating=rd.rating,
+            review_count=rd.review_count,
+            company_id=company.id,
+            preferred_scrape_mode=ScrapeMode.public,
+            last_scrape_status=OrganizationScrapeStatus.pending,
+        )
+        session.add(org)
+        session.flush()
+        summary.orgs_inserted += 1
+    else:
+        org.name = rd.name
+        org.city = rd.city
+        org.company_id = company.id
+        if rd.rating is not None:
+            org.rating = rd.rating
+        if rd.review_count is not None:
+            org.review_count = rd.review_count
+        summary.orgs_updated += 1
+
+
+def import_rows(session, rows: list[RowData], dry_run: bool = False) -> ImportSummary:
+    summary = ImportSummary()
+    company_cache: dict[str, Company] = {}
+    for rd in rows:
+        company = _get_or_create_company(session, company_cache, rd.company_name, summary)
+        _upsert_org(session, company, rd, summary)
+    if dry_run:
+        session.rollback()
+    else:
+        session.commit()
+    return summary

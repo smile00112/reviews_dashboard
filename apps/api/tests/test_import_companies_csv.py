@@ -96,3 +96,64 @@ def test_parse_row_blank_or_no_company_returns_none():
     row = [""] * 16
     row[2] = "Точка без компании"
     assert parse_row(row) is None
+
+
+from app.models.company import Company
+from scripts.import_companies_csv import ImportSummary, import_rows
+
+
+def _rows():
+    return [
+        RowData("SPOKE Россия", "Сочи-04", "Адлер",
+                "https://yandex.ru/maps/org/spoke/163787997704/", 4.2, 18),
+        RowData("SPOKE Россия", "Москва-1", "Москва", None, None, None),
+        RowData("Мир Суши Россия", "Казань-3", "Казань",
+                "https://yandex.by/maps/-/CPFFmP9O", 3.7, 51),
+    ]
+
+
+def test_import_creates_companies_and_orgs(db_session):
+    summary = import_rows(db_session, _rows())
+    assert summary.companies_created == 2
+    assert summary.orgs_inserted == 3
+    assert summary.orgs_without_url == 1
+    assert db_session.query(Company).count() == 2
+    assert db_session.query(Organization).count() == 3
+
+
+def test_import_sets_normalized_url_and_external_id(db_session):
+    import_rows(db_session, _rows())
+    org = db_session.query(Organization).filter(Organization.name == "Сочи-04").one()
+    assert org.normalized_url == "https://yandex.ru/maps/org/spoke/163787997704"
+    assert org.external_id == "163787997704"
+    assert org.company.name == "SPOKE Россия"
+    assert float(org.rating) == 4.2
+    assert org.review_count == 18
+
+
+def test_import_is_idempotent(db_session):
+    import_rows(db_session, _rows())
+    summary = import_rows(db_session, _rows())
+    assert summary.companies_created == 0
+    assert summary.companies_found == 2
+    assert summary.orgs_inserted == 0
+    assert summary.orgs_updated == 3
+    assert db_session.query(Company).count() == 2
+    assert db_session.query(Organization).count() == 3
+
+
+def test_import_urlless_dedup_by_company_name_city(db_session):
+    import_rows(db_session, _rows())
+    # Same URL-less branch again with a changed rating -> update, not insert.
+    again = [RowData("SPOKE Россия", "Москва-1", "Москва", None, 4.5, 9)]
+    import_rows(db_session, again)
+    urlless = db_session.query(Organization).filter(Organization.normalized_url.is_(None)).all()
+    assert len(urlless) == 1
+    assert urlless[0].review_count == 9
+
+
+def test_import_dry_run_writes_nothing(db_session):
+    summary = import_rows(db_session, _rows(), dry_run=True)
+    assert summary.orgs_inserted == 3
+    assert db_session.query(Company).count() == 0
+    assert db_session.query(Organization).count() == 0
