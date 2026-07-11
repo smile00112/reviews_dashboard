@@ -1,25 +1,34 @@
 import type {
+  Company,
+  CompanyBranches,
+  CurrentUser,
+  DashboardOverview,
   Organization,
+  OverviewPeriod,
+  OverviewPlatform,
   Review,
   ScrapeMode,
   ScrapeRun,
   SessionInfo,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
+// Relative base: requests go to the web origin and Next.js rewrites /api/* to
+// the backend (see next.config.ts), so the session cookie is same-origin.
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
+    credentials: "include",
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(detail || `Request failed: ${response.status}`);
+    const error = new Error(detail || `Request failed: ${response.status}`) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
   }
   if (response.status === 204) {
     return undefined as T;
@@ -27,29 +36,122 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function listOrganizations(): Promise<Organization[]> {
-  const data = await request<{ items: Organization[] }>("/api/organizations");
+// --- Auth ---
+export async function login(email: string, password: string): Promise<CurrentUser> {
+  return request<CurrentUser>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function logout(): Promise<void> {
+  await request<void>("/api/auth/logout", { method: "POST" });
+}
+
+export async function getMe(): Promise<CurrentUser> {
+  return request<CurrentUser>("/api/auth/me");
+}
+
+// --- Companies ---
+export async function listCompanies(): Promise<Company[]> {
+  const data = await request<{ items: Company[] }>("/api/companies");
   return data.items;
 }
 
-export async function createOrganization(
-  yandex_url: string,
-  preferred_scrape_mode: ScrapeMode,
-): Promise<Organization> {
+export async function createCompany(name: string, is_active = true): Promise<Company> {
+  return request<Company>("/api/companies", {
+    method: "POST",
+    body: JSON.stringify({ name, is_active }),
+  });
+}
+
+export async function getCompany(id: string): Promise<Company> {
+  return request<Company>(`/api/companies/${id}`);
+}
+
+export async function updateCompany(
+  id: string,
+  payload: { name?: string; is_active?: boolean },
+): Promise<Company> {
+  return request<Company>(`/api/companies/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCompany(id: string): Promise<void> {
+  await request<void>(`/api/companies/${id}`, { method: "DELETE" });
+}
+
+export async function getCompanyBranches(id: string): Promise<CompanyBranches> {
+  return request<CompanyBranches>(`/api/companies/${id}/branches`);
+}
+
+// --- Network overview dashboard (feature 009) ---
+export async function getDashboardOverview(params: {
+  period?: OverviewPeriod;
+  platform?: OverviewPlatform;
+  orgIds?: string[];
+  companyId?: string;
+}): Promise<DashboardOverview> {
+  const qs = new URLSearchParams();
+  if (params.period) qs.set("period", params.period);
+  if (params.platform) qs.set("platform", params.platform);
+  if (params.companyId) qs.set("company_id", params.companyId);
+  for (const id of params.orgIds ?? []) qs.append("org_ids", id);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return request<DashboardOverview>(`/api/dashboard/overview${suffix}`);
+}
+
+// --- Organizations (branches) ---
+// Operator-editable multi-platform metrics (2GIS/Google have no scraper).
+export interface PlatformMetricsPayload {
+  yandex_rating_count?: number | null;
+  gis2_url?: string | null;
+  gis2_rating?: number | null;
+  gis2_review_count?: number | null;
+  gis2_rating_count?: number | null;
+  google_url?: string | null;
+  google_rating?: number | null;
+  google_review_count?: number | null;
+  google_rating_count?: number | null;
+}
+
+export interface OrganizationCreatePayload extends PlatformMetricsPayload {
+  yandex_url: string;
+  preferred_scrape_mode?: ScrapeMode;
+  name?: string | null;
+  city?: string | null;
+  region?: string | null;
+  address?: string | null;
+  company_id?: string | null;
+}
+
+export interface OrganizationUpdatePayload extends PlatformMetricsPayload {
+  preferred_scrape_mode?: ScrapeMode;
+  name?: string | null;
+  city?: string | null;
+  region?: string | null;
+  address?: string | null;
+  company_id?: string | null;
+}
+
+export async function listOrganizations(companyId?: string): Promise<Organization[]> {
+  const suffix = companyId ? `?company_id=${companyId}` : "";
+  const data = await request<{ items: Organization[] }>(`/api/organizations${suffix}`);
+  return data.items;
+}
+
+export async function createOrganization(payload: OrganizationCreatePayload): Promise<Organization> {
   return request<Organization>("/api/organizations", {
     method: "POST",
-    body: JSON.stringify({ yandex_url, preferred_scrape_mode }),
+    body: JSON.stringify(payload),
   });
 }
 
 export async function updateOrganization(
   id: string,
-  payload: {
-    preferred_scrape_mode?: ScrapeMode;
-    name?: string;
-    twogis_url?: string | null;
-    google_url?: string | null;
-  },
+  payload: OrganizationUpdatePayload,
 ): Promise<Organization> {
   return request<Organization>(`/api/organizations/${id}`, {
     method: "PATCH",

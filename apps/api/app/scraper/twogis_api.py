@@ -49,7 +49,7 @@ class TwogisApiScraper:
     REQUEST_TIMEOUT_SECONDS = 30
     PROXY_TIMEOUT_SECONDS = 90
 
-    def scrape(self, url: str) -> ScrapeResult:
+    def scrape(self, url: str, metrics_only: bool = False) -> ScrapeResult:
         result = ScrapeResult()
         try:
             firm_id, challenge = self._resolve_firm_id(url)
@@ -65,7 +65,8 @@ class TwogisApiScraper:
                 return err
 
             result.organization = organization
-            result.reviews = self._fetch_reviews(org_id)
+            # catalog already carries rating/counts; skip the reviews pagination.
+            result.reviews = [] if metrics_only else self._fetch_reviews(org_id)
             return result
         except Exception as exc:  # never raise out of a scrape attempt (constitution IV)
             result.error_code = "twogis_error"
@@ -158,11 +159,18 @@ class TwogisApiScraper:
         item = items[0]
         org = item.get("org") or {}
         reviews_meta = item.get("reviews") or {}
+        # general_* = THIS firm/branch (what 2GIS shows on the firm card);
+        # org_* = parent-organization aggregate across every branch of a franchise
+        # (branch_count > 1), which is identical for all siblings — wrong per branch.
+        # Prefer general_*; fall back to org_* only for single-branch orgs that omit it.
+        # review_count = отзывы (with text); *_with_stars = оценки (all ratings).
         organization = ParsedOrganization(
             name=item.get("name"),
-            rating=reviews_meta.get("org_rating") or reviews_meta.get("general_rating"),
-            review_count=reviews_meta.get("org_review_count")
-            or reviews_meta.get("general_review_count"),
+            rating=reviews_meta.get("general_rating") or reviews_meta.get("org_rating"),
+            review_count=reviews_meta.get("general_review_count")
+            or reviews_meta.get("org_review_count"),
+            rating_count=reviews_meta.get("general_review_count_with_stars")
+            or reviews_meta.get("org_review_count_with_stars"),
         )
         org_id = org.get("id")
         if not org_id:

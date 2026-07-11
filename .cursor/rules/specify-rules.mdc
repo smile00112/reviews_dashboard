@@ -5,13 +5,13 @@ alwaysApply: true
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/004-admin-panel/plan.md
+specs/009-network-overview/plan.md
 
 Also available:
-- Feature spec: specs/004-admin-panel/spec.md
-- Data model: specs/004-admin-panel/data-model.md
-- Admin auth contract: specs/004-admin-panel/contracts/admin-auth.md
-- Quickstart: specs/004-admin-panel/quickstart.md
-- Tasks: specs/004-admin-panel/tasks.md
-- Research notes: specs/004-admin-panel/research.md
+- Feature spec: specs/009-network-overview/spec.md
+- Data model: specs/009-network-overview/data-model.md
+- Contracts: specs/009-network-overview/contracts/ (dashboard-overview)
+- Quickstart: specs/009-network-overview/quickstart.md
+- Tasks: specs/009-network-overview/tasks.md
+- Research notes: specs/009-network-overview/research.md
 <!-- SPECKIT END -->

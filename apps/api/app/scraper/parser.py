@@ -34,6 +34,19 @@ def _text(node: Tag | None) -> str:
     return node.get_text(strip=True) if node else ""
 
 
+def _microdata_number(scope: Tag, itemprop: str, *, as_int: bool) -> float | int | None:
+    """Read a schema.org itemprop value (``content`` attr preferred over text) and
+    coerce to a number. Returns None when absent or unparseable."""
+    el = scope.select_one(f"[itemprop='{itemprop}']")
+    if el is None:
+        return None
+    raw = (el.get("content") or _text(el) or "").strip().replace(",", ".")
+    match = re.search(r"\d+(?:\.\d+)?", raw)
+    if not match:
+        return None
+    return int(float(match.group())) if as_int else float(match.group())
+
+
 def is_owner_response(text: str) -> bool:
     """True if the text reads as a business reply, not a customer review."""
     lowered = text.lower()
@@ -65,16 +78,27 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
     if h1:
         org.name = _text(h1)
 
-    rating_badge = soup.select_one(".business-rating-badge-view__rating")
-    if rating_badge:
-        try:
-            org.rating = float(_text(rating_badge).replace(",", "."))
-        except ValueError:
-            pass
+    # Prefer schema.org aggregateRating microdata — stable across Yandex markup
+    # churn — then fall back to the legacy badge selector / text scan (older pages
+    # and test fixtures). ratingCount = оценки, reviewCount = отзывы.
+    agg = soup.select_one("[itemprop='aggregateRating']") or soup
 
-    count_match = re.search(r"(\d+)\s+отзыв", soup.get_text(" "), re.IGNORECASE)
-    if count_match:
-        org.review_count = int(count_match.group(1))
+    org.rating = _microdata_number(agg, "ratingValue", as_int=False)
+    if org.rating is None:
+        rating_badge = soup.select_one(".business-rating-badge-view__rating")
+        if rating_badge:
+            try:
+                org.rating = float(_text(rating_badge).replace(",", "."))
+            except ValueError:
+                pass
+
+    org.review_count = _microdata_number(agg, "reviewCount", as_int=True)
+    if org.review_count is None:
+        count_match = re.search(r"(\d+)\s+отзыв", soup.get_text(" "), re.IGNORECASE)
+        if count_match:
+            org.review_count = int(count_match.group(1))
+
+    org.rating_count = _microdata_number(agg, "ratingCount", as_int=True)
 
     reviews: list[ParsedReview] = []
     for block in soup.select(".business-review-view")[:_MAX_REVIEWS]:

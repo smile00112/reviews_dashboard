@@ -3,5 +3,19 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-bg text-text font-sans;
+}
+
+/* Thin dark scrollbars to match the panel */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #262b38 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #262b38;
+  border-radius: 4px;
 }

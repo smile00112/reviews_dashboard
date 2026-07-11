@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { deleteOrganization, scrapeOrganization, updateOrganization } from "@/lib/api";
-import type { Organization, ScrapeMode } from "@/lib/types";
+import type { Organization, OrganizationScrapeStatus, ScrapeMode } from "@/lib/types";
 import { ModeSelect } from "./mode-select";
-import { ProviderBadges } from "./provider-badges";
 
-function statusClass(status: Organization["last_scrape_status"]) {
+function statusClass(status: OrganizationScrapeStatus) {
   if (status === "success") return "bg-green-100 text-green-800";
   if (status === "failed") return "bg-red-100 text-red-800";
   if (status === "needs_manual_action") return "bg-amber-100 text-amber-900";
@@ -15,9 +14,47 @@ function statusClass(status: Organization["last_scrape_status"]) {
   return "bg-slate-100 text-slate-700";
 }
 
+// Per-platform status badges (Yandex / 2GIS) stacked in one cell.
+function StatusBadges({ org }: { org: Organization }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={`rounded px-2 py-0.5 text-xs ${statusClass(org.yandex_scrape_status)}`}>
+        Я: {org.yandex_scrape_status}
+      </span>
+      <span className={`rounded px-2 py-0.5 text-xs ${statusClass(org.gis2_scrape_status)}`}>
+        2G: {org.gis2_scrape_status}
+      </span>
+    </div>
+  );
+}
+
+function formatTs(value: string | null) {
+  return value ? new Date(value).toLocaleString("ru-RU") : "—";
+}
+
 interface OrganizationsTableProps {
   items: Organization[];
   onRefresh: () => void;
+}
+
+// Compact platform cell: рейтинг · отзывов · оценок
+function PlatformCell({
+  rating,
+  reviewCount,
+  ratingCount,
+}: {
+  rating: number | null;
+  reviewCount: number | null;
+  ratingCount: number | null;
+}) {
+  if (rating == null && reviewCount == null && ratingCount == null) {
+    return <span className="text-slate-400">—</span>;
+  }
+  return (
+    <span className="whitespace-nowrap">
+      {rating ?? "—"} · {reviewCount ?? "—"} · {ratingCount ?? "—"}
+    </span>
+  );
 }
 
 export function OrganizationsTable({ items, onRefresh }: OrganizationsTableProps) {
@@ -58,9 +95,9 @@ export function OrganizationsTable({ items, onRefresh }: OrganizationsTableProps
           <tr>
             <th className="px-3 py-2">Название</th>
             <th className="px-3 py-2">URL</th>
-            <th className="px-3 py-2">Карты</th>
-            <th className="px-3 py-2">Рейтинг</th>
-            <th className="px-3 py-2">Отзывов</th>
+            <th className="px-3 py-2" title="рейтинг · отзывов · оценок">Яндекс</th>
+            <th className="px-3 py-2" title="рейтинг · отзывов · оценок">2ГИС</th>
+            <th className="px-3 py-2" title="рейтинг · отзывов · оценок">Google</th>
             <th className="px-3 py-2">Режим</th>
             <th className="px-3 py-2">Статус</th>
             <th className="px-3 py-2">Последний успех</th>
@@ -79,10 +116,26 @@ export function OrganizationsTable({ items, onRefresh }: OrganizationsTableProps
                 {org.yandex_url}
               </td>
               <td className="px-3 py-2">
-                <ProviderBadges org={org} />
+                <PlatformCell
+                  rating={org.rating}
+                  reviewCount={org.review_count}
+                  ratingCount={org.yandex_rating_count}
+                />
               </td>
-              <td className="px-3 py-2">{org.rating ?? "—"}</td>
-              <td className="px-3 py-2">{org.review_count ?? "—"}</td>
+              <td className="px-3 py-2">
+                <PlatformCell
+                  rating={org.gis2_rating}
+                  reviewCount={org.gis2_review_count}
+                  ratingCount={org.gis2_rating_count}
+                />
+              </td>
+              <td className="px-3 py-2">
+                <PlatformCell
+                  rating={org.google_rating}
+                  reviewCount={org.google_review_count}
+                  ratingCount={org.google_rating_count}
+                />
+              </td>
               <td className="px-3 py-2">
                 <ModeSelect
                   value={rowModes[org.id] ?? org.preferred_scrape_mode}
@@ -90,14 +143,13 @@ export function OrganizationsTable({ items, onRefresh }: OrganizationsTableProps
                 />
               </td>
               <td className="px-3 py-2">
-                <span className={`rounded px-2 py-0.5 text-xs ${statusClass(org.last_scrape_status)}`}>
-                  {org.last_scrape_status}
-                </span>
+                <StatusBadges org={org} />
               </td>
-              <td className="px-3 py-2">
-                {org.last_successful_scrape_at
-                  ? new Date(org.last_successful_scrape_at).toLocaleString("ru-RU")
-                  : "—"}
+              <td className="px-3 py-2 whitespace-nowrap">
+                <div className="flex flex-col gap-1">
+                  <span>Я: {formatTs(org.yandex_last_successful_scrape_at)}</span>
+                  <span>2G: {formatTs(org.gis2_last_successful_scrape_at)}</span>
+                </div>
               </td>
               <td className="px-3 py-2">
                 <div className="flex gap-2">
