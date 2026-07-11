@@ -1,4 +1,9 @@
-export type ScrapeMode = "public" | "operator_auth" | "public_http";
+export type ScrapeMode =
+  | "public"
+  | "operator_auth"
+  | "public_http"
+  | "scrapeops"
+  | "twogis_api";
 
 export type OrganizationScrapeStatus =
   | "pending"

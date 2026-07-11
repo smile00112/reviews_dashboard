@@ -26,7 +26,8 @@ def upgrade() -> None:
     op.add_column("organizations", sa.Column("gis2_rating", sa.Numeric(3, 2), nullable=True))
     op.add_column("organizations", sa.Column("gis2_review_count", sa.Integer(), nullable=True))
     op.add_column("organizations", sa.Column("gis2_rating_count", sa.Integer(), nullable=True))
-    op.add_column("organizations", sa.Column("google_url", sa.Text(), nullable=True))
+    # google_url is already added by 0008_org_map_links (map-links branch); only the
+    # extra google metric columns are new here.
     op.add_column("organizations", sa.Column("google_rating", sa.Numeric(3, 2), nullable=True))
     op.add_column("organizations", sa.Column("google_review_count", sa.Integer(), nullable=True))
     op.add_column("organizations", sa.Column("google_rating_count", sa.Integer(), nullable=True))
@@ -36,7 +37,6 @@ def downgrade() -> None:
     op.drop_column("organizations", "google_rating_count")
     op.drop_column("organizations", "google_review_count")
     op.drop_column("organizations", "google_rating")
-    op.drop_column("organizations", "google_url")
     op.drop_column("organizations", "gis2_rating_count")
     op.drop_column("organizations", "gis2_review_count")
     op.drop_column("organizations", "gis2_rating")

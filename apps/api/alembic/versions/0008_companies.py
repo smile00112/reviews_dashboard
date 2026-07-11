@@ -16,7 +16,9 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "0008_companies"
-down_revision: Union[str, None] = "0007_response_first_seen"
+# Re-parented onto the map-links chain (0008_org_map_links -> 0009_seed_sushi_master)
+# so the two feature branches form a single linear alembic history after merge.
+down_revision: Union[str, None] = "0009_seed_sushi_master"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
