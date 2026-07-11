@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.enums import OrganizationScrapeStatus, ScrapeMode, ScrapeRunStatus, SessionStatus
+from app.models.enums import OrganizationScrapeStatus, ReviewPlatform, ScrapeMode, ScrapeRunStatus, SessionStatus
 from app.models.scrape_run import ScrapeRun
 from app.models.scraper_session import ScraperSession
 from app.scraper.types import ScrapeResult
@@ -14,8 +14,14 @@ from app.scraper.yandex_auth import YandexAuthScraper
 from app.scraper.yandex_http import YandexHttpScraper
 from app.scraper.yandex_public import YandexPublicScraper
 from app.scraper.yandex_scrapeops import YandexScrapeOpsScraper
+from app.services.dashboard_service import DashboardService
 from app.services.organization_service import OrganizationService
 from app.services.review_service import ReviewService
+
+
+def _mode_platform(mode: ScrapeMode) -> str:
+    """Which platform a scrape mode targets: only twogis_api hits 2GIS."""
+    return "2gis" if mode == ScrapeMode.twogis_api else "yandex"
 
 
 class ScrapeService:
@@ -72,7 +78,7 @@ class ScrapeService:
             if not org:
                 self._finalize(run, ScrapeRunStatus.failed, error_code="not_found", error_message="Organization not found")
                 return
-            org_service.update_scrape_status(org.id, OrganizationScrapeStatus.running)
+            org_service.update_scrape_status(org.id, _mode_platform(run.mode), OrganizationScrapeStatus.running)
             self._scrape_organization(run, org.yandex_url, org.id, run.mode, org_service, review_service)
             return
 
@@ -110,7 +116,9 @@ class ScrapeService:
                         error_code="invalid_session",
                         error_message="Operator session is not valid. Run login first.",
                     )
-                    org_service.update_scrape_status(organization_id, OrganizationScrapeStatus.needs_manual_action)
+                    org_service.update_scrape_status(
+                        organization_id, _mode_platform(mode), OrganizationScrapeStatus.needs_manual_action
+                    )
                     return
                 scrape_result = self.auth_scraper.scrape(url, session.storage_state_path)
             elif mode == ScrapeMode.public_http:
@@ -125,7 +133,7 @@ class ScrapeService:
             self._persist_scrape_result(run, organization_id, mode, scrape_result, org_service, review_service)
         except Exception as exc:
             self._finalize(run, ScrapeRunStatus.failed, error_code="unexpected", error_message=str(exc))
-            org_service.update_scrape_status(organization_id, OrganizationScrapeStatus.failed)
+            org_service.update_scrape_status(organization_id, _mode_platform(mode), OrganizationScrapeStatus.failed)
 
     def _persist_scrape_result(
         self,
@@ -145,7 +153,9 @@ class ScrapeService:
                 error_code=result.error_code or "needs_manual_action",
                 error_message=result.error_message or "Manual action required",
             )
-            org_service.update_scrape_status(organization_id, OrganizationScrapeStatus.needs_manual_action)
+            org_service.update_scrape_status(
+                organization_id, _mode_platform(mode), OrganizationScrapeStatus.needs_manual_action
+            )
             return
 
         if result.error_code:
@@ -157,7 +167,7 @@ class ScrapeService:
                 error_code=result.error_code,
                 error_message=result.error_message,
             )
-            org_service.update_scrape_status(organization_id, OrganizationScrapeStatus.failed)
+            org_service.update_scrape_status(organization_id, _mode_platform(mode), OrganizationScrapeStatus.failed)
             return
 
         seen, inserted, updated = review_service.upsert_reviews(organization_id, result.reviews, mode)
@@ -170,13 +180,23 @@ class ScrapeService:
 
         org_service.update_scrape_status(
             organization_id,
+            _mode_platform(mode),
             OrganizationScrapeStatus.success,
             name=result.organization.name,
             rating=result.organization.rating,
             review_count=result.organization.review_count or (seen if seen else None),
+            rating_count=result.organization.rating_count,
             address=result.organization.address,
             mark_success=True,
         )
+
+        # Capture a daily rating snapshot for period-over-period deltas (feature 009).
+        # Additive + best-effort: a snapshot failure must never fail the scrape.
+        try:
+            platform = ReviewPlatform.gis2 if mode == ScrapeMode.twogis_api else ReviewPlatform.yandex
+            DashboardService(self.db).capture_snapshot(organization_id, platform)
+        except Exception:  # noqa: BLE001 - snapshot is non-critical telemetry
+            self.db.rollback()
 
     def _finalize(
         self,

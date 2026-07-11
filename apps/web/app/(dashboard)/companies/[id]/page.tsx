@@ -134,7 +134,9 @@ export default function CompanyDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-text-dim">{b.address ?? "—"}</td>
                         <td className="px-4 py-3 font-mono text-[12px] text-text-dim">{b.preferred_scrape_mode}</td>
-                        <td className="px-4 py-3 text-text-dim">{b.last_scrape_status}</td>
+                        <td className="px-4 py-3 text-text-dim whitespace-nowrap">
+                          Я: {b.yandex_scrape_status} · 2G: {b.gis2_scrape_status}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-1.5">
                             {isAdmin && (

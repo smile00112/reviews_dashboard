@@ -1,6 +1,6 @@
 """CompanyService unit tests (feature 008): CRUD, delete-detaches-branches, grouping."""
 
-from app.models.enums import OrganizationScrapeStatus, ScrapeMode
+from app.models.enums import ScrapeMode
 from app.models.organization import Organization
 from app.schemas.company import CompanyCreate, CompanyUpdate
 from app.services.company_service import UNASSIGNED_CITY, CompanyService
@@ -11,7 +11,6 @@ def _branch(company_id, *, name, city, url):
         yandex_url=url,
         normalized_url=url,
         preferred_scrape_mode=ScrapeMode.public,
-        last_scrape_status=OrganizationScrapeStatus.pending,
         name=name,
         city=city,
         company_id=company_id,

@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 
 const NAV: { group: string; items: { href: string; label: string; icon: string }[] }[] = [
   {
+    group: "Обзор",
+    items: [{ href: "/overview", label: "Обзор сети", icon: "⚡" }],
+  },
+  {
     group: "Управление",
     items: [
       { href: "/companies", label: "Организации", icon: "🏢" },

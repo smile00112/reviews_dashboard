@@ -6,7 +6,21 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.enums import OrganizationScrapeStatus, ScrapeMode
 
 
-class OrganizationCreate(BaseModel):
+class PlatformMetricsMixin(BaseModel):
+    """Operator-editable multi-platform metrics (no scraper for 2GIS/Google)."""
+
+    yandex_rating_count: int | None = None
+    gis2_url: str | None = None
+    gis2_rating: float | None = None
+    gis2_review_count: int | None = None
+    gis2_rating_count: int | None = None
+    google_url: str | None = None
+    google_rating: float | None = None
+    google_review_count: int | None = None
+    google_rating_count: int | None = None
+
+
+class OrganizationCreate(PlatformMetricsMixin):
     yandex_url: str
     preferred_scrape_mode: ScrapeMode = ScrapeMode.public
     # Branch fields (feature 008, additive/optional)
@@ -17,7 +31,7 @@ class OrganizationCreate(BaseModel):
     company_id: UUID | None = None
 
 
-class OrganizationUpdate(BaseModel):
+class OrganizationUpdate(PlatformMetricsMixin):
     preferred_scrape_mode: ScrapeMode | None = None
     name: str | None = None
     # Branch fields (feature 008, additive/optional)
@@ -38,9 +52,20 @@ class OrganizationResponse(BaseModel):
     address: str | None
     rating: float | None
     review_count: int | None
+    yandex_rating_count: int | None = None
+    gis2_url: str | None = None
+    gis2_rating: float | None = None
+    gis2_review_count: int | None = None
+    gis2_rating_count: int | None = None
+    google_url: str | None = None
+    google_rating: float | None = None
+    google_review_count: int | None = None
+    google_rating_count: int | None = None
     preferred_scrape_mode: ScrapeMode
-    last_successful_scrape_at: datetime | None
-    last_scrape_status: OrganizationScrapeStatus
+    yandex_scrape_status: OrganizationScrapeStatus
+    gis2_scrape_status: OrganizationScrapeStatus
+    yandex_last_successful_scrape_at: datetime | None = None
+    gis2_last_successful_scrape_at: datetime | None = None
     city: str | None = None
     region: str | None = None
     company_id: UUID | None = None

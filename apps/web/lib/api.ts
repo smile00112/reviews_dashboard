@@ -2,7 +2,10 @@ import type {
   Company,
   CompanyBranches,
   CurrentUser,
+  DashboardOverview,
   Organization,
+  OverviewPeriod,
+  OverviewPlatform,
   Review,
   ScrapeMode,
   ScrapeRun,
@@ -84,8 +87,37 @@ export async function getCompanyBranches(id: string): Promise<CompanyBranches> {
   return request<CompanyBranches>(`/api/companies/${id}/branches`);
 }
 
+// --- Network overview dashboard (feature 009) ---
+export async function getDashboardOverview(params: {
+  period?: OverviewPeriod;
+  platform?: OverviewPlatform;
+  orgIds?: string[];
+  companyId?: string;
+}): Promise<DashboardOverview> {
+  const qs = new URLSearchParams();
+  if (params.period) qs.set("period", params.period);
+  if (params.platform) qs.set("platform", params.platform);
+  if (params.companyId) qs.set("company_id", params.companyId);
+  for (const id of params.orgIds ?? []) qs.append("org_ids", id);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return request<DashboardOverview>(`/api/dashboard/overview${suffix}`);
+}
+
 // --- Organizations (branches) ---
-export interface OrganizationCreatePayload {
+// Operator-editable multi-platform metrics (2GIS/Google have no scraper).
+export interface PlatformMetricsPayload {
+  yandex_rating_count?: number | null;
+  gis2_url?: string | null;
+  gis2_rating?: number | null;
+  gis2_review_count?: number | null;
+  gis2_rating_count?: number | null;
+  google_url?: string | null;
+  google_rating?: number | null;
+  google_review_count?: number | null;
+  google_rating_count?: number | null;
+}
+
+export interface OrganizationCreatePayload extends PlatformMetricsPayload {
   yandex_url: string;
   preferred_scrape_mode?: ScrapeMode;
   name?: string | null;
@@ -95,7 +127,7 @@ export interface OrganizationCreatePayload {
   company_id?: string | null;
 }
 
-export interface OrganizationUpdatePayload {
+export interface OrganizationUpdatePayload extends PlatformMetricsPayload {
   preferred_scrape_mode?: ScrapeMode;
   name?: string | null;
   city?: string | null;

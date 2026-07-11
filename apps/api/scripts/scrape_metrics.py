@@ -27,10 +27,16 @@ from app.scraper.types import ScrapeResult
 from app.scraper.yandex_http import YandexHttpScraper
 from app.scraper.yandex_scrapeops import YandexScrapeOpsScraper
 
-# platform -> (url attribute, rating column, review_count column, rating_count column)
+# platform -> (url attr, rating col, review_count col, rating_count col, status col, success-ts col)
 PLATFORMS = {
-    "yandex": ("yandex_url", "rating", "review_count", "yandex_rating_count"),
-    "2gis": ("gis2_url", "gis2_rating", "gis2_review_count", "gis2_rating_count"),
+    "yandex": (
+        "yandex_url", "rating", "review_count", "yandex_rating_count",
+        "yandex_scrape_status", "yandex_last_successful_scrape_at",
+    ),
+    "2gis": (
+        "gis2_url", "gis2_rating", "gis2_review_count", "gis2_rating_count",
+        "gis2_scrape_status", "gis2_last_successful_scrape_at",
+    ),
 }
 
 
@@ -92,11 +98,13 @@ def apply_result(
     Never overwrites an existing value with null: a scrape that yields no rating is a
     failure, not a reason to wipe a known figure.
     """
-    _, rating_col, count_col, rating_count_col = PLATFORMS[platform]
+    _, rating_col, count_col, rating_count_col, status_col, ts_col = PLATFORMS[platform]
     if result.needs_manual_action:
+        setattr(org, status_col, OrganizationScrapeStatus.needs_manual_action)
         summary.manual_action += 1
         return "manual_action"
     if result.error_code or result.organization.rating is None:
+        setattr(org, status_col, OrganizationScrapeStatus.failed)
         summary.failed += 1
         return "failed"
 
@@ -107,8 +115,8 @@ def apply_result(
         setattr(org, count_col, result.organization.review_count)
     if result.organization.rating_count is not None:
         setattr(org, rating_count_col, result.organization.rating_count)
-    org.last_scrape_status = OrganizationScrapeStatus.success
-    org.last_successful_scrape_at = datetime.now(timezone.utc)
+    setattr(org, status_col, OrganizationScrapeStatus.success)
+    setattr(org, ts_col, datetime.now(timezone.utc))
     summary.updated += 1
     return "updated"
 
@@ -127,7 +135,7 @@ def run(
     for org in orgs:
         label = org.name or str(org.id)
         for platform in platforms:
-            url_attr, rating_col, _, _ = PLATFORMS[platform]
+            url_attr, rating_col = PLATFORMS[platform][0], PLATFORMS[platform][1]
             psummary = summary.get(platform)
             url = getattr(org, url_attr)
             if not url:

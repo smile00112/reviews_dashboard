@@ -10,7 +10,8 @@ def test_create_list_update_delete_organization(admin_client):
     assert create_resp.status_code == 201
     org = create_resp.json()
     org_id = org["id"]
-    assert org["last_scrape_status"] == "pending"
+    assert org["yandex_scrape_status"] == "pending"
+    assert org["gis2_scrape_status"] == "pending"
 
     list_resp = client.get("/api/organizations")
     assert list_resp.status_code == 200

@@ -18,18 +18,41 @@ class Organization(Base):
     normalized_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     external_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
-    rating: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
-    review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rating: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)  # Yandex оценка
+    review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Yandex кол-во отзывов
+    yandex_rating_count: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Yandex кол-во оценок
+    # 2GIS platform metrics (operator-editable; no scraper). "gis2" prefix keeps identifiers valid.
+    gis2_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    gis2_rating: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    gis2_review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gis2_rating_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Google Maps platform metrics (operator-editable; no scraper).
+    google_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    google_rating: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    google_review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    google_rating_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     preferred_scrape_mode: Mapped[ScrapeMode] = mapped_column(
         Enum(ScrapeMode, name="scrape_mode_enum", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=ScrapeMode.public,
     )
-    last_successful_scrape_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_scrape_status: Mapped[OrganizationScrapeStatus] = mapped_column(
-        Enum(OrganizationScrapeStatus, name="org_scrape_status_enum", values_callable=lambda x: [e.value for e in x]),
-        nullable=False,
-        default=OrganizationScrapeStatus.pending,
+    # Per-platform scrape status/timestamp (Yandex vs 2GIS scraped independently).
+    _status_enum = Enum(
+        OrganizationScrapeStatus,
+        name="org_scrape_status_enum",
+        values_callable=lambda x: [e.value for e in x],
+    )
+    yandex_scrape_status: Mapped[OrganizationScrapeStatus] = mapped_column(
+        _status_enum, nullable=False, default=OrganizationScrapeStatus.pending
+    )
+    gis2_scrape_status: Mapped[OrganizationScrapeStatus] = mapped_column(
+        _status_enum, nullable=False, default=OrganizationScrapeStatus.pending
+    )
+    yandex_last_successful_scrape_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    gis2_last_successful_scrape_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     # Admin panel columns (feature 004, additive)
     city: Mapped[str | None] = mapped_column(Text, nullable=True)

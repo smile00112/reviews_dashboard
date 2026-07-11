@@ -12,7 +12,7 @@ import csv
 from dataclasses import dataclass
 
 from app.models.company import Company
-from app.models.enums import OrganizationScrapeStatus, ScrapeMode
+from app.models.enums import ScrapeMode
 from app.models.organization import Organization
 from app.services.url_utils import (
     extract_external_id,
@@ -194,7 +194,6 @@ def _upsert_org(session, company: Company, rd: RowData, summary: ImportSummary) 
             google_rating=rd.google_rating,
             company_id=company.id,
             preferred_scrape_mode=ScrapeMode.public,
-            last_scrape_status=OrganizationScrapeStatus.pending,
         )
         session.add(org)
         session.flush()
