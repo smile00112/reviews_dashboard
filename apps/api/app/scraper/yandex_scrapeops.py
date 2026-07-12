@@ -16,16 +16,12 @@ import requests
 
 from app.core.config import settings
 from app.scraper.debug_artifacts import save_html_debug
+# Shared definition (feature 010) — see scraper/markers.py.
+from app.scraper.markers import BOT_MARKERS
 from app.scraper.parser import parse_reviews_from_html
 from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
 
 PROXY_URL = "https://proxy.scrapeops.io/v1/"
-BOT_MARKERS: tuple[str, ...] = (
-    "Обнаружена защита от ботов",
-    "showcaptcha",
-    "SmartCaptcha",
-    "Подтвердите, что запросы",
-)
 
 
 class YandexScrapeOpsScraper:

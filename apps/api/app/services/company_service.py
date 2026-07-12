@@ -51,6 +51,16 @@ class CompanyService:
         self.db.commit()
         return True
 
+    def branch_counts(self) -> dict[UUID, int]:
+        """Branch count per company in ONE grouped query (feature 010, FR-008)."""
+        rows = (
+            self.db.query(Organization.company_id, func.count(Organization.id))
+            .filter(Organization.company_id.isnot(None))
+            .group_by(Organization.company_id)
+            .all()
+        )
+        return {company_id: count for company_id, count in rows}
+
     def branch_count(self, company_id: UUID) -> int:
         return (
             self.db.query(func.count(Organization.id))

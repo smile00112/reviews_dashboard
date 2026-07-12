@@ -18,17 +18,11 @@ import requests
 
 from app.core.config import settings
 from app.scraper.debug_artifacts import save_html_debug
+# Shared definition (feature 010) — see scraper/markers.py for the rationale
+# on excluding a bare "captcha".
+from app.scraper.markers import BOT_MARKERS
 from app.scraper.parser import parse_reviews_from_html
 from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
-# More specific than CAPTCHA_MARKERS: exclude bare "captcha" which matches
-# the `captchapgrd` fingerprinting library URL embedded in every Yandex Maps
-# SPA page, producing false positives on normal review pages.
-BOT_MARKERS: tuple[str, ...] = (
-    "Обнаружена защита от ботов",
-    "showcaptcha",
-    "SmartCaptcha",
-    "Подтвердите, что запросы",
-)
 
 
 class YandexHttpScraper:

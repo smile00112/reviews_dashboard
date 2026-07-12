@@ -48,3 +48,5 @@ class SessionStatus(str, enum.Enum):
     valid = "valid"
     expired = "expired"
     needs_manual_action = "needs_manual_action"
+    # Background login/check scheduled but not finished (feature 010).
+    pending = "pending"

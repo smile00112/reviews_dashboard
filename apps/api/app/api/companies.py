@@ -31,7 +31,13 @@ def list_companies(
     _user=Depends(get_current_user),
 ) -> CompanyListResponse:
     service = CompanyService(db)
-    return CompanyListResponse(items=[_to_response(service, c) for c in service.list_all()])
+    counts = service.branch_counts()  # one grouped query, not one COUNT per company
+    items = []
+    for company in service.list_all():
+        resp = CompanyResponse.model_validate(company)
+        resp.branch_count = counts.get(company.id, 0)
+        items.append(resp)
+    return CompanyListResponse(items=items)
 
 
 @router.post("", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)

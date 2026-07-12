@@ -27,6 +27,7 @@ import requests
 
 from app.core.config import settings
 from app.scraper.debug_artifacts import save_html_debug
+from app.scraper.markers import BOT_MARKERS as _SHARED_BOT_MARKERS
 from app.scraper.normalize import normalize_review_date
 from app.scraper.proxy_pool import ProxyPool
 from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
@@ -35,12 +36,9 @@ CATALOG_URL = "https://catalog.api.2gis.com/3.0/items/byid"
 REVIEWS_URL = "https://public-api.reviews.2gis.com/3.0/orgs/{org_id}/reviews"
 SCRAPEOPS_PROXY = "https://proxy.scrapeops.io/v1/"
 FIRM_ID_RE = re.compile(r"/firm/(\d+)")
-# Markers of a 2GIS bot wall / access challenge on the short-link HTML fetch. A bare
-# "captcha" is intentionally excluded (it matches fingerprinting library URLs).
-BOT_MARKERS: tuple[str, ...] = (
-    "Обнаружена защита от ботов",
-    "showcaptcha",
-    "SmartCaptcha",
+# Markers of a 2GIS bot wall / access challenge on the short-link HTML fetch:
+# the shared base (see scraper/markers.py) plus 2GIS-specific phrases.
+BOT_MARKERS: tuple[str, ...] = _SHARED_BOT_MARKERS + (
     "Доступ ограничен",
     "Access Denied",
 )
@@ -254,7 +252,10 @@ class TwogisApiScraper:
             if not batch:
                 break
             for raw in batch:
-                collected.append(self._map_review(raw))
+                mapped = self._map_review(raw)
+                if mapped is None:
+                    continue
+                collected.append(mapped)
                 if len(collected) >= limit:
                     break
             if not ((data.get("meta") or {}).get("next_link")):
@@ -266,7 +267,7 @@ class TwogisApiScraper:
         return collected
 
     @staticmethod
-    def _map_review(raw: dict) -> ParsedReview:
+    def _map_review(raw: dict) -> ParsedReview | None:
         user = raw.get("user") or {}
         official = raw.get("official_answer")
         date_created = raw.get("date_created") or ""
@@ -274,6 +275,10 @@ class TwogisApiScraper:
             rating = int(raw.get("rating"))
         except (TypeError, ValueError):
             rating = 0
+        if rating < 1:
+            # Same validity rule as the Yandex parser (parser.py): a review without
+            # a real rating never reaches persistence or rating math (FR-010).
+            return None
         review_id = raw.get("id")
         return ParsedReview(
             author_name=user.get("name"),

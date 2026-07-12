@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
@@ -17,6 +18,9 @@ from app.scraper.yandex_scrapeops import YandexScrapeOpsScraper
 from app.services.dashboard_service import DashboardService
 from app.services.organization_service import OrganizationService
 from app.services.review_service import ReviewService
+
+
+logger = logging.getLogger(__name__)
 
 
 def _mode_platform(mode: ScrapeMode) -> str:
@@ -83,6 +87,7 @@ class ScrapeService:
             return
 
         org_ids = org_service.list_ids()
+        children: list[ScrapeRun] = []
         for org_id in org_ids:
             org = org_service.get(org_id)
             if not org:
@@ -92,8 +97,22 @@ class ScrapeService:
             self.db.commit()
             self.db.refresh(child)
             self._scrape_organization(child, org.yandex_url, org.id, run.mode, org_service, review_service)
+            self.db.refresh(child)
+            children.append(child)
 
-        run.status = ScrapeRunStatus.success
+        # Parent reflects children (FR-004): all failed -> failed; no success but a
+        # manual-action child -> needs_manual_action; otherwise (>=1 success or no
+        # orgs) -> success. Counters roll up child totals.
+        statuses = [c.status for c in children]
+        if children and all(s == ScrapeRunStatus.failed for s in statuses):
+            run.status = ScrapeRunStatus.failed
+        elif ScrapeRunStatus.success not in statuses and ScrapeRunStatus.needs_manual_action in statuses:
+            run.status = ScrapeRunStatus.needs_manual_action
+        else:
+            run.status = ScrapeRunStatus.success
+        run.reviews_seen = sum(c.reviews_seen or 0 for c in children)
+        run.reviews_inserted = sum(c.reviews_inserted or 0 for c in children)
+        run.reviews_updated = sum(c.reviews_updated or 0 for c in children)
         run.finished_at = datetime.now(timezone.utc)
         self.db.commit()
 
@@ -132,6 +151,7 @@ class ScrapeService:
 
             self._persist_scrape_result(run, organization_id, mode, scrape_result, org_service, review_service)
         except Exception as exc:
+            logger.exception("scrape failed org=%s run=%s mode=%s", organization_id, run.id, mode.value)
             self._finalize(run, ScrapeRunStatus.failed, error_code="unexpected", error_message=str(exc))
             org_service.update_scrape_status(organization_id, _mode_platform(mode), OrganizationScrapeStatus.failed)
 
@@ -196,6 +216,7 @@ class ScrapeService:
             platform = ReviewPlatform.gis2 if mode == ScrapeMode.twogis_api else ReviewPlatform.yandex
             DashboardService(self.db).capture_snapshot(organization_id, platform)
         except Exception:  # noqa: BLE001 - snapshot is non-critical telemetry
+            logger.warning("snapshot capture failed org=%s run=%s", organization_id, run.id, exc_info=True)
             self.db.rollback()
 
     def _finalize(
@@ -227,6 +248,9 @@ class ScrapeService:
 
     def get_session_status(self) -> ScraperSession:
         session = self._get_or_create_session_record()
+        # A background login/check is in flight: file heuristics must not clobber it.
+        if session.status == SessionStatus.pending:
+            return session
         path = Path(session.storage_state_path)
         if not path.exists():
             session.status = SessionStatus.missing
@@ -235,13 +259,27 @@ class ScrapeService:
         self.db.commit()
         return session
 
+    def get_session_record(self) -> ScraperSession:
+        """Current session row without the file-heuristic status refresh."""
+        return self._get_or_create_session_record()
+
+    def mark_session_pending(self) -> ScraperSession:
+        session = self._get_or_create_session_record()
+        session.status = SessionStatus.pending
+        self.db.commit()
+        return session
+
     def login_operator(self) -> tuple[SessionStatus, str]:
         session = self._get_or_create_session_record()
-        status, message = self.auth_scraper.login(
-            settings.yandex_operator_login,
-            settings.yandex_operator_password,
-            session.storage_state_path,
-        )
+        try:
+            status, message = self.auth_scraper.login(
+                settings.yandex_operator_login,
+                settings.yandex_operator_password,
+                session.storage_state_path,
+            )
+        except Exception as exc:  # pending must always reach a terminal state
+            logger.exception("operator login failed")
+            status, message = SessionStatus.needs_manual_action, f"Login failed: {exc}"
         session.status = status
         if status == SessionStatus.valid:
             session.last_login_at = datetime.now(timezone.utc)
@@ -251,7 +289,11 @@ class ScrapeService:
 
     def check_session(self) -> ScraperSession:
         session = self._get_or_create_session_record()
-        status = self.auth_scraper.check_session(session.storage_state_path)
+        try:
+            status = self.auth_scraper.check_session(session.storage_state_path)
+        except Exception:  # pending must always reach a terminal state
+            logger.exception("session check failed")
+            status = SessionStatus.expired
         session.status = status
         session.last_checked_at = datetime.now(timezone.utc)
         self.db.commit()

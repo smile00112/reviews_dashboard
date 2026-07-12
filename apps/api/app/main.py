@@ -6,13 +6,27 @@ from app.admin import setup_admin
 from app.api import auth, companies, dashboard, organizations, reviews, scrape_runs, scraper_sessions
 from app.core.config import settings
 from app.core.database import engine
+from app.core.logging import setup_logging
+
+setup_logging()
 
 app = FastAPI(title="Yandex Reviews API", version="0.1.0")
 
-origins = [origin.strip() for origin in settings.api_cors_origins.split(",") if origin.strip()]
+
+def _cors_origins(raw: str) -> list[str]:
+    """Fail closed: with allow_credentials=True a '*' fallback is a misconfiguration
+    browsers reject anyway — an empty origin list must abort startup, not widen."""
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    if not origins:
+        raise RuntimeError(
+            "API_CORS_ORIGINS must list at least one origin; refusing to fall back to '*'"
+        )
+    return origins
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["*"],
+    allow_origins=_cors_origins(settings.api_cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
