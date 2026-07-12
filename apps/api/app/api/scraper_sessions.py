@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import SessionLocal, get_db
 from app.models.enums import SessionStatus
 from app.schemas.scraper_session import LoginResponse, SessionStatusResponse
 from app.services.scrape_service import ScrapeService
@@ -9,29 +9,55 @@ from app.services.scrape_service import ScrapeService
 router = APIRouter(prefix="/api/scraper/yandex", tags=["scraper-session"])
 
 
+def _run_login_background() -> None:
+    db = SessionLocal()
+    try:
+        ScrapeService(db).login_operator()
+    finally:
+        db.close()
+
+
+def _run_check_background() -> None:
+    db = SessionLocal()
+    try:
+        ScrapeService(db).check_session()
+    finally:
+        db.close()
+
+
+def _to_status_response(session) -> SessionStatusResponse:
+    return SessionStatusResponse(
+        status=session.status,
+        last_login_at=session.last_login_at,
+        last_checked_at=session.last_checked_at,
+        storage_state_path=session.storage_state_path,
+    )
+
+
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_202_ACCEPTED)
-def yandex_login(db: Session = Depends(get_db)) -> LoginResponse:
-    session_status, message = ScrapeService(db).login_operator()
-    return LoginResponse(status=session_status, message=message)
+def yandex_login(background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> LoginResponse:
+    """Schedule the Playwright login in the background (feature 010): the 202 is
+    truthful now — poll GET /session for the outcome."""
+    service = ScrapeService(db)
+    session = service.get_session_record()
+    if session.status == SessionStatus.pending:
+        return LoginResponse(status=SessionStatus.pending, message="Login already in progress")
+    service.mark_session_pending()
+    background_tasks.add_task(_run_login_background)
+    return LoginResponse(status=SessionStatus.pending, message="Login scheduled")
 
 
 @router.get("/session", response_model=SessionStatusResponse)
 def get_session(db: Session = Depends(get_db)) -> SessionStatusResponse:
-    session = ScrapeService(db).get_session_status()
-    return SessionStatusResponse(
-        status=session.status,
-        last_login_at=session.last_login_at,
-        last_checked_at=session.last_checked_at,
-        storage_state_path=session.storage_state_path,
-    )
+    return _to_status_response(ScrapeService(db).get_session_status())
 
 
-@router.post("/session/check", response_model=SessionStatusResponse)
-def check_session(db: Session = Depends(get_db)) -> SessionStatusResponse:
-    session = ScrapeService(db).check_session()
-    return SessionStatusResponse(
-        status=session.status,
-        last_login_at=session.last_login_at,
-        last_checked_at=session.last_checked_at,
-        storage_state_path=session.storage_state_path,
-    )
+@router.post("/session/check", response_model=SessionStatusResponse, status_code=status.HTTP_202_ACCEPTED)
+def check_session(background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> SessionStatusResponse:
+    """Schedule the session check in the background; poll GET /session for the result."""
+    service = ScrapeService(db)
+    session = service.get_session_record()
+    if session.status != SessionStatus.pending:
+        session = service.mark_session_pending()
+        background_tasks.add_task(_run_check_background)
+    return _to_status_response(session)

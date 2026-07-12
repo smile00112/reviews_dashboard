@@ -10,6 +10,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Text,
     UniqueConstraint,
@@ -27,7 +28,13 @@ from app.models.enums import ReviewPlatform, ReviewStatus, ScrapeMode
 
 class Review(Base):
     __tablename__ = "reviews"
-    __table_args__ = (UniqueConstraint("organization_id", "content_hash", name="uq_review_org_hash"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "content_hash", name="uq_review_org_hash"),
+        # Feature 010: list ordering + dashboard period/platform filters.
+        Index("ix_reviews_org_review_date", "organization_id", "review_date"),
+        Index("ix_reviews_org_first_seen", "organization_id", "first_seen_at"),
+        Index("ix_reviews_org_platform", "organization_id", "platform"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(

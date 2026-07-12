@@ -3,6 +3,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 from app.models.enums import SessionStatus
+from app.scraper.debug_artifacts import save_debug_artifacts
 from app.scraper.types import ScrapeResult
 from app.scraper.yandex_public import CAPTCHA_MARKERS, YandexPublicScraper
 
@@ -68,6 +69,19 @@ class YandexAuthScraper:
         except Exception:
             return SessionStatus.expired
 
+    @staticmethod
+    def _challenge_result(public: YandexPublicScraper, page) -> ScrapeResult | None:
+        """needs_manual_action result with debug artifacts when the page is a
+        captcha/bot wall (same contract as the public scraper); else None."""
+        if not public._is_access_challenge(page.content()):
+            return None
+        result = ScrapeResult()
+        result.needs_manual_action = True
+        result.error_code = "access_challenge"
+        result.error_message = "Captcha or access challenge detected"
+        result.debug_screenshot, result.debug_html = save_debug_artifacts(page, "auth-challenge")
+        return result
+
     def scrape(self, url: str, storage_state_path: str) -> ScrapeResult:
         path = Path(storage_state_path)
         if not path.exists():
@@ -92,17 +106,21 @@ class YandexAuthScraper:
                     # redirect; the reviews path is built from the resolved URL.
                     page.goto(url, wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
                     page.wait_for_timeout(2000)
-                    html = page.content()
-                    if public._is_access_challenge(html):
-                        result = ScrapeResult()
-                        result.needs_manual_action = True
-                        result.error_code = "access_challenge"
-                        result.error_message = "Captcha or access challenge detected"
-                        return result
+                    challenge = self._challenge_result(public, page)
+                    if challenge is not None:
+                        return challenge
                     if "/reviews" not in page.url:
                         page.goto(public._reviews_url(page.url), wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
                         page.wait_for_timeout(2000)
+                        # A challenge can appear only on the reviews navigation
+                        # (same checkpoint the public scraper re-checks).
+                        challenge = self._challenge_result(public, page)
+                        if challenge is not None:
+                            return challenge
                     public._open_reviews_tab(page)
+                    challenge = self._challenge_result(public, page)
+                    if challenge is not None:
+                        return challenge
                     public._scroll_reviews(page)
                     public._expand_reviews(page)
                     from app.scraper.parser import parse_reviews_from_html

@@ -77,15 +77,42 @@ def test_map_review_maps_all_fields():
     assert pr.external_review_id == "r1"
 
 
-def test_map_review_degrades_safely_on_missing_fields():
+def test_map_review_excludes_invalid_ratings():
+    """FR-010 (feature 010): sub-1 / missing ratings never reach persistence,
+    matching the Yandex parser guard."""
+    for bad_rating in (None, "abc", 0, -1):
+        assert (
+            TwogisApiScraper._map_review(
+                {"user": {}, "rating": bad_rating, "text": "x", "date_created": "", "official_answer": None}
+            )
+            is None
+        )
+
+
+def test_map_review_degrades_safely_on_missing_optional_fields():
     pr = TwogisApiScraper._map_review(
-        {"user": {}, "rating": None, "text": None, "date_created": "", "official_answer": None}
+        {"user": {}, "rating": 4, "text": None, "date_created": "", "official_answer": None}
     )
-    assert pr.rating == 0
+    assert pr is not None
+    assert pr.rating == 4
     assert pr.review_text == ""
     assert pr.review_date_text is None
     assert pr.review_date is None
     assert pr.response_text is None
+
+
+def test_fetch_reviews_skips_invalid_rating_entries(monkeypatch):
+    scraper = TwogisApiScraper()
+    payload = {
+        "reviews": [
+            {"id": "ok", "user": {"name": "A"}, "rating": 5, "text": "good", "date_created": "2026-07-01 10:00:00"},
+            {"id": "bad", "user": {"name": "B"}, "rating": 0, "text": "no rating", "date_created": "2026-07-01 11:00:00"},
+        ],
+        "meta": {},
+    }
+    monkeypatch.setattr(scraper, "_get_json", lambda url, params: (payload, None))
+    collected = scraper._fetch_reviews("123")
+    assert [r.external_review_id for r in collected] == ["ok"]
 
 
 # --- firm id resolution ----------------------------------------------------
@@ -110,6 +137,8 @@ def test_resolve_firm_id_short_link_picks_dominant_id(monkeypatch):
 
 
 def test_short_link_without_proxy_key_needs_manual_action(monkeypatch):
+    # No proxy pool AND no ScrapeOps key → short link cannot be resolved offline.
+    monkeypatch.setattr("app.scraper.twogis_api.settings.proxy_pool", "")
     monkeypatch.setattr("app.scraper.twogis_api.settings.scrapeops_api_key", "")
     result = TwogisApiScraper().scrape("https://go.2gis.com/xbrHO")
     assert result.needs_manual_action is True

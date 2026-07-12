@@ -12,13 +12,16 @@ existing scrapers unchanged, reading only ScrapeResult.organization.
 
 Usage:
     python -m scripts.scrape_metrics [--platform {yandex,2gis,both}] [--limit N]
-                                     [--only-missing] [--dry-run]
+                                     [--only-missing] [--dry-run] [--log-file PATH]
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 
 from app.models.enums import OrganizationScrapeStatus
 from app.models.organization import Organization
@@ -38,6 +41,33 @@ PLATFORMS = {
         "gis2_scrape_status", "gis2_last_successful_scrape_at",
     ),
 }
+
+
+class RunLogger:
+    """Mirror progress to stdout and, optionally, an append-only monitor file.
+
+    Every line is timestamped and flushed immediately so an operator can
+    `tail -f` the file while a long bulk run is in flight.
+    """
+
+    def __init__(self, path: Path | None) -> None:
+        self.path = path
+        self._fh = None
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._fh = path.open("a", encoding="utf-8")
+
+    def log(self, msg: str, *, stamp: bool = True) -> None:
+        print(msg)
+        if self._fh is not None:
+            line = f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} {msg}" if stamp else msg
+            self._fh.write(line + "\n")
+            self._fh.flush()
+
+    def close(self) -> None:
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
 
 
 @dataclass
@@ -108,8 +138,6 @@ def apply_result(
         summary.failed += 1
         return "failed"
 
-    from datetime import datetime, timezone
-
     setattr(org, rating_col, result.organization.rating)
     if result.organization.review_count is not None:
         setattr(org, count_col, result.organization.review_count)
@@ -129,10 +157,13 @@ def run(
     only_missing: bool,
     dry_run: bool,
     offset: int = 0,
+    logger: RunLogger | None = None,
 ) -> RunSummary:
+    logger = logger or RunLogger(None)
     summary = RunSummary()
     orgs = select_orgs(session, limit, offset)
-    for org in orgs:
+    logger.log(f"start platforms={','.join(platforms)} orgs={len(orgs)} offset={offset} dry_run={dry_run}")
+    for idx, org in enumerate(orgs, start=1):
         label = org.name or str(org.id)
         for platform in platforms:
             url_attr, rating_col = PLATFORMS[platform][0], PLATFORMS[platform][1]
@@ -140,20 +171,24 @@ def run(
             url = getattr(org, url_attr)
             if not url:
                 psummary.skipped += 1
-                print(f"  [{platform}] {label}: skip (no url)")
+                logger.log(f"  [{idx}/{len(orgs)}] [{platform}] {label}: skip (no url)")
                 continue
             if only_missing and getattr(org, rating_col) is not None:
                 psummary.skipped += 1
-                print(f"  [{platform}] {label}: skip (already has value)")
+                logger.log(f"  [{idx}/{len(orgs)}] [{platform}] {label}: skip (already has value)")
                 continue
             result = scrapers.scrape(platform, url)
             outcome = apply_result(org, platform, result, psummary)
             detail = ""
             if outcome == "updated":
-                detail = f" rating={result.organization.rating} count={result.organization.review_count}"
+                detail = (
+                    f" rating={result.organization.rating}"
+                    f" rating_count={result.organization.rating_count}"
+                    f" review_count={result.organization.review_count}"
+                )
             elif outcome in ("failed", "manual_action"):
                 detail = f" ({result.error_code or 'no rating'})"
-            print(f"  [{platform}] {label}: {outcome}{detail}")
+            logger.log(f"  [{idx}/{len(orgs)}] [{platform}] {label}: {outcome}{detail}")
         if not dry_run:
             session.commit()
     if dry_run:
@@ -161,11 +196,11 @@ def run(
     return summary
 
 
-def _print_summary(summary: RunSummary, dry_run: bool) -> None:
+def _print_summary(summary: RunSummary, dry_run: bool, logger: RunLogger) -> None:
     mode = "DRY RUN (nothing written)" if dry_run else "committed"
-    print(f"\nScrape metrics {mode}:")
+    logger.log(f"\nScrape metrics {mode}:", stamp=False)
     for platform, ps in summary.per_platform.items():
-        print(
+        logger.log(
             f"  {platform}: updated={ps.updated} failed={ps.failed} "
             f"manual_action={ps.manual_action} skipped={ps.skipped}"
         )
@@ -178,11 +213,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--offset", type=int, default=0, help="Skip the first N organizations")
     parser.add_argument("--only-missing", action="store_true", help="Skip orgs that already have the metric")
     parser.add_argument("--dry-run", action="store_true", help="Scrape and report without writing to the DB")
+    parser.add_argument(
+        "--log-file",
+        nargs="?",
+        const="__auto__",
+        default=None,
+        help="Also write timestamped progress to a monitor file. Bare flag = logs/scrape_metrics_<ts>.log",
+    )
     args = parser.parse_args(argv)
 
     platforms = ["yandex", "2gis"] if args.platform == "both" else [args.platform]
 
+    log_path: Path | None = None
+    if args.log_file == "__auto__":
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        log_path = Path("logs") / f"scrape_metrics_{ts}.log"
+    elif args.log_file:
+        log_path = Path(args.log_file)
+
     from app.core.database import SessionLocal
+
+    logger = RunLogger(log_path)
+    if log_path is not None:
+        print(f"Logging to {log_path.resolve()}", file=sys.stderr)
 
     scrapers = Scrapers()
     session = SessionLocal()
@@ -195,10 +248,12 @@ def main(argv: list[str] | None = None) -> int:
             only_missing=args.only_missing,
             dry_run=args.dry_run,
             offset=args.offset,
+            logger=logger,
         )
     finally:
         session.close()
-    _print_summary(summary, args.dry_run)
+    _print_summary(summary, args.dry_run, logger)
+    logger.close()
     return 0
 
 

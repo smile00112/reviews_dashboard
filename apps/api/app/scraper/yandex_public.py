@@ -1,24 +1,15 @@
 import random
 import re
-import time
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from app.scraper.debug_artifacts import save_debug_artifacts
+# Shared definition (feature 010, see scraper/markers.py for the no-bare-"captcha"
+# rationale); re-exported under the historical name for importers (yandex_auth, tests).
+from app.scraper.markers import BOT_MARKERS as CAPTCHA_MARKERS
 from app.scraper.parser import parse_reviews_from_html
 from app.scraper.types import ScrapeResult
-
-# Do NOT include a bare "captcha": it matches the `captchapgrd` fingerprinting
-# library URL embedded in every Yandex Maps SPA page, so a normal, fully-loaded
-# review page would false-positive as an access challenge. Use only the markers
-# that appear on genuine captcha / bot-wall pages (mirrors yandex_http.BOT_MARKERS).
-CAPTCHA_MARKERS = (
-    "showcaptcha",
-    "SmartCaptcha",
-    "Подтвердите, что запросы",
-    "Обнаружена защита от ботов",
-)
 
 
 class YandexPublicScraper:

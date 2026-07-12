@@ -1,0 +1,607 @@
+Logging to D:\_WORK_\laragon_2025\www\ReviewsDashboard\ReviewsDashboard\apps\api\logs\twogis_full.log
+start platforms=2gis orgs=602 offset=0 dry_run=False
+  [1/602] [2gis] Санкт-Петербург-04 Комендантский 62: updated rating=4.3 rating_count=605 review_count=554
+  [2/602] [2gis] Санкт-Петербург-06 ул Николая Рубцова 3: updated rating=4.5 rating_count=133 review_count=118
+  [3/602] [2gis] Санкт-Петербург-03 Карбышева 9: updated rating=4.6 rating_count=20 review_count=20
+  [4/602] [2gis] Красногорск-01 Центральный проезд 3: updated rating=4.4 rating_count=82 review_count=78
+  [5/602] [2gis] Комсомольск-на-Амуре-02 Мира 47: updated rating=3.9 rating_count=1333 review_count=1263
+  [6/602] [2gis] Лабытнанги-01 Школьная 25: updated rating=5 rating_count=5 review_count=4
+  [7/602] [2gis] Ишим-01 Маркса 29: updated rating=4.5 rating_count=237 review_count=204
+  [8/602] [2gis] Ярославль-03 Урицкого 65: updated rating=4.9 rating_count=22 review_count=21
+  [9/602] [2gis] Лангепас-01 Комсомольская 10А/2: updated rating=4.9 rating_count=31 review_count=31
+  [10/602] [2gis] Серов-01 Ленина 142: updated rating=4.7 rating_count=93 review_count=89
+  [11/602] [2gis] Ачинск-01 мкр 1 37а: updated rating=4.7 rating_count=303 review_count=294
+  [12/602] [2gis] Чехов-01 Береговая улица, 21, корп. 1: updated rating=5 rating_count=4 review_count=4
+  [13/602] [2gis] Комсомольск-на-Амуре-04 ул Вокзальная 91: updated rating=4.5 rating_count=76 review_count=76
+  [14/602] [2gis] Соликамск-01 Матросова 63: updated rating=1 rating_count=1 review_count=1
+  [15/602] [2gis] Пермь-05 Революции 2а: updated rating=4.8 rating_count=4 review_count=4
+  [16/602] [2gis] Екатеринбург-09 Крауля 69: updated rating=3.9 rating_count=889 review_count=849
+  [17/602] [2gis] Сургут-08 Набережный 12/2: updated rating=3.9 rating_count=1341 review_count=1304
+  [18/602] [2gis] Пермь-09 Парковый 33: updated rating=4.1 rating_count=20 review_count=20
+  [19/602] [2gis] Чита-01 Бутина 42а: updated rating=3.8 rating_count=1310 review_count=1239
+  [20/602] [2gis] Сургут-02 30 лет Победы 41: updated rating=4.2 rating_count=668 review_count=619
+  [21/602] [2gis] Ханты-Мансийск-02 Самаровская 1/4: updated rating=2 rating_count=1 review_count=1
+  [22/602] [2gis] Москва-01 Волочаевская 12А/1: skip (no url)
+  [23/602] [2gis] Заокский-01 Поленова 37: updated rating=5 rating_count=17 review_count=16
+  [24/602] [2gis] Москва-01 Волочаевская 12А/1: updated rating=4.7 rating_count=125 review_count=107
+  [25/602] [2gis] Пермь-09 Парковый 33: updated rating=4.5 rating_count=415 review_count=388
+  [26/602] [2gis] Калининград-01 Красная 262: updated rating=4 rating_count=498 review_count=467
+  [27/602] [2gis] Хабаровск-01 Суворова 25/1: updated rating=4.8 rating_count=35 review_count=33
+  [28/602] [2gis] Чебоксары-01 ул. Пролетарская 21/22: updated rating=4.7 rating_count=60 review_count=59
+  [29/602] [2gis] Омск-01 Культуры 7: updated rating=4.1 rating_count=98 review_count=96
+  [30/602] [2gis] Омск-02, ул. 70 лет Октября, 24/1: updated rating=5 rating_count=4 review_count=4
+  [31/602] [2gis] Нижневартовск-05 Дзержинского 9/1: updated rating=3.9 rating_count=1057 review_count=984
+  [32/602] [2gis] Санкт-Петербург Кудрово, пр-кт Строителей, д.16: skip (no url)
+  [33/602] [2gis] Комсомольск-на-Амуре-04 ул Вокзальная 91: updated rating=5 rating_count=3 review_count=2
+  [34/602] [2gis] Екатеринбург-11 Челюскинцев 19: updated rating=4.5 rating_count=43 review_count=42
+  [35/602] [2gis] Барнаул-02 Ленина 22: updated rating=4.9 rating_count=42 review_count=41
+  [36/602] [2gis] Новокузнецк-03 Ленина 35: updated rating=5 rating_count=1 review_count=1
+  [37/602] [2gis] Краснодар-13 Восточно-Кругликовская 24: updated rating=4.8 rating_count=27 review_count=26
+  [38/602] [2gis] Чебоксары-01 ул. Пролетарская 21/22: updated rating=4.5 rating_count=148 review_count=143
+  [39/602] [2gis] Нефтеюганск-01 мкр 16а 62: updated rating=4.7 rating_count=22 review_count=21
+  [40/602] [2gis] Пермь-08 Мира 51: updated rating=3.4 rating_count=30 review_count=29
+  [41/602] [2gis] Норильск-02 Советская 5: updated rating=3.9 rating_count=1223 review_count=1190
+  [42/602] [2gis] Калининград , Судостроительная 6/1: updated rating=5 rating_count=10 review_count=10
+  [43/602] [2gis] Благовещенск-01 ул 50 лет Октября, 24/1: updated rating=1 rating_count=2 review_count=2
+  [44/602] [2gis] Когалым-01 Мира 2: updated rating=4.6 rating_count=39 review_count=38
+  [45/602] [2gis] Хабаровск-05 Карла Маркса 200/1: updated rating=4 rating_count=98 review_count=96
+  [46/602] [2gis] Мегион-01 Заречная 15/3: updated rating=4.8 rating_count=19 review_count=19
+  [47/602] [2gis] Братск-02 ТЦ Русич Вокзальная 2в: updated rating=4.3 rating_count=408 review_count=387
+  [48/602] [2gis] Чебоксары-01 ул. Пролетарская 21/22: updated rating=4.9 rating_count=33 review_count=32
+  [49/602] [2gis] Жуковский Лацкова 2к4: skip (no url)
+  [50/602] [2gis] Омск-02, ул. 70 лет Октября, 24/1: updated rating=4.2 rating_count=364 review_count=341
+  [51/602] [2gis] Ноябрьск-02 Советская 81/2: updated rating=3.8 rating_count=930 review_count=882
+  [52/602] [2gis] Ижевск-03 Молодежная 107в: skip (no url)
+  [53/602] [2gis] Ангарск-01 22 микрорайон 42: updated rating=4.3 rating_count=893 review_count=825
+  [54/602] [2gis] Сочи-01 Советская д. 40 пом 1-4: failed (no rating)
+  [55/602] [2gis] Лянтор-01 Кингисеппа 9: updated rating=4.6 rating_count=39 review_count=33
+  [56/602] [2gis] Анапа-01 Лермонтова 118: updated rating=4.4 rating_count=458 review_count=404
+  [57/602] [2gis] Ялуторовск-01 Ленина 17: updated rating=4.7 rating_count=45 review_count=38
+  [58/602] [2gis] Белоярский-01 Мира 1: updated rating=5 rating_count=1 review_count=1
+  [59/602] [2gis] Нижний Новгород-01 Кораблестроителей 3: updated rating=4.5 rating_count=41 review_count=40
+  [60/602] [2gis] Нижнекамск-02 Гагарина 24: updated rating=4 rating_count=384 review_count=360
+  [61/602] [2gis] Радужный-01 мкр 7 12: failed (no rating)
+  [62/602] [2gis] Москва-14 Дмитрия Ульянова 28: updated rating=5 rating_count=106 review_count=101
+  [63/602] [2gis] Нижний Новгород-02 ул. Горького 148: skip (no url)
+  [64/602] [2gis] Северск-02 Коммунистический 50: updated rating=4 rating_count=79 review_count=76
+  [65/602] [2gis] Ярославль-05 Ньютона 28: updated rating=4.7 rating_count=36 review_count=36
+  [66/602] [2gis] Краснодар-11 Яна Полуяна 39: updated rating=4.1 rating_count=400 review_count=382
+  [67/602] [2gis] Пермь-12 ул. Юрша 84: updated rating=4.6 rating_count=46 review_count=43
+  [68/602] [2gis] Балашиха-01 мкн Авиаторов, бульвар Нестерова 9: updated rating=3.7 rating_count=3 review_count=3
+  [69/602] [2gis] Сочи-04 Адлер Ленина 73: updated rating=4.3 rating_count=123 review_count=122
+  [70/602] [2gis] Дубна Тверская 45А: updated rating=3.3 rating_count=13 review_count=13
+  [71/602] [2gis] Тюмень-13 Беляева 29/1: updated rating=4.7 rating_count=26 review_count=23
+  [72/602] [2gis] Тюмень-07 Горького 55: updated rating=4.4 rating_count=840 review_count=753
+  [73/602] [2gis] Норильск-01 Талнахская 74: updated rating=4.5 rating_count=158 review_count=152
+  [74/602] [2gis] Москва-18 Сущевский Вал 49: updated rating=5 rating_count=7 review_count=5
+  [75/602] [2gis] Екатеринбург-10 Восточная 98: updated rating=3.9 rating_count=1210 review_count=1164
+  [76/602] [2gis] Туапсе-01 Розы Люксембург 3: skip (no url)
+  [77/602] [2gis] Тюмень-13 Беляева 29/1: updated rating=4.1 rating_count=893 review_count=824
+  [78/602] [2gis] Пыть-Ях-01 мкр 2 15: skip (no url)
+  [79/602] [2gis] Кемерово-04 Строителей 42: updated rating=3.4 rating_count=69 review_count=64
+  [80/602] [2gis] Находка-03 Малиновского 21а: updated rating=4.6 rating_count=63 review_count=57
+  [81/602] [2gis] Томск-06 пер. 1905 года 11: updated rating=3.4 rating_count=41 review_count=37
+  [82/602] [2gis] Норильск-02 Советская 5: updated rating=4.1 rating_count=91 review_count=89
+  [83/602] [2gis] Ухта-01 30 лет Октября 12: updated rating=4.6 rating_count=30 review_count=29
+  [84/602] [2gis] Тюмень-18 Монтажников 47: updated rating=4.5 rating_count=2 review_count=67
+  [85/602] [2gis] Ханты-Мансийск-02 Самаровская 1/4: updated rating=4.6 rating_count=37 review_count=36
+  [86/602] [2gis] Альметьевск-01 Ленина 101: updated rating=4.1 rating_count=575 review_count=543
+  [87/602] [2gis] Миасс-02 Автозаводцев 32/Б: updated rating=4.3 rating_count=62 review_count=57
+  [88/602] [2gis] Альметьевск-01 Ленина 101: updated rating=4.7 rating_count=213 review_count=204
+  [89/602] [2gis] Стрежевой-01 мкр 1 176: updated rating=4.1 rating_count=828 review_count=775
+  [90/602] [2gis] Находка-01 пр. Находкинский 102: updated rating=3.8 rating_count=528 review_count=477
+  [91/602] [2gis] Хабаровск-06 Амурский бульвар 62: updated rating=3.9 rating_count=1213 review_count=1148
+  [92/602] [2gis] Ярославль-01 Большая Федоровская 29: updated rating=4.2 rating_count=32 review_count=31
+  [93/602] [2gis] Ухта-01 30 лет Октября 12: updated rating=4.3 rating_count=95 review_count=85
+  [94/602] [2gis] Москва-13 Дмитровское шоссе 70: updated rating=4.9 rating_count=10 review_count=10
+  [95/602] [2gis] Омск-02, ул. 70 лет Октября, 24/1: updated rating=4.4 rating_count=44 review_count=39
+  [96/602] [2gis] Чебоксары-02 пр-т Максима Горького 38/2: updated rating=4.4 rating_count=28 review_count=26
+  [97/602] [2gis] Чусовой-01 50 лет ВЛКСМ 4: failed (no rating)
+  [98/602] [2gis] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: updated rating=4 rating_count=249 review_count=221
+  [99/602] [2gis] Москва-04 Сходненская 25: updated rating=5 rating_count=5 review_count=5
+  [100/602] [2gis] Ангарск-01 22 микрорайон 42: updated rating=1.9 rating_count=19 review_count=14
+  [101/602] [2gis] Муравленко-01 Муравленко 12 Б: updated rating=4.7 rating_count=58 review_count=55
+  [102/602] [2gis] Хабаровск-05 Карла Маркса 200/1: updated rating=3.2 rating_count=98 review_count=96
+  [103/602] [2gis] Мегион-01 Заречная 15/3: updated rating=4.7 rating_count=40 review_count=39
+  [104/602] [2gis] Хабаровск-07 Тихоокеанская 182 б: updated rating=3.9 rating_count=306 review_count=279
+  [105/602] [2gis] Чусовой-01 50 лет ВЛКСМ 4: skip (no url)
+  [106/602] [2gis] Павловский Посад Железнодорожный проезд, 5: updated rating=5 rating_count=1 review_count=1
+  [107/602] [2gis] Тюмень-18 Монтажников 47: updated rating=4.2 rating_count=1019 review_count=926
+  [108/602] [2gis] Барнаул-01 Ленина 113: updated rating=4.2 rating_count=128 review_count=124
+  [109/602] [2gis] Барнаул-05 ул. Юрина, 202 (НОВАЯ): updated rating=4.7 rating_count=85 review_count=79
+  [110/602] [2gis] Тобольск-06 8-й микрорайон 8Б: updated rating=4.1 rating_count=83 review_count=75
+  [111/602] [2gis] Кемерово-05 Радищева 4: updated rating=4.6 rating_count=58 review_count=53
+  [112/602] [2gis] Рыбинск 02 проспект Мира, д. 23, помещение 5а: skip (no url)
+  [113/602] [2gis] Санкт-Петербург-05 ул Парфёновская 9 к1: updated rating=4.3 rating_count=243 review_count=221
+  [114/602] [2gis] Нефтеюганск-01 мкр 16а 62: updated rating=4.7 rating_count=68 review_count=63
+  [115/602] [2gis] Майкоп-01 Чкалова 71: updated rating=4.7 rating_count=165 review_count=139
+  [116/602] [2gis] Москва-07 Проезд Грайвороновский 2-й 44к3: updated rating=4.5 rating_count=21 review_count=21
+  [117/602] [2gis] Калининград-01 Красная 262: updated rating=4.4 rating_count=40 review_count=38
+  [118/602] [2gis] Заводоуковск-01 Первомайская 9Б: updated rating=4.6 rating_count=238 review_count=188
+  [119/602] [2gis] Салехард-01 Свердлова 41: updated rating=4.4 rating_count=26 review_count=25
+  [120/602] [2gis] Серпухов Ворошилова 68а: updated rating=4.1 rating_count=2 review_count=1
+  [121/602] [2gis] Пермь-07 Солдатова 28: updated rating=4.7 rating_count=31 review_count=30
+  [122/602] [2gis] Долгопрудный: updated rating=3.5 rating_count=7 review_count=6
+  [123/602] [2gis] Комсомольск-на-Амуре-03 Лазо 7: updated rating=3.4 rating_count=9 review_count=6
+  [124/602] [2gis] Нижневартовск-06 Мира 93: updated rating=5 rating_count=1 review_count=1
+  [125/602] [2gis] Москва-10 Братиславская 20: updated rating=4.7 rating_count=83 review_count=78
+  [126/602] [2gis] Екатеринбург Челюскинцев: updated rating=4.9 rating_count=17 review_count=17
+  [127/602] [2gis] Соликамск-01 Матросова 63: updated rating=4.6 rating_count=95 review_count=70
+  [128/602] [2gis] Находка-03 Малиновского 21а: updated rating=4.6 rating_count=18 review_count=17
+  [129/602] [2gis] Красноярск-03 Юности 39: updated rating=4.3 rating_count=98 review_count=87
+  [130/602] [2gis] Воронеж-07 Артамонова 38Д к2: updated rating=4.7 rating_count=19 review_count=17
+  [131/602] [2gis] Лабытнанги-01 Школьная 25: updated rating=4.3 rating_count=42 review_count=40
+  [132/602] [2gis] Омск-05 ул. Маяковского,85: updated rating=4.8 rating_count=25 review_count=21
+  [133/602] [2gis] Барнаул-01 Ленина 113: updated rating=4.6 rating_count=58 review_count=55
+  [134/602] [2gis] Омск-01 Культуры 7: updated rating=4 rating_count=55 review_count=50
+  [135/602] [2gis] Пермь-08 Мира 51: updated rating=4.2 rating_count=499 review_count=462
+  [136/602] [2gis] Нефтеюганск-02 Ленина 33: updated rating=4.4 rating_count=258 review_count=245
+  [137/602] [2gis] Новокузнецк-06 Кирова 21: updated rating=4.2 rating_count=51 review_count=49
+  [138/602] [2gis] Пермь-07 Солдатова 28: updated rating=4.5 rating_count=30 review_count=28
+  [139/602] [2gis] Чита-01 Бутина 42а: updated rating=4.1 rating_count=53 review_count=51
+  [140/602] [2gis] Хабаровск-07 Тихоокеанская 182 б: updated rating=5 rating_count=1 review_count=1
+  [141/602] [2gis] Кемерово-10 проспект Шахтеров 58А: updated rating=3.6 rating_count=88 review_count=84
+  [142/602] [2gis] Северск-02 Коммунистический 50: updated rating=4.9 rating_count=67 review_count=65
+  [143/602] [2gis] Тюмень-22 30 лет Победы 132-1: updated rating=3.9 rating_count=3001 review_count=2907
+  [144/602] [2gis] Пыть-Ях-01 мкр 2 15: updated rating=5 rating_count=3 review_count=3
+  [145/602] [2gis] Хабаровск-02 Ленинградская 28/9: skip (no url)
+  [146/602] [2gis] Пермь-09 Парковый 33: updated rating=5 rating_count=10 review_count=7
+  [147/602] [2gis] Екатеринбург-21 Победы 102: updated rating=4.9 rating_count=17 review_count=17
+  [148/602] [2gis] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: updated rating=4.9 rating_count=104 review_count=103
+  [149/602] [2gis] Находка-01 пр. Находкинский 102: updated rating=4.5 rating_count=40 review_count=38
+  [150/602] [2gis] Пермь-04 Рыбалко 113: updated rating=4.2 rating_count=13 review_count=13
+  [151/602] [2gis] Реутов-01 Ленина 15: updated rating=4.2 rating_count=102 review_count=83
+  [152/602] [2gis] Ростов-на-Дону-10 бульвар Комарова 20/1: updated rating=4 rating_count=4 review_count=4
+  [153/602] [2gis] Югорск-01 Ленина 14: failed (no rating)
+  [154/602] [2gis] Барнаул-03 ул. Балтийская, 103: updated rating=4.1 rating_count=1613 review_count=1502
+  [155/602] [2gis] Тарко-Сале ул. Губкина, 20: updated rating=5 rating_count=5 review_count=5
+  [156/602] [2gis] Новокузнецк-07 Разведчиков 52: updated rating=4.6 rating_count=34 review_count=31
+  [157/602] [2gis] Новокузнецк-03 Ленина 35: updated rating=4.8 rating_count=32 review_count=32
+  [158/602] [2gis] Смоленск-01 Октябрьской Революци 17: failed (no rating)
+  [159/602] [2gis] Томск-06 пер. 1905 года 11: updated rating=3.9 rating_count=367 review_count=339
+  [160/602] [2gis] Омск-01 Культуры 7: updated rating=4.3 rating_count=525 review_count=492
+  [161/602] [2gis] Новокузнецк-06 Кирова 21: updated rating=4.7 rating_count=16 review_count=15
+  [162/602] [2gis] Новый Уренгой-03 Советский 5/3: updated rating=4.7 rating_count=19 review_count=18
+  [163/602] [2gis] Усолье-Сибирское Ленинский 72: updated rating=5 rating_count=1 review_count=1
+  [164/602] [2gis] Кемерово-05 Радищева 4: updated rating=4 rating_count=868 review_count=840
+  [165/602] [2gis] Тюмень-25 Щербакова 136: updated rating=4.1 rating_count=170 review_count=132
+  [166/602] [2gis] Прокопьевск-01 Гагарина 26: updated rating=4.2 rating_count=348 review_count=313
+  [167/602] [2gis] Краснодар-08 Метальникова 3: updated rating=4.8 rating_count=18 review_count=18
+  [168/602] [2gis] Люберцы-01 Юности 3: updated rating=5 rating_count=25 review_count=25
+  [169/602] [2gis] Омск-04 ул. Герцена, 12: updated rating=4.3 rating_count=500 review_count=465
+  [170/602] [2gis] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: failed (no rating)
+  [171/602] [2gis] Нижний Новгород-01 Кораблестроителей 3: failed (no rating)
+  [172/602] [2gis] Рыбинск 02 проспект Мира, д. 23, помещение 5а: failed (no rating)
+  [173/602] [2gis] Тюмень-12 Артамонова 13: updated rating=4 rating_count=1236 review_count=1127
+  [174/602] [2gis] Находка-03 Малиновского 21а: updated rating=4.4 rating_count=157 review_count=152
+  [175/602] [2gis] Пермь-05 Революции 2а: updated rating=4.2 rating_count=471 review_count=451
+  [176/602] [2gis] Екатеринбург-13 Титова 12: updated rating=4.1 rating_count=629 review_count=575
+  [177/602] [2gis] Москва-12 Богданова 2, корпус 1: skip (no url)
+  [178/602] [2gis] Норильск-01 Талнахская 74: updated rating=3.9 rating_count=1648 review_count=1594
+  [179/602] [2gis] Пермь-11 Докучаева 42: updated rating=4.3 rating_count=324 review_count=301
+  [180/602] [2gis] Барнаул-03 ул. Балтийская, 103: updated rating=4.1 rating_count=192 review_count=177
+  [181/602] [2gis] Красноярск-01 Молоково 1 копус 3: updated rating=4.4 rating_count=56 review_count=51
+  [182/602] [2gis] Прокопьевск-01 Гагарина 26: updated rating=4.9 rating_count=69 review_count=64
+  [183/602] [2gis] Надым-02 Игоря Шаповалова 8/1: updated rating=4.6 rating_count=86 review_count=71
+  [184/602] [2gis] Ростов-на-Дону-06 Металлургическая 117/62: updated rating=4.6 rating_count=303 review_count=287
+  [185/602] [2gis] Барнаул-03 ул. Балтийская, 103: updated rating=4.8 rating_count=60 review_count=53
+  [186/602] [2gis] Ярославль-04 Машиностроителей 30/18: failed (no rating)
+  [187/602] [2gis] Витязево-01 Овражная 54: skip (no url)
+  [188/602] [2gis] Москва-15 Фестивальная 41 к1: updated rating=4.3 rating_count=14 review_count=10
+  [189/602] [2gis] Норильск-01 Талнахская 74: updated rating=4.5 rating_count=80 review_count=78
+  [190/602] [2gis] Пермь-11 Докучаева 42: updated rating=5 rating_count=3 review_count=3
+  [191/602] [2gis] Белоярский-01 Мира 1: updated rating=4.6 rating_count=16 review_count=16
+  [192/602] [2gis] Когалым-01 Мира 2: updated rating=4.9 rating_count=22 review_count=20
+  [193/602] [2gis] Ростов-на-Дону-06 Металлургическая 117/62: failed (no rating)
+  [194/602] [2gis] Пермь-04 Рыбалко 113: updated rating=3.5 rating_count=12 review_count=8
+  [195/602] [2gis] Москва-13 Дмитровское шоссе 70: updated rating=4 rating_count=49 review_count=49
+  [196/602] [2gis] Уссурийск-01 Некрасова 53: updated rating=3.5 rating_count=1110 review_count=1040
+  [197/602] [2gis] Белгород-01 б-р Народный 43: updated rating=4.8 rating_count=282 review_count=268
+  [198/602] [2gis] Новокузнецк-07 Разведчиков 52: updated rating=4.2 rating_count=534 review_count=511
+  [199/602] [2gis] Благовещенск-01 ул 50 лет Октября, 24/1: updated rating=3.9 rating_count=118 review_count=111
+  [200/602] [2gis] Каменск-Уральский-01 Победы 87а: updated rating=5 rating_count=1 review_count=1
+  [201/602] [2gis] Ярославль-04 Машиностроителей 30/18: updated rating=4.4 rating_count=157 review_count=153
+  [202/602] [2gis] Муравленко-01 Муравленко 12 Б: updated rating=4.9 rating_count=57 review_count=57
+  [203/602] [2gis] Ханты-Мансийск-01 Мира 52: updated rating=4.4 rating_count=362 review_count=318
+  [204/602] [2gis] Сургут-10 Тюменский тракт 2: updated rating=4.6 rating_count=79 review_count=75
+  [205/602] [2gis] Екатеринбург-09 Крауля 69: updated rating=4.3 rating_count=42 review_count=41
+  [206/602] [2gis] Коломна улица Фрунзе, 46Б: updated rating=5 rating_count=17 review_count=17
+  [207/602] [2gis] Тюмень-04 Ямская 102: failed (no rating)
+  [208/602] [2gis] Новороссийск-02 ул. Видова, 210 Д: skip (no url)
+  [209/602] [2gis] Комсомольск-на-Амуре-02 Мира 47: failed (no rating)
+  [210/602] [2gis] Ярославль-03 Урицкого 65: updated rating=4.8 rating_count=32 review_count=31
+  [211/602] [2gis] Майкоп-01 Чкалова 71: updated rating=5 rating_count=1 review_count=1
+  [212/602] [2gis] Салехард-01 Свердлова 41: failed (no rating)
+  [213/602] [2gis] Уссурийск-01 Некрасова 53: updated rating=4.2 rating_count=175 review_count=166
+  [214/602] [2gis] Ростов-на-Дону-10 бульвар Комарова 20/1: updated rating=4.8 rating_count=1 review_count=1
+  [215/602] [2gis] Люберцы-01 Юности 3: updated rating=4.1 rating_count=128 review_count=120
+  [216/602] [2gis] Новый Уренгой-03 Советский 5/3: updated rating=4.4 rating_count=87 review_count=85
+  [217/602] [2gis] Екатеринбург-13 Титова 12: updated rating=5 rating_count=8 review_count=8
+  [218/602] [2gis] Миасс-02 Автозаводцев 32/Б: updated rating=4 rating_count=529 review_count=484
+  [219/602] [2gis] Ярославль-01 Большая Федоровская 29: updated rating=4.6 rating_count=163 review_count=137
+  [220/602] [2gis] Ханты-Мансийск-01 Мира 52: failed (no rating)
+  [221/602] [2gis] Тюмень-03 Газовиков 61: failed (no rating)
+  [222/602] [2gis] Чебаркуль-01 9 мая 29: updated rating=2.6 rating_count=28 review_count=23
+  [223/602] [2gis] Усинск-01 60 лет Октября 5: failed (no rating)
+  [224/602] [2gis] Белгород-02 Бульвар юности 5б: updated rating=4.8 rating_count=188 review_count=179
+  [225/602] [2gis] Королев-01 проезд Циолковского, 5: updated rating=4.8 rating_count=48 review_count=45
+  [226/602] [2gis] Красноярск-01 Молоково 1 копус 3: updated rating=4.2 rating_count=1500 review_count=1445
+  [227/602] [2gis] Стрежевой-01 мкр 1 176: updated rating=4.7 rating_count=22 review_count=22
+  [228/602] [2gis] Сыктывкар-04 Первомайская 85/2: updated rating=4.6 rating_count=54 review_count=54
+  [229/602] [2gis] Егорьевск, Касимовское шоссе, 9: updated rating=5 rating_count=87 review_count=87
+  [230/602] [2gis] Ангарск-01 22 микрорайон 42: updated rating=3.7 rating_count=42 review_count=39
+  [231/602] [2gis] Надым-02 Игоря Шаповалова 8/1: updated rating=4.8 rating_count=14 review_count=14
+  [232/602] [2gis] Ялуторовск-01 Ленина 17: updated rating=4.8 rating_count=17 review_count=16
+  [233/602] [2gis] Туапсе-01 Розы Люксембург 3: updated rating=4.6 rating_count=64 review_count=60
+  [234/602] [2gis] Тюмень-23 Обдорская 1к2 суши: updated rating=4.6 rating_count=22 review_count=18
+  [235/602] [2gis] Екатеринбург-10 Восточная 98: updated rating=2.7 rating_count=10 review_count=10
+  [236/602] [2gis] Новороссийск-01 Бориса Пупко 1: updated rating=4.4 rating_count=512 review_count=473
+  [237/602] [2gis] Новый Уренгой-02 Оптимистов 4/1: updated rating=4.5 rating_count=33 review_count=32
+  [238/602] [2gis] Сочи-01 Советская д. 40 пом 1-4: updated rating=4.1 rating_count=17 review_count=14
+  [239/602] [2gis] Нижневартовск-06 Мира 93: updated rating=4 rating_count=828 review_count=750
+  [240/602] [2gis] Нижнекамск-02 Гагарина 24: updated rating=3.6 rating_count=3 review_count=2
+  [241/602] [2gis] Тюмень Лесопарковая 1 к2: skip (no url)
+  [242/602] [2gis] Киров-01 Челюскинцев д.7 пом.1004: failed (no rating)
+  [243/602] [2gis] Ухта-01 30 лет Октября 12: updated rating=4.2 rating_count=11 review_count=10
+  [244/602] [2gis] Томск-02 Учебная 20: updated rating=4.2 rating_count=352 review_count=297
+  [245/602] [2gis] Хабаровск-05 Карла Маркса 200/1: updated rating=3.8 rating_count=669 review_count=634
+  [246/602] [2gis] Междуреченск-01 Коммунистический 8: updated rating=4.8 rating_count=10 review_count=9
+  [247/602] [2gis] Москва Сущевский вал 49: updated rating=5 rating_count=6 review_count=6
+  [248/602] [2gis] Пермь-12 ул. Юрша 84: failed (no rating)
+  [249/602] [2gis] Екатеринбург-11 Челюскинцев 19: updated rating=4.7 rating_count=285 review_count=265
+  [250/602] [2gis] Хабаровск-06 Амурский бульвар 62: skip (no url)
+  [251/602] [2gis] Уссурийск-01 Некрасова 53: updated rating=4 rating_count=184 review_count=175
+  [252/602] [2gis] Нижний Новгород-02 ул. Горького 148: skip (no url)
+  [253/602] [2gis] Барнаул-05 ул. Юрина, 202 (НОВАЯ): updated rating=4.1 rating_count=333 review_count=296
+  [254/602] [2gis] Хабаровск-07 Тихоокеанская 182 б: updated rating=1 rating_count=1 review_count=1
+  [255/602] [2gis] Москва-14 Дмитрия Ульянова 28: updated rating=5 rating_count=23 review_count=23
+  [256/602] [2gis] Воскресенск ул. Железнодорожная, 18б: updated rating=4.8 rating_count=9 review_count=9
+  [257/602] [2gis] Лангепас-01 Комсомольская 10А/2: updated rating=4.5 rating_count=43 review_count=42
+  [258/602] [2gis] Ишим-01 Маркса 29: skip (no url)
+  [259/602] [2gis] Стрежевой-01 мкр 1 176: updated rating=4.6 rating_count=32 review_count=32
+  [260/602] [2gis] Одинцово-01 Можайское шоссе 71Б: updated rating=5 rating_count=5 review_count=5
+  [261/602] [2gis] Соликамск-01 Матросова 63: updated rating=4.7 rating_count=16 review_count=16
+  [262/602] [2gis] Краснодар-09 Стасова 186: updated rating=4.1 rating_count=452 review_count=429
+  [263/602] [2gis] Пермь-11 Докучаева 42: updated rating=4 rating_count=205 review_count=197
+  [264/602] [2gis] Сочи-04 Адлер Ленина 73: updated rating=4.1 rating_count=828 review_count=775
+  [265/602] [2gis] Хабаровск-02 Ленинградская 28/9: skip (no url)
+  [266/602] [2gis] Новый Уренгой-02 Оптимистов 4/1: updated rating=4.7 rating_count=17 review_count=17
+  [267/602] [2gis] Жуковский  Лацкова, 2, корп. 4: skip (no url)
+  [268/602] [2gis] Ялуторовск-01 Ленина 17: updated rating=4.7 rating_count=276 review_count=238
+  [269/602] [2gis] Урай-01 мкр 2 61: updated rating=4.5 rating_count=3 review_count=2
+  [270/602] [2gis] Ярославль-01 Большая Федоровская 29: updated rating=4.5 rating_count=34 review_count=33
+  [271/602] [2gis] Северск-02 Коммунистический 50: updated rating=4.1 rating_count=285 review_count=269
+  [272/602] [2gis] Верхняя Пышма-01 Успенский 48: updated rating=4.4 rating_count=38 review_count=33
+  [273/602] [2gis] Нижнекамск-02 Гагарина 24: updated rating=4.3 rating_count=61 review_count=57
+  [274/602] [2gis] Губкинский-01 мкр 12 39: skip (no url)
+  [275/602] [2gis] Кемерово-10 проспект Шахтеров 58А: updated rating=4.1 rating_count=747 review_count=694
+  [276/602] [2gis] Москва-04 Сходненская 25: updated rating=4.7 rating_count=85 review_count=78
+  [277/602] [2gis] Серов-01 Ленина 142: failed (no rating)
+  [278/602] [2gis] Чебоксары-01 ул. Пролетарская 21/22: failed (no rating)
+  [279/602] [2gis] Красноярск-11 Имени газеты КР 135: updated rating=3.9 rating_count=99 review_count=92
+  [280/602] [2gis] Ноябрьск-02 Советская 81/2: updated rating=3.6 rating_count=168 review_count=155
+  [281/602] [2gis] Кемерово-10 проспект Шахтеров 58А: updated rating=4.4 rating_count=13 review_count=12
+  [282/602] [2gis] Нижний Новгород-03 Комсомольская 9: updated rating=4.5 rating_count=69 review_count=67
+  [283/602] [2gis] Нижнекамск-02 Гагарина 24: updated rating=4.6 rating_count=62 review_count=61
+  [284/602] [2gis] Туапсе-01 Розы Люксембург 3: skip (no url)
+  [285/602] [2gis] Омск-01 Культуры 7: updated rating=4.4 rating_count=22 review_count=18
+  [286/602] [2gis] Санкт-Петербург-04 Комендантский 62: skip (no url)
+  [287/602] [2gis] Краснодар-13 Восточно-Кругликовская 24: updated rating=4.7 rating_count=57 review_count=56
+  [288/602] [2gis] Иркутск-03 Волжская 33: updated rating=3.2 rating_count=14 review_count=13
+  [289/602] [2gis] Барнаул-02 Ленина 22: updated rating=4.5 rating_count=55 review_count=55
+  [290/602] [2gis] Екатеринбург-21 Победы 102: updated rating=4.1 rating_count=27 review_count=27
+  [291/602] [2gis] Нижнекамск-02 Гагарина 24: skip (no url)
+  [292/602] [2gis] Комсомольск-на-Амуре-03 Лазо 7: updated rating=3.1 rating_count=7 review_count=7
+  [293/602] [2gis] Каменск-Уральский-01 Победы 87а: updated rating=4.5 rating_count=385 review_count=370
+  [294/602] [2gis] Нижний Новгород-01 Кораблестроителей 3: updated rating=4.3 rating_count=225 review_count=207
+  [295/602] [2gis] Краснодар-09 Стасова 186: updated rating=4.3 rating_count=88 review_count=83
+  [296/602] [2gis] Омск-05 ул. Маяковского,85: skip (no url)
+  [297/602] [2gis] Томск-06 пер. 1905 года 11: updated rating=4.2 rating_count=8 review_count=6
+  [298/602] [2gis] Томск-04 Иркутский 32: updated rating=4.5 rating_count=85 review_count=77
+  [299/602] [2gis] Пермь-09 Парковый 33: updated rating=4.2 rating_count=50 review_count=47
+  [300/602] [2gis] Ханты-Мансийск-02 Самаровская 1/4: updated rating=4.5 rating_count=36 review_count=34
+  [301/602] [2gis] Томск-03 79 Гвардейской дивизии 24: updated rating=3.7 rating_count=550 review_count=504
+  [302/602] [2gis] Тюмень Червишевский тракт: skip (no url)
+  [303/602] [2gis] Зеленоград-01 Новокрюковская 10: updated rating=4.5 rating_count=159 review_count=142
+  [304/602] [2gis] Курск-03 Бойцов 9 дивизии 185а: updated rating=5 rating_count=8 review_count=6
+  [305/602] [2gis] Екатеринбург-13 Титова 12: updated rating=4.6 rating_count=70 review_count=70
+  [306/602] [2gis] Химки-01 Юбилейный 70А: updated rating=4.7 rating_count=94 review_count=88
+  [307/602] [2gis] Ижевск-03 Молодежная 107в: skip (no url)
+  [308/602] [2gis] Нижний Новгород-03 Комсомольская 9: updated rating=4.5 rating_count=81 review_count=79
+  [309/602] [2gis] Нягань-01 4 мкр 15 к2: updated rating=4.7 rating_count=14 review_count=14
+  [310/602] [2gis] Березники-01 Мира 83: updated rating=4.4 rating_count=141 review_count=137
+  [311/602] [2gis] Барнаул-05 ул. Юрина, 202 (НОВАЯ): updated rating=3.2 rating_count=72 review_count=62
+  [312/602] [2gis] Югорск-01 Ленина 14: updated rating=4.8 rating_count=56 review_count=44
+  [313/602] [2gis] Новокузнецк-07 Разведчиков 52: updated rating=4.9 rating_count=32 review_count=31
+  [314/602] [2gis] Хабаровск-02 Ленинградская 28/9: updated rating=3.9 rating_count=1173 review_count=1121
+  [315/602] [2gis] Череповец, проспект Победы 144: skip (no url)
+  [316/602] [2gis] Березники-01 Мира 83: updated rating=5 rating_count=18 review_count=18
+  [317/602] [2gis] Ярославль-05 Ньютона 28: failed (no rating)
+  [318/602] [2gis] Новокузнецк-08 Новоселов 23А: failed (no rating)
+  [319/602] [2gis] Новокузнецк-06 Кирова 21: updated rating=3.8 rating_count=1279 review_count=1227
+  [320/602] [2gis] Новороссийск-01 Бориса Пупко 1: updated rating=2.1 rating_count=21 review_count=20
+  [321/602] [2gis] Витязево-01 Овражная 54: updated rating=4.9 rating_count=38 review_count=38
+  [322/602] [2gis] Сургут-01 Ленина 50: updated rating=4.6 rating_count=40 review_count=40
+  [323/602] [2gis] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: failed (no rating)
+  [324/602] [2gis] Ноябрьск-02 Советская 81/2: updated rating=3.1 rating_count=50 review_count=45
+  [325/602] [2gis] Киров-01 Челюскинцев 7: updated rating=3 rating_count=2 review_count=2
+  [326/602] [2gis] Урай-01 мкр 2 61: updated rating=4.7 rating_count=73 review_count=42
+  [327/602] [2gis] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: updated rating=4.9 rating_count=27 review_count=26
+  [328/602] [2gis] Москва Первомайская 52 пом.2: skip (no url)
+  [329/602] [2gis] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: updated rating=1.4 rating_count=3 review_count=2
+  [330/602] [2gis] Комсомольск-на-Амуре-04 ул Вокзальная 91: updated rating=3.8 rating_count=663 review_count=618
+  [331/602] [2gis] Люберцы-01 Юности 3: updated rating=4.8 rating_count=43 review_count=42
+  [332/602] [2gis] Ханты-Мансийск-02 Самаровская 1/4: updated rating=4.3 rating_count=224 review_count=194
+  [333/602] [2gis] Комсомольск-на-Амуре-04 ул Вокзальная 91: updated rating=3.7 rating_count=3 review_count=3
+  [334/602] [2gis] Томск-04 Иркутский 32: updated rating=4.2 rating_count=105 review_count=93
+  [335/602] [2gis] Междуреченск-01 Коммунистический 8: updated rating=4.6 rating_count=1 review_count=260
+  [336/602] [2gis] Геленджик-01 Леселидзе 11: updated rating=3.8 rating_count=13 review_count=13
+  [337/602] [2gis] Талнах-01 Бауманская 9: updated rating=3.9 rating_count=624 review_count=559
+  [338/602] [2gis] Хабаровск-01 Суворова 25/1: skip (no url)
+  [339/602] [2gis] Подольск-02 ул Генерала Варенникова, 4: updated rating=4.7 rating_count=13 review_count=13
+  [340/602] [2gis] Краснодар-08 Метальникова 3: updated rating=4.4 rating_count=149 review_count=144
+  [341/602] [2gis] Ачинск-01 мкр 1 37а: skip (no url)
+  [342/602] [2gis] Усинск-01 60 лет Октября 5: updated rating=2 rating_count=1 review_count=1
+  [343/602] [2gis] Комсомольск-на-Амуре-03 Лазо 7: updated rating=3.9 rating_count=851 review_count=811
+  [344/602] [2gis] Сыктывкар-04 Первомайская 85/2: updated rating=4.8 rating_count=16 review_count=16
+  [345/602] [2gis] Сургут-04 Ленина 66: updated rating=3.8 rating_count=679 review_count=634
+  [346/602] [2gis] Омск-05 ул. Маяковского,85: updated rating=4.3 rating_count=187 review_count=166
+  [347/602] [2gis] Чебоксары-02 пр-т Максима Горького 38/2: updated rating=4.9 rating_count=25 review_count=24
+  [348/602] [2gis] Москва-07 Проезд Грайвороновский 2-й 44к3: updated rating=5 rating_count=6 review_count=6
+  [349/602] [2gis] Ростов-на-Дону-06 Металлургическая 117/62: updated rating=4.9 rating_count=104 review_count=103
+  [350/602] [2gis] Ачинск-01 мкр 1 37а: updated rating=4.8 rating_count=26 review_count=26
+  [351/602] [2gis] Усинск-01 60 лет Октября 5: updated rating=4.7 rating_count=110 review_count=109
+  [352/602] [2gis] Омск-02, ул. 70 лет Октября, 24/1: updated rating=4.1 rating_count=63 review_count=60
+  [353/602] [2gis] Тюмень-24 Ямская 104: updated rating=3.8 rating_count=1236 review_count=1164
+  [354/602] [2gis] Сургут-04 Ленина 66: failed (no rating)
+  [355/602] [2gis] Екатеринбург-16 Вильгельма де Геннина 37: updated rating=3.9 rating_count=135 review_count=131
+  [356/602] [2gis] Салехард-01 Свердлова 41: updated rating=4.4 rating_count=216 review_count=203
+  [357/602] [2gis] Сургут-08 Набережный 12/2: updated rating=4.1 rating_count=125 review_count=117
+  [358/602] [2gis] Кемерово-04 Строителей 42: updated rating=4.4 rating_count=81 review_count=80
+  [359/602] [2gis] Находка-01 пр. Находкинский 102: updated rating=5 rating_count=4 review_count=2
+  [360/602] [2gis] Радужный-01 мкр 7 12: updated rating=4.7 rating_count=62 review_count=54
+  [361/602] [2gis] Воронеж-04 Юлюса Янониса 1: updated rating=4.4 rating_count=158 review_count=151
+  [362/602] [2gis] Тюмень-03 Газовиков 61: updated rating=4 rating_count=1508 review_count=1353
+  [363/602] [2gis] Краснодар-08 Метальникова 3: updated rating=4.5 rating_count=317 review_count=302
+  [364/602] [2gis] Рыбинск-01 Плеханова 33: updated rating=4.9 rating_count=121 review_count=90
+  [365/602] [2gis] Рыбинск-01 Плеханова 33: skip (no url)
+  [366/602] [2gis] Междуреченск-01 Коммунистический 8: updated rating=4.4 rating_count=184 review_count=162
+  [367/602] [2gis] Губкинский-01 мкр 12 39: updated rating=4.9 rating_count=34 review_count=30
+  [368/602] [2gis] Пермь-05 Революции 2а: updated rating=4.5 rating_count=43 review_count=41
+  [369/602] [2gis] Тюмень-15 Пермякова 50Б: updated rating=5 rating_count=5 review_count=1
+  [370/602] [2gis] Ростов-на-Дону-10 бульвар Комарова 20/1: updated rating=4.7 rating_count=60 review_count=56
+  [371/602] [2gis] Кемерово-05 Радищева 4: updated rating=4 rating_count=95 review_count=91
+  [372/602] [2gis] Барнаул-01 Ленина 113: updated rating=4.1 rating_count=133 review_count=126
+  [373/602] [2gis] Хабаровск-01 Суворова 25/1: updated rating=3.8 rating_count=1254 review_count=1196
+  [374/602] [2gis] Чита-01 Бутина 42а: updated rating=4 rating_count=25 review_count=24
+  [375/602] [2gis] Нягань-01 4 мкр 15 к2: updated rating=4.1 rating_count=74 review_count=69
+  [376/602] [2gis] Сочи-01 Советская д. 40 пом 1-4: failed (no rating)
+  [377/602] [2gis] Ростов-на-Дону-10 бульвар Комарова 20/1: updated rating=4.4 rating_count=20 review_count=20
+  [378/602] [2gis] Краснодар-09 Стасова 186: updated rating=4.7 rating_count=266 review_count=261
+  [379/602] [2gis] Братск-01 Обручева 29: updated rating=4.2 rating_count=979 review_count=885
+  [380/602] [2gis] Ханты-Мансийск-01 Мира 52: updated rating=4.4 rating_count=40 review_count=36
+  [381/602] [2gis] Лангепас-01 Комсомольская 10А/2: updated rating=4.6 rating_count=139 review_count=122
+  [382/602] [2gis] Комсомольск-на-Амуре-03 Лазо 7: updated rating=4.1 rating_count=63 review_count=59
+  [383/602] [2gis] Тобольск-03 7А микрорайон 12А: updated rating=4.6 rating_count=65 review_count=61
+  [384/602] [2gis] Москва, Скандинавский бульвар, 17: skip (no url)
+  [385/602] [2gis] Усолье-Сибирское: updated rating=4.5 rating_count=109 review_count=99
+  [386/602] [2gis] Березники-01 Мира 83: updated rating=4.8 rating_count=6 review_count=5
+  [387/602] [2gis] Сургут-02 30 лет Победы 41: failed (no rating)
+  [388/602] [2gis] Тюмень-07 Горького 55: skip (no url)
+  [389/602] [2gis] Екатеринбург-16 Вильгельма де Геннина 37: updated rating=3.9 rating_count=38 review_count=34
+  [390/602] [2gis] Кемерово-04 Строителей 42: updated rating=4.1 rating_count=1214 review_count=1181
+  [391/602] [2gis] Иркутск-03 Волжская 33: updated rating=3.4 rating_count=159 review_count=128
+  [392/602] [2gis] Красноярск-09 Чернышевского 79: updated rating=4.2 rating_count=166 review_count=161
+  [393/602] [2gis] Островцы: updated rating=5 rating_count=2 review_count=2
+  [394/602] [2gis] Сочи-04 Адлер Ленина 73: updated rating=4.2 rating_count=50 review_count=47
+  [395/602] [2gis] Омск-04 ул. Герцена, 12: updated rating=4.9 rating_count=4 review_count=1
+  [396/602] [2gis] Альметьевск-01 Ленина 101: skip (no url)
+  [397/602] [2gis] Тюмень-20 Олимпийская 31: updated rating=4 rating_count=712 review_count=664
+  [398/602] [2gis] Екатеринбург-09 Крауля 69: updated rating=4.1 rating_count=152 review_count=149
+  [399/602] [2gis] Нефтеюганск-02 Ленина 33: skip (no url)
+  [400/602] [2gis] Красноярск-09 Чернышевского 79: updated rating=3.5 rating_count=517 review_count=467
+  [401/602] [2gis] Витязево-01 Овражная 54: updated rating=5 rating_count=3 review_count=3
+  [402/602] [2gis] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: updated rating=3.4 rating_count=12 review_count=12
+  [403/602] [2gis] Каменск-Уральский-03 Алюминевая 75: updated rating=4.3 rating_count=278 review_count=265
+  [404/602] [2gis] Благовещенск-01 ул 50 лет Октября, 24/1: updated rating=3.4 rating_count=1396 review_count=1338
+  [405/602] [2gis] Геленджик-01 Леселидзе 11: updated rating=4.2 rating_count=226 review_count=208
+  [406/602] [2gis] Тюмень-15 Пермякова 50Б: updated rating=4.1 rating_count=407 review_count=341
+  [407/602] [2gis] Смоленск-01 Октябрьской Революци 17: updated rating=4.5 rating_count=102 review_count=100
+  [408/602] [2gis] Новокузнецк-04 Тореза 10: updated rating=4 rating_count=1089 review_count=1070
+  [409/602] [2gis] Нижний Новгород-01 Кораблестроителей 3: updated rating=4.5 rating_count=36 review_count=33
+  [410/602] [2gis] Ижевск-03 Молодежная 107в: skip (no url)
+  [411/602] [2gis] Новокузнецк-03 Ленина 35: updated rating=4.4 rating_count=51 review_count=49
+  [412/602] [2gis] Мытищи-01 Юбилейная 6: updated rating=4.9 rating_count=206 review_count=160
+  [413/602] [2gis] Каменск-Уральский-01 Победы 87а: updated rating=4.5 rating_count=45 review_count=44
+  [414/602] [2gis] Краснодар-11 Яна Полуяна 39: updated rating=4.4 rating_count=45 review_count=45
+  [415/602] [2gis] Томск-03 79 Гвардейской дивизии 24: updated rating=4.9 rating_count=31 review_count=30
+  [416/602] [2gis] Санкт-Петербург Кудрово, пр-кт Строителей, д.16: updated rating=4.2 rating_count=2 review_count=1
+  [417/602] [2gis] Тюмень-10 Лесопарковая 1 корп.2: updated rating=3.6 rating_count=51 review_count=34
+  [418/602] [2gis] Нефтеюганск-02 Ленина 33: skip (no url)
+  [419/602] [2gis] Федоровский-01 Ленина 12/2: skip (no url)
+  [420/602] [2gis] Лобня-01 ул. Батарейная, 8: updated rating=5 rating_count=8 review_count=8
+  [421/602] [2gis] Тобольск-06 8-й микрорайон 8Б: updated rating=4.4 rating_count=81 review_count=75
+  [422/602] [2gis] Чита-01 Бутина 42а: updated rating=4.6 rating_count=86 review_count=84
+  [423/602] [2gis] Екатеринбург-21 Победы 102: updated rating=4.3 rating_count=82 review_count=77
+  [424/602] [2gis] Москва-16 Скандинавский бульвар 17: updated rating=4.9 rating_count=29 review_count=29
+  [425/602] [2gis] Ярославль-03 Урицкого 65: updated rating=4.4 rating_count=115 review_count=110
+  [426/602] [2gis] Новый Уренгой-03 Советский 5/3: updated rating=4.1 rating_count=280 review_count=264
+  [427/602] [2gis] Ярославль-05 Ньютона 28: updated rating=4.9 rating_count=19 review_count=19
+  [428/602] [2gis] Омск-04 ул. Герцена, 12: updated rating=4.1 rating_count=96 review_count=94
+  [429/602] [2gis] Каменск-Уральский-03 Алюминевая 75: updated rating=3.8 rating_count=28 review_count=26
+  [430/602] [2gis] Миасс-02 Автозаводцев 32/Б: updated rating=3.9 rating_count=86 review_count=80
+  [431/602] [2gis] Мегион-01 Заречная 15/3: updated rating=4.4 rating_count=225 review_count=186
+  [432/602] [2gis] Пермь-08 Мира 51: updated rating=5 rating_count=5 review_count=2
+  [433/602] [2gis] Новокузнецк-07 Разведчиков 52: updated rating=4.9 rating_count=19 review_count=18
+  [434/602] [2gis] Хабаровск-07 Тихоокеанская 182 б: skip (no url)
+  [435/602] [2gis] Новый Уренгой-02 Оптимистов 4/1: updated rating=4.2 rating_count=347 review_count=325
+  [436/602] [2gis] Пермь-07 Солдатова 28: updated rating=4.1 rating_count=1 review_count=24
+  [437/602] [2gis] Москва-09 Первомайская 52: updated rating=4.5 rating_count=92 review_count=89
+  [438/602] [2gis] Екатеринбург-16 Вильгельма де Геннина 37: updated rating=5 rating_count=1 review_count=1
+  [439/602] [2gis] Реутов-01 Ленина 15: skip (no url)
+  [440/602] [2gis] Сочи-04 Адлер Ленина 73: failed (no rating)
+  [441/602] [2gis] Лабытнанги-01 Школьная 25: updated rating=4.6 rating_count=20 review_count=20
+  [442/602] [2gis] Томск-03 79 Гвардейской дивизии 24: updated rating=4.4 rating_count=44 review_count=37
+  [443/602] [2gis] Чебоксары-02 пр-т Максима Горького 38/2: updated rating=4.4 rating_count=184 review_count=180
+  [444/602] [2gis] Федоровский-01 Ленина 12/2: updated rating=3.7 rating_count=24 review_count=20
+  [445/602] [2gis] Югорск-01 Ленина 14: updated rating=4.9 rating_count=18 review_count=18
+  [446/602] [2gis] Хабаровск-05 Карла Маркса 200/1: updated rating=0 rating_count=1 review_count=1
+  [447/602] [2gis] Санкт-Петербург-06 ул Николая Рубцова 3: skip (no url)
+  [448/602] [2gis] Ярославль-01 Большая Федоровская 29: failed (no rating)
+  [449/602] [2gis] Краснодар-11 Яна Полуяна 39: updated rating=4.7 rating_count=28 review_count=28
+  [450/602] [2gis] Нижний Новгород-03 Комсомольская 9: failed (no rating)
+  [451/602] [2gis] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: updated rating=4.5 rating_count=175 review_count=169
+  [452/602] [2gis] Тюмень-06 Республики 204 корп 7 помещение 4: updated rating=4.5 rating_count=2 review_count=67
+  [453/602] [2gis] Хабаровск-01 Суворова 25/1: skip (no url)
+  [454/602] [2gis] Талнах-01 Бауманская 9: updated rating=2.6 rating_count=26 review_count=23
+  [455/602] [2gis] Краснодар-13 Восточно-Кругликовская 24: updated rating=4 rating_count=76 review_count=73
+  [456/602] [2gis] Томск-02 Учебная 20: updated rating=4.7 rating_count=71 review_count=71
+  [457/602] [2gis] Лобня-01 ул. Батарейная, 8: updated rating=4.7 rating_count=26 review_count=25
+  [458/602] [2gis] Радужный-01 мкр 7 12: updated rating=4.7 rating_count=62 review_count=54
+  [459/602] [2gis] Чехов-01 Береговая улица, 21, корп. 1: updated rating=5 rating_count=2 review_count=2
+  [460/602] [2gis] Новороссийск-02 ул. Видова, 210 Д: updated rating=4.5 rating_count=232 review_count=226
+  [461/602] [2gis] Омск-04 ул. Герцена, 12: updated rating=4.4 rating_count=86 review_count=83
+  [462/602] [2gis] Ярославль-05 Ньютона 28: updated rating=4.2 rating_count=119 review_count=100
+  [463/602] [2gis] Нижневартовск-05 Дзержинского 9/1: updated rating=5 rating_count=2 review_count=1
+  [464/602] [2gis] Кемерово-04 Строителей 42: updated rating=5 rating_count=9 review_count=9
+  [465/602] [2gis] Чусовой-01 50 лет ВЛКСМ 4: updated rating=4.6 rating_count=79 review_count=64
+  [466/602] [2gis] Надым-01 проспект Ленинградский 10: updated rating=5 rating_count=2 review_count=1
+  [467/602] [2gis] Верхняя Салда-01 Спортивная 2: updated rating=5 rating_count=8 review_count=8
+  [468/602] [2gis] Калининград , Судостроительная 6/1: updated rating=4.4 rating_count=31 review_count=30
+  [469/602] [2gis] Сыктывкар-04 Первомайская 85/2: updated rating=4.3 rating_count=338 review_count=307
+  [470/602] [2gis] Красноярск-11 Имени газеты КР 135: updated rating=4.1 rating_count=416 review_count=371
+  [471/602] [2gis] Новый Уренгой-02 Оптимистов 4/1: updated rating=4.8 rating_count=24 review_count=23
+  [472/602] [2gis] Ростов-на-Дону-08 Буденовский 68: updated rating=4.4 rating_count=342 review_count=313
+  [473/602] [2gis] Находка-03 Малиновского 21а: updated rating=3.9 rating_count=619 review_count=582
+  [474/602] [2gis] Тюмень-12 Артамонова 13: updated rating=5 rating_count=3 review_count=1
+  [475/602] [2gis] Уссурийск-01 Некрасова 53: failed (no rating)
+  [476/602] [2gis] Пермь-04 Рыбалко 113: updated rating=4.3 rating_count=376 review_count=338
+  [477/602] [2gis] Нефтеюганск-02 Ленина 33: failed (no rating)
+  [478/602] [2gis] Ростов-на-Дону-08 Буденовский 68: updated rating=4.8 rating_count=54 review_count=54
+  [479/602] [2gis] Воронеж, улица Владимира Невского, 48з/10: failed (no rating)
+  [480/602] [2gis] Томск-04 Иркутский 32: updated rating=3.7 rating_count=676 review_count=627
+  [481/602] [2gis] Тюмень-06 Республики 204 корп 7 помещение 4: updated rating=4.4 rating_count=262 review_count=231
+  [482/602] [2gis] Новороссийск-02 ул. Видова, 210 Д: skip (no url)
+  [483/602] [2gis] Нефтеюганск-01 мкр 16а 62: updated rating=4.7 rating_count=87 review_count=86
+  [484/602] [2gis] Серов-01 Ленина 142: updated rating=4.5 rating_count=11 review_count=11
+  [485/602] [2gis] Нягань-01 4 мкр 15 к2: updated rating=5 rating_count=6 review_count=6
+  [486/602] [2gis] Белоярский-01 Мира 1: updated rating=4.5 rating_count=14 review_count=14
+  [487/602] [2gis] Ишим-01 Маркса 29: updated rating=4.9 rating_count=28 review_count=24
+  [488/602] [2gis] Верхняя Пышма-01 Успенский 48: updated rating=4.3 rating_count=43 review_count=38
+  [489/602] [2gis] Находка-01 пр. Находкинский 102: updated rating=3.8 rating_count=42 review_count=37
+  [490/602] [2gis] Пермь-07 Солдатова 28: updated rating=4.5 rating_count=582 review_count=566
+  [491/602] [2gis] Тюмень-14 Одесская 29 стр 1 помещ 7: updated rating=5 rating_count=6 review_count=1
+  [492/602] [2gis] Москва Братиславская 20: updated rating=5 rating_count=5 review_count=5
+  [493/602] [2gis] Надым-01 проспект Ленинградский 10: updated rating=4.4 rating_count=7 review_count=7
+  [494/602] [2gis] Хабаровск-02 Ленинградская 28/9: skip (no url)
+  [495/602] [2gis] Чебоксары-02 пр-т Максима Горького 38/2: failed (no rating)
+  [496/602] [2gis] Краснодар-08 Метальникова 3: updated rating=4.1 rating_count=484 review_count=465
+  [497/602] [2gis] Ханты-Мансийск-01 Мира 52: updated rating=4.9 rating_count=42 review_count=41
+  [498/602] [2gis] Прокопьевск-01 Гагарина 26: updated rating=5 rating_count=25 review_count=25
+  [499/602] [2gis] Ярославль-03 Урицкого 65: failed (no rating)
+  [500/602] [2gis] Екатеринбург-10 Восточная 98: updated rating=4.6 rating_count=73 review_count=72
+  [501/602] [2gis] Сыктывкар-04 Первомайская 85/2: updated rating=4.4 rating_count=41 review_count=39
+  [502/602] [2gis] Нижневартовск-04 Профсоюзная 2: updated rating=3.8 rating_count=1462 review_count=1420
+  [503/602] [2gis] Сургут-10 Тюменский тракт 2: updated rating=4.6 rating_count=19 review_count=18
+  [504/602] [2gis] Сургут-10 Тюменский тракт 2: updated rating=4.1 rating_count=815 review_count=761
+  [505/602] [2gis] Новокузнецк-03 Ленина 35: updated rating=4.4 rating_count=556 review_count=521
+  [506/602] [2gis] Одинцово-02 Молодежная 5: updated rating=4 rating_count=15 review_count=12
+  [507/602] [2gis] Благовещенск-01 ул 50 лет Октября, 24/1: updated rating=4.1 rating_count=247 review_count=236
+  [508/602] [2gis] Тюмень-23 Обдорская 1к2 суши: updated rating=3.9 rating_count=983 review_count=907
+  [509/602] [2gis] Тюмень-14 Одесская 29 стр 1 помещ 7: updated rating=4.2 rating_count=262 review_count=219
+  [510/602] [2gis] Воронеж-03 Владимира Невского 48з/10: updated rating=4.4 rating_count=184 review_count=177
+  [511/602] [2gis] Сочи-01 Советская д. 40 пом 1-4: updated rating=4.2 rating_count=19 review_count=18
+  [512/602] [2gis] Киров-01 Челюскинцев 7: updated rating=4.3 rating_count=593 review_count=576
+  [513/602] [2gis] Нефтеюганск-01 мкр 16а 62: updated rating=4.4 rating_count=368 review_count=343
+  [514/602] [2gis] Барнаул-05 ул. Юрина, 202 (НОВАЯ): failed (twogis_no_firm_id)
+  [515/602] [2gis] Москва-11 проспект мира 122: updated rating=4.3 rating_count=24 review_count=21
+  [516/602] [2gis] Новокузнецк-04 Тореза 10: updated rating=4.5 rating_count=52 review_count=52
+  [517/602] [2gis] Долгопрудный: skip (no url)
+  [518/602] [2gis] Комсомольск-на-Амуре-02 Мира 47: updated rating=4.7 rating_count=66 review_count=65
+  [519/602] [2gis] Верхняя Пышма-01 Успенский 48: updated rating=4 rating_count=522 review_count=500
+  [520/602] [2gis] Омск-05 ул. Маяковского,85: updated rating=4.3 rating_count=126 review_count=119
+  [521/602] [2gis] Ижевск-03 Молодежная 107в: updated rating=4.7 rating_count=606 review_count=570
+  [522/602] [2gis] Подольск-02 ул Генерала Варенникова, 4: updated rating=4 rating_count=5 review_count=5
+  [523/602] [2gis] Дубна Тверская 45А: failed (no rating)
+  [524/602] [2gis] Екатеринбург-21 Победы 102: updated rating=4.5 rating_count=77 review_count=75
+  [525/602] [2gis] Томск-02 Учебная 20: updated rating=3.8 rating_count=1307 review_count=1239
+  [526/602] [2gis] Екатеринбург-11 Челюскинцев 19: updated rating=4.2 rating_count=566 review_count=526
+  [527/602] [2gis] Усолье-Сибирское Ленинский 72: updated rating=3.4 rating_count=1 review_count=15
+  [528/602] [2gis] Геленджик-01 Леселидзе 11: skip (no url)
+  [529/602] [2gis] Пермь-12 ул. Юрша 84: updated rating=3.7 rating_count=28 review_count=26
+  [530/602] [2gis] Барнаул-02 Ленина 22: updated rating=4.5 rating_count=103 review_count=91
+  [531/602] [2gis] Новокузнецк-08 Новоселов 23А: updated rating=4.5 rating_count=84 review_count=82
+  [532/602] [2gis] Краснодар-11 Яна Полуяна 39: updated rating=4.8 rating_count=1 review_count=44
+  [533/602] [2gis] Новокузнецк-04 Тореза 10: updated rating=4.2 rating_count=51 review_count=49
+  [534/602] [2gis] Москва-11 проспект мира 122: updated rating=5 rating_count=29 review_count=29
+  [535/602] [2gis] Ростов-на-Дону-06 Металлургическая 117/62: updated rating=4.8 rating_count=48 review_count=47
+  [536/602] [2gis] Новокузнецк-08 Новоселов 23А: updated rating=4.1 rating_count=682 review_count=663
+  [537/602] [2gis] Пермь-05 Революции 2а: updated rating=2 rating_count=2 review_count=2
+  [538/602] [2gis] Норильск-02 Советская 5: updated rating=3.6 rating_count=51 review_count=49
+  [539/602] [2gis] Краснодар-09 Стасова 186: failed (no rating)
+  [540/602] [2gis] Серпухов Ворошилова, 68-А: skip (no url)
+  [541/602] [2gis] Когалым-01 Мира 2: updated rating=4.3 rating_count=280 review_count=262
+  [542/602] [2gis] Кемерово-05 Радищева 4: skip (no url)
+  [543/602] [2gis] Красноярск-01 Молоково 1 копус 3: updated rating=4.1 rating_count=148 review_count=133
+  [544/602] [2gis] Подольск-02 ул Генерала Варенникова, 4: updated rating=5 rating_count=1 review_count=1
+  [545/602] [2gis] Санкт-Петербург -09 Мурино (Петровский бульвар 5): skip (no url)
+  [546/602] [2gis] Хабаровск-06 Амурский бульвар 62: skip (no url)
+  [547/602] [2gis] Комсомольск-на-Амуре-02 Мира 47: updated rating=2.5 rating_count=11 review_count=9
+  [548/602] [2gis] Кемерово-10 проспект Шахтеров 58А: failed (twogis_no_firm_id)
+  [549/602] [2gis] Екатеринбург-10 Восточная 98: updated rating=4.5 rating_count=74 review_count=74
+  [550/602] [2gis] Красноярск-09 Чернышевского 79: updated rating=4.1 rating_count=88 review_count=81
+  [551/602] [2gis] Надым-01 проспект Ленинградский 10: updated rating=4.5 rating_count=62 review_count=41
+  [552/602] [2gis] Муравленко-01 Муравленко 12 Б: updated rating=4.4 rating_count=151 review_count=130
+  [553/602] [2gis] Верхняя Салда-01 Спортивная 2: updated rating=5 rating_count=2 review_count=2
+  [554/602] [2gis] Санкт-Петербург-03 Карбышева 9: updated rating=4.5 rating_count=330 review_count=274
+  [555/602] [2gis] Новокузнецк-08 Новоселов 23А: updated rating=4.7 rating_count=28 review_count=28
+  [556/602] [2gis] Тюмень-09 Червишевский тракт 66: updated rating=3.9 rating_count=823 review_count=744
+  [557/602] [2gis] Москва-12 Богданова 2, корпус 1: updated rating=4.7 rating_count=58 review_count=58
+  [558/602] [2gis] Тобольск-03 7А микрорайон 12А: updated rating=4.2 rating_count=352 review_count=297
+  [559/602] [2gis] Нижний Новгород-02 ул. Горького 148: skip (no url)
+  [560/602] [2gis] Ростов-на-Дону-08 Буденовский 68: updated rating=4.5 rating_count=35 review_count=32
+  [561/602] [2gis] Пермь-11 Докучаева 42: failed (no rating)
+  [562/602] [2gis] Тобольск-03 7А микрорайон 12А: updated rating=4.8 rating_count=96 review_count=93
+  [563/602] [2gis] Краснодар-13 Восточно-Кругликовская 24: updated rating=4 rating_count=685 review_count=629
+  [564/602] [2gis] Тобольск-06 8-й микрорайон 8Б: updated rating=3.9 rating_count=709 review_count=661
+  [565/602] [2gis] Барнаул-03 ул. Балтийская, 103: updated rating=4.3 rating_count=186 review_count=170
+  [566/602] [2gis] Санкт-Петербург-09 Петровский бульвар 5: updated rating=3.3 rating_count=21 review_count=21
+  [567/602] [2gis] Нижневартовск-04 Профсоюзная 2: failed (twogis_no_firm_id)
+  [568/602] [2gis] Барнаул-01 Ленина 113: updated rating=4 rating_count=1146 review_count=1087
+  [569/602] [2gis] Барнаул-02 Ленина 22: updated rating=4.2 rating_count=589 review_count=540
+  [570/602] [2gis] Сургут-03 Геологическая 10: updated rating=4.1 rating_count=706 review_count=672
+  [571/602] [2gis] Новокузнецк-04 Тореза 10: failed (no rating)
+  [572/602] [2gis] Сургут-01 Ленина 50: updated rating=4.3 rating_count=999 review_count=944
+  [573/602] [2gis] Москва-15 Фестивальная 41 к1: updated rating=5 rating_count=16 review_count=16
+  [574/602] [2gis] Пермь-08 Мира 51: updated rating=4.6 rating_count=69 review_count=69
+  [575/602] [2gis] Губкинский-01 мкр 12 39: updated rating=4.4 rating_count=105 review_count=95
+  [576/602] [2gis] Тюмень-04 Ямская 102: updated rating=4 rating_count=1030 review_count=932
+  [577/602] [2gis] Сургут-03 Геологическая 10: failed (no rating)
+  [578/602] [2gis] Новокузнецк-06 Кирова 21: updated rating=4 rating_count=78 review_count=77
+  [579/602] [2gis] Анапа-01 Лермонтова 118: skip (no url)
+  [580/602] [2gis] Нижний Новгород-03 Комсомольская 9: updated rating=3.8 rating_count=333 review_count=302
+  [581/602] [2gis] Красноярск-03 Юности 39: updated rating=3.8 rating_count=41 review_count=32
+  [582/602] [2gis] Екатеринбург-16 Вильгельма де Геннина 37: updated rating=4.1 rating_count=589 review_count=550
+  [583/602] [2gis] Новый Уренгой-03 Советский 5/3: updated rating=4.1 rating_count=49 review_count=43
+  [584/602] [2gis] Красноярск-11 Имени газеты КР 135: updated rating=4.1 rating_count=136 review_count=121
+  [585/602] [2gis] Пермь-04 Рыбалко 113: updated rating=3.5 rating_count=19 review_count=18
+  [586/602] [2gis] Красноярск-03 Юности 39: updated rating=4.1 rating_count=518 review_count=479
+  [587/602] [2gis] Урай-01 мкр 2 61: failed (no rating)
+  [588/602] [2gis] Верхняя Салда-01 Спортивная 2: updated rating=4.3 rating_count=130 review_count=104
+  [589/602] [2gis] Одинцово-02 Молодежная 5: skip (no url)
+  [590/602] [2gis] Тюмень Щербакова: skip (no url)
+  [591/602] [2gis] Ярославль-04 Машиностроителей 30/18: updated rating=4.7 rating_count=20 review_count=20
+  [592/602] [2gis] Люберцы-01 Юности 3: skip (no url)
+  [593/602] [2gis] Екатеринбург-09 Крауля 69: updated rating=5 rating_count=9 review_count=9
+  [594/602] [2gis] Ярославль-04 Машиностроителей 30/18: failed (no rating)
+  [595/602] [2gis] Каменск-Уральский-03 Алюминевая 75: updated rating=4.5 rating_count=36 review_count=35
+  [596/602] [2gis] Одинцово-01 Можайское шоссе 71Б: failed (twogis_no_firm_id)
+  [597/602] [2gis] Хабаровск-06 Амурский бульвар 62: failed (no rating)
+  [598/602] [2gis] Екатеринбург-13 Титова 12: updated rating=4.4 rating_count=38 review_count=36
+  [599/602] [2gis] Пермь-12 ул. Юрша 84: updated rating=4.1 rating_count=256 review_count=238
+  [600/602] [2gis] Анапа-01 Лермонтова 118: updated rating=3.3 rating_count=13 review_count=12
+  [601/602] [2gis] Королев-01 проезд Циолковского, 5: updated rating=5 rating_count=5 review_count=4
+  [602/602] [2gis] Пыть-Ях-01 мкр 2 15: updated rating=4.3 rating_count=92 review_count=82
+
+Scrape metrics committed:
+  2gis: updated=501 failed=46 manual_action=0 skipped=55

@@ -45,5 +45,14 @@ class Settings(BaseSettings):
     twogis_page_size: int = 50
     twogis_request_delay_seconds: float = 0.3
 
+    # Rotating HTTP proxy pool (feature: 2GIS proxy rotation). Replaces the exhausted
+    # ScrapeOps proxy for the requests-based 2GIS transport. Credentials live only in
+    # .env (constitution VIII) — never commit a populated value. Comma-separated list
+    # of `user:pass@host:port` entries; a port RANGE `p1-p2` expands to one proxy per
+    # port, e.g. `user:pass@pool.proxys.io:10000-10022`. Scheme defaults to http://.
+    proxy_pool: str = ""
+    # How many distinct pool proxies to try before giving up on a single request.
+    proxy_pool_max_tries: int = 4
+
 
 settings = Settings()

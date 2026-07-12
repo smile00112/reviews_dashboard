@@ -5,13 +5,13 @@ alwaysApply: true
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/009-network-overview/plan.md
+specs/010-backend-hardening/plan.md
 
 Also available:
-- Feature spec: specs/009-network-overview/spec.md
-- Data model: specs/009-network-overview/data-model.md
-- Contracts: specs/009-network-overview/contracts/ (dashboard-overview)
-- Quickstart: specs/009-network-overview/quickstart.md
-- Tasks: specs/009-network-overview/tasks.md
-- Research notes: specs/009-network-overview/research.md
+- Feature spec: specs/010-backend-hardening/spec.md
+- Data model: specs/010-backend-hardening/data-model.md
+- Contracts: specs/010-backend-hardening/contracts/ (api-deltas)
+- Quickstart: specs/010-backend-hardening/quickstart.md
+- Tasks: specs/010-backend-hardening/tasks.md
+- Research notes: specs/010-backend-hardening/research.md
 <!-- SPECKIT END -->

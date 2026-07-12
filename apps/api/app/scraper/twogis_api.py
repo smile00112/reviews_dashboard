@@ -27,19 +27,18 @@ import requests
 
 from app.core.config import settings
 from app.scraper.debug_artifacts import save_html_debug
+from app.scraper.markers import BOT_MARKERS as _SHARED_BOT_MARKERS
 from app.scraper.normalize import normalize_review_date
+from app.scraper.proxy_pool import ProxyPool
 from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
 
 CATALOG_URL = "https://catalog.api.2gis.com/3.0/items/byid"
 REVIEWS_URL = "https://public-api.reviews.2gis.com/3.0/orgs/{org_id}/reviews"
 SCRAPEOPS_PROXY = "https://proxy.scrapeops.io/v1/"
 FIRM_ID_RE = re.compile(r"/firm/(\d+)")
-# Markers of a 2GIS bot wall / access challenge on the short-link HTML fetch. A bare
-# "captcha" is intentionally excluded (it matches fingerprinting library URLs).
-BOT_MARKERS: tuple[str, ...] = (
-    "Обнаружена защита от ботов",
-    "showcaptcha",
-    "SmartCaptcha",
+# Markers of a 2GIS bot wall / access challenge on the short-link HTML fetch:
+# the shared base (see scraper/markers.py) plus 2GIS-specific phrases.
+BOT_MARKERS: tuple[str, ...] = _SHARED_BOT_MARKERS + (
     "Доступ ограничен",
     "Access Denied",
 )
@@ -48,6 +47,16 @@ BOT_MARKERS: tuple[str, ...] = (
 class TwogisApiScraper:
     REQUEST_TIMEOUT_SECONDS = 30
     PROXY_TIMEOUT_SECONDS = 90
+    # A residential/DC proxy needs browser-ish headers so the short-link HTML fetch
+    # is not served the bot wall a bare requests UA gets.
+    BROWSER_HEADERS = {
+        "User-Agent": settings.http_scrape_user_agent,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ru,en;q=0.9",
+    }
+
+    def __init__(self) -> None:
+        self._pool = ProxyPool(settings.proxy_pool)
 
     def scrape(self, url: str, metrics_only: bool = False) -> ScrapeResult:
         result = ScrapeResult()
@@ -97,25 +106,32 @@ class TwogisApiScraper:
         return firm_id, None
 
     def _proxy_html(self, url: str) -> tuple[str | None, ScrapeResult | None]:
-        if not settings.scrapeops_api_key:
+        # Rotating proxy pool is primary; ScrapeOps is a legacy fallback.
+        if self._pool.enabled:
+            resp, err = self._pool_get(url, headers=self.BROWSER_HEADERS)
+            if err is not None:
+                return None, err
+            html = resp.text
+        elif settings.scrapeops_api_key:
+            try:
+                resp = requests.get(
+                    SCRAPEOPS_PROXY,
+                    params={"api_key": settings.scrapeops_api_key, "url": url, "render_js": "false"},
+                    timeout=self.PROXY_TIMEOUT_SECONDS,
+                )
+                resp.raise_for_status()
+                html = resp.text
+            except requests.RequestException as exc:
+                return None, ScrapeResult(
+                    error_code="twogis_proxy_error",
+                    error_message=self._redact(str(exc)),
+                )
+        else:
             return None, ScrapeResult(
                 needs_manual_action=True,
                 error_code="twogis_no_proxy_key",
-                error_message="2GIS short-link resolution requires SCRAPEOPS_API_KEY; "
+                error_message="2GIS short-link resolution needs PROXY_POOL or SCRAPEOPS_API_KEY; "
                 "use a full …/firm/{id} URL instead",
-            )
-        try:
-            resp = requests.get(
-                SCRAPEOPS_PROXY,
-                params={"api_key": settings.scrapeops_api_key, "url": url, "render_js": "false"},
-                timeout=self.PROXY_TIMEOUT_SECONDS,
-            )
-            resp.raise_for_status()
-            html = resp.text
-        except requests.RequestException as exc:
-            return None, ScrapeResult(
-                error_code="twogis_proxy_error",
-                error_message=self._redact(str(exc)),
             )
         if self._is_bot_wall(html):
             return None, ScrapeResult(
@@ -125,6 +141,37 @@ class TwogisApiScraper:
                 debug_html=save_html_debug(html, "twogis-challenge"),
             )
         return html, None
+
+    def _pool_get(
+        self, url: str, params: dict | None = None, headers: dict | None = None
+    ) -> tuple[requests.Response | None, ScrapeResult | None]:
+        """GET through the rotating proxy pool, retrying on the next proxy when one is
+        blocked (403/429) or errors. Returns (response, None) on success or
+        (None, ScrapeResult) once every attempted proxy fails."""
+        tries = min(settings.proxy_pool_max_tries, len(self._pool)) or 1
+        last_error = "no proxy tried"
+        for _ in range(tries):
+            proxies = self._pool.next_requests_proxies()
+            try:
+                resp = requests.get(
+                    url,
+                    params=params,
+                    headers=headers,
+                    proxies=proxies,
+                    timeout=self.PROXY_TIMEOUT_SECONDS,
+                )
+                if resp.status_code in (403, 429):
+                    last_error = f"HTTP {resp.status_code}"
+                    continue
+                resp.raise_for_status()
+                return resp, None
+            except requests.RequestException as exc:
+                last_error = self._pool.redact(str(exc))
+                continue
+        return None, ScrapeResult(
+            error_code="twogis_proxy_error",
+            error_message=f"proxy pool exhausted after {tries} tries: {last_error}",
+        )
 
     # --- catalog lookup (firm_id → org_id + metadata) -----------------------
 
@@ -205,7 +252,10 @@ class TwogisApiScraper:
             if not batch:
                 break
             for raw in batch:
-                collected.append(self._map_review(raw))
+                mapped = self._map_review(raw)
+                if mapped is None:
+                    continue
+                collected.append(mapped)
                 if len(collected) >= limit:
                     break
             if not ((data.get("meta") or {}).get("next_link")):
@@ -217,7 +267,7 @@ class TwogisApiScraper:
         return collected
 
     @staticmethod
-    def _map_review(raw: dict) -> ParsedReview:
+    def _map_review(raw: dict) -> ParsedReview | None:
         user = raw.get("user") or {}
         official = raw.get("official_answer")
         date_created = raw.get("date_created") or ""
@@ -225,6 +275,10 @@ class TwogisApiScraper:
             rating = int(raw.get("rating"))
         except (TypeError, ValueError):
             rating = 0
+        if rating < 1:
+            # Same validity rule as the Yandex parser (parser.py): a review without
+            # a real rating never reaches persistence or rating math (FR-010).
+            return None
         review_id = raw.get("id")
         return ParsedReview(
             author_name=user.get("name"),
@@ -259,10 +313,22 @@ class TwogisApiScraper:
     def _get_json_via_proxy(
         self, url: str, params: dict
     ) -> tuple[dict | None, ScrapeResult | None]:
+        # Rotating pool is primary; ScrapeOps is the legacy fallback.
+        if self._pool.enabled:
+            resp, err = self._pool_get(url, params=params, headers=self.BROWSER_HEADERS)
+            if err is not None:
+                return None, err
+            try:
+                return resp.json(), None
+            except ValueError as exc:
+                return None, ScrapeResult(
+                    error_code="twogis_bad_response",
+                    error_message=self._redact(str(exc)),
+                )
         if not settings.scrapeops_api_key:
             return None, ScrapeResult(
                 error_code="twogis_ip_blocked",
-                error_message="2GIS API blocked and no SCRAPEOPS_API_KEY for fallback",
+                error_message="2GIS API blocked and no PROXY_POOL / SCRAPEOPS_API_KEY for fallback",
             )
         target = requests.Request("GET", url, params=params).prepare().url
         try:

@@ -104,29 +104,61 @@ class DashboardService:
         """Current rating minus the earliest snapshot on/after ``period_start``.
 
         Returns None when the org is gone, has no current rating, or no snapshot
-        history covers the period (fresh install).
+        history covers the period (fresh install). Single-org convenience; the
+        overview uses the batched ``_earliest_snapshot_ratings`` instead.
         """
         org = self.db.get(Organization, organization_id)
         if org is None:
             return None
+        snaps = self._earliest_snapshot_ratings([organization_id], period_start)
+        return self._delta_for(org, platform, snaps)
+
+    def _earliest_snapshot_ratings(
+        self, org_ids: list[UUID], period_start: date
+    ) -> dict[tuple[UUID, ReviewPlatform], float]:
+        """Earliest in-period snapshot rating per (org, platform) in ONE query
+        (window function; supported by PG16 and SQLite >= 3.25)."""
+        if not org_ids:
+            return {}
+        rn = (
+            func.row_number()
+            .over(
+                partition_by=(RatingSnapshot.organization_id, RatingSnapshot.platform),
+                order_by=RatingSnapshot.captured_on.asc(),
+            )
+            .label("rn")
+        )
+        subq = (
+            self.db.query(
+                RatingSnapshot.organization_id.label("organization_id"),
+                RatingSnapshot.platform.label("platform"),
+                RatingSnapshot.rating.label("rating"),
+                rn,
+            )
+            .filter(
+                RatingSnapshot.organization_id.in_(org_ids),
+                RatingSnapshot.captured_on >= period_start,
+                RatingSnapshot.rating.isnot(None),
+            )
+            .subquery()
+        )
+        rows = self.db.query(subq).filter(subq.c.rn == 1).all()
+        return {(row.organization_id, row.platform): float(row.rating) for row in rows}
+
+    @staticmethod
+    def _delta_for(
+        org: Organization,
+        platform: ReviewPlatform,
+        snaps: dict[tuple[UUID, ReviewPlatform], float],
+    ) -> float | None:
         rating_col, _ = _PLATFORM_COLS[platform]
         current = getattr(org, rating_col)
         if current is None:
             return None
-        snap = (
-            self.db.query(RatingSnapshot)
-            .filter(
-                RatingSnapshot.organization_id == organization_id,
-                RatingSnapshot.platform == platform,
-                RatingSnapshot.captured_on >= period_start,
-                RatingSnapshot.rating.isnot(None),
-            )
-            .order_by(RatingSnapshot.captured_on.asc())
-            .first()
-        )
-        if snap is None or snap.rating is None:
+        base = snaps.get((org.id, platform))
+        if base is None:
             return None
-        return float(current) - float(snap.rating)
+        return float(current) - base
 
     # ------------------------------------------------------------------ #
     # Filter base                                                        #
@@ -174,15 +206,18 @@ class DashboardService:
         all_reviews = base.all()
         period_reviews = [r for r in all_reviews if cutoff is None or _aware(r.first_seen_at) >= cutoff]
 
+        # One grouped query for all period-start snapshot baselines (no per-org N+1).
+        snaps = self._earliest_snapshot_ratings(selected_ids, period_start)
+
         header = self._header(all_reviews, period_reviews, now)
-        kpi_hero = self._kpi_hero(orgs, all_reviews, period_reviews, platform, period_start, days, now)
+        kpi_hero = self._kpi_hero(orgs, all_reviews, period_reviews, platform, snaps, days, now)
         kpi_strip = self._kpi_strip(period_reviews)
         rating_distribution = self._rating_distribution(period_reviews)
         sentiment = self._sentiment(period_reviews)
         platform_breakdown = self._platform_breakdown(orgs)
-        platform_cards = self._platform_cards(orgs, selected_ids, cutoff, period_start)
-        attention = self._attention(orgs, all_reviews, platform, period_start, now)
-        worst_locations = self._worst_locations(orgs, all_reviews, platform, period_start)
+        platform_cards = self._platform_cards(orgs, selected_ids, cutoff, snaps, platform, all_reviews)
+        attention = self._attention(orgs, all_reviews, platform, snaps, now)
+        worst_locations = self._worst_locations(orgs, all_reviews, platform, snaps)
         trending_aspects = self._trending_aspects(all_reviews, now)
 
         return {
@@ -215,10 +250,10 @@ class DashboardService:
             ),
         }
 
-    def _kpi_hero(self, orgs, all_reviews, period_reviews, platform, period_start, days, now) -> dict:
+    def _kpi_hero(self, orgs, all_reviews, period_reviews, platform, snaps, days, now) -> dict:
         # Weighted network average rating over the platform's org columns.
         avg_rating = self._weighted_avg_rating(orgs, platform)
-        delta = self._network_rating_delta(orgs, platform, period_start)
+        delta = self._network_rating_delta(orgs, platform, snaps)
 
         today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
         new_today = sum(1 for r in all_reviews if _aware(r.first_seen_at) >= today_start)
@@ -323,14 +358,16 @@ class DashboardService:
             out.append({"platform": p.value, "review_count": total})
         return out
 
-    def _platform_cards(self, orgs, selected_ids, cutoff, period_start) -> list[dict]:
+    def _platform_cards(self, orgs, selected_ids, cutoff, snaps, platform, all_reviews) -> list[dict]:
         # Per-platform review-derived metrics (negativity, response speed) computed
         # from actual review rows, ignoring the platform filter so every card is
         # comparable. Google has no review rows -> those fields stay None.
-        rows_query = self.db.query(Review).filter(Review.organization_id.in_(selected_ids))
-        reviews = [
-            r for r in rows_query.all() if cutoff is None or _aware(r.first_seen_at) >= cutoff
-        ]
+        if platform == "all":
+            # already materialized platform-agnostic in overview(); no second scan
+            rows = all_reviews
+        else:
+            rows = self.db.query(Review).filter(Review.organization_id.in_(selected_ids)).all()
+        reviews = [r for r in rows if cutoff is None or _aware(r.first_seen_at) >= cutoff]
         by_platform: dict[ReviewPlatform, list] = {p: [] for p in _PLATFORM_COLS}
         for r in reviews:
             if r.platform in by_platform:
@@ -356,7 +393,7 @@ class DashboardService:
                 {
                     "platform": p.value,
                     "weighted_rating": self._weighted_avg_rating(orgs, p.value),
-                    "rating_delta": self._network_rating_delta(orgs, p.value, period_start),
+                    "rating_delta": self._network_rating_delta(orgs, p.value, snaps),
                     "negativity_percent": negativity,
                     "response_speed_hours": response_hours,
                 }
@@ -368,7 +405,7 @@ class DashboardService:
     # ------------------------------------------------------------------ #
     _SEVERITY_ORDER = {"urgent": 0, "warn": 1, "info": 2}
 
-    def _attention(self, orgs, all_reviews, platform, period_start, now) -> list[dict]:
+    def _attention(self, orgs, all_reviews, platform, snaps, now) -> list[dict]:
         items: list[dict] = []
         cutoff_24h = now - timedelta(hours=24)
         cutoff_2h = now - timedelta(hours=2)
@@ -407,7 +444,7 @@ class DashboardService:
             })
 
         items.extend(self._aspect_spikes(all_reviews, now))
-        items.extend(self._rating_drops(orgs, platform, period_start))
+        items.extend(self._rating_drops(orgs, platform, snaps))
 
         items.sort(key=lambda i: self._SEVERITY_ORDER.get(i["severity"], 9))
         return items
@@ -450,11 +487,11 @@ class DashboardService:
             for change, cat, rc in spikes[:top]
         ]
 
-    def _rating_drops(self, orgs, platform, period_start, *, threshold: float = -0.2, top: int = 3) -> list[dict]:
+    def _rating_drops(self, orgs, platform, snaps, *, threshold: float = -0.2, top: int = 3) -> list[dict]:
         p = ReviewPlatform(platform) if platform != "all" else ReviewPlatform.yandex
         drops = []
         for org in orgs:
-            delta = self.rating_delta(org.id, p, period_start)
+            delta = self._delta_for(org, p, snaps)
             if delta is not None and delta <= threshold:
                 drops.append((delta, org))
         drops.sort(key=lambda d: d[0])
@@ -474,7 +511,7 @@ class DashboardService:
     # ------------------------------------------------------------------ #
     # Worst locations + trending aspects                                 #
     # ------------------------------------------------------------------ #
-    def _worst_locations(self, orgs, all_reviews, platform, period_start, *, top: int = 10) -> list[dict]:
+    def _worst_locations(self, orgs, all_reviews, platform, snaps, *, top: int = 10) -> list[dict]:
         p = ReviewPlatform(platform) if platform != "all" else ReviewPlatform.yandex
         rating_col, _ = _PLATFORM_COLS[p]
 
@@ -493,7 +530,7 @@ class DashboardService:
                 "city": org.city,
                 "name": org.name,
                 "rating": round(float(rating), 2),
-                "rating_delta": self.rating_delta(org.id, p, period_start),
+                "rating_delta": self._delta_for(org, p, snaps),
                 "unanswered_count": unanswered_by_org.get(org.id, 0),
             })
         rows.sort(key=lambda r: r["rating"])
@@ -562,9 +599,9 @@ class DashboardService:
                     den += count
         return round(num / den, 2) if den else None
 
-    def _network_rating_delta(self, orgs, platform: str, period_start: date) -> float | None:
+    def _network_rating_delta(self, orgs, platform: str, snaps) -> float | None:
         p = ReviewPlatform(platform) if platform != "all" else ReviewPlatform.yandex
-        deltas = [self.rating_delta(org.id, p, period_start) for org in orgs]
+        deltas = [self._delta_for(org, p, snaps) for org in orgs]
         deltas = [d for d in deltas if d is not None]
         return round(sum(deltas) / len(deltas), 2) if deltas else None
 

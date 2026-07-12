@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
@@ -11,6 +12,8 @@ from app.models.organization import Organization
 from app.models.review import Review
 from app.scraper.normalize import build_review_hash
 from app.scraper.types import ParsedReview
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewService:
@@ -45,30 +48,39 @@ class ReviewService:
         source = "2gis" if is_twogis else "yandex_maps"
         platform = ReviewPlatform.gis2 if is_twogis else ReviewPlatform.yandex
 
+        # Hash first (dedup contract), then batch-preload existing rows in ONE query
+        # instead of a SELECT per review.
+        hashed: list[tuple[ParsedReview, str]] = []
         for parsed in reviews:
             seen += 1
-            content_hash = build_review_hash(
-                parsed.author_name,
-                parsed.rating,
-                parsed.review_date_text,
-                parsed.review_text,
+            hashed.append(
+                (
+                    parsed,
+                    build_review_hash(
+                        parsed.author_name,
+                        parsed.rating,
+                        parsed.review_date_text,
+                        parsed.review_text,
+                    ),
+                )
             )
-            existing = (
+
+        existing_by_hash: dict[str, Review] = {}
+        if hashed:
+            rows = (
                 self.db.query(Review)
-                .filter(Review.organization_id == organization_id, Review.content_hash == content_hash)
-                .first()
+                .filter(
+                    Review.organization_id == organization_id,
+                    Review.content_hash.in_({h for _, h in hashed}),
+                )
+                .all()
             )
-            if existing:
-                existing.last_seen_at = now
-                if parsed.response_text and not existing.response_text:
-                    # Response first appears on this run: record text + first-observed time (once).
-                    existing.response_text = parsed.response_text
-                    existing.response_first_seen_at = now
-                elif parsed.response_text:
-                    # Response already recorded: refresh text (e.g. business edit), keep the timestamp.
-                    existing.response_text = parsed.response_text
-                if existing.analyzed_at is None:
-                    self._apply_analysis(existing, now)
+            existing_by_hash = {row.content_hash: row for row in rows}
+
+        for parsed, content_hash in hashed:
+            existing = existing_by_hash.get(content_hash)
+            if existing is not None:
+                self._apply_update(existing, parsed, now)
                 updated += 1
                 continue
 
@@ -90,24 +102,47 @@ class ReviewService:
                 last_seen_at=now,
             )
             self._apply_analysis(review, now)
-            self.db.add(review)
+            # SAVEPOINT per insert: a concurrent-duplicate IntegrityError rolls back
+            # only this row, never the previously flushed inserts of the batch.
             try:
-                self.db.flush()
+                with self.db.begin_nested():
+                    self.db.add(review)
+                    self.db.flush()
                 inserted += 1
+                existing_by_hash[content_hash] = review
             except IntegrityError:
-                self.db.rollback()
-                existing = (
+                logger.warning(
+                    "review insert collision, retrying as update org=%s hash=%s",
+                    organization_id,
+                    content_hash[:12],
+                )
+                collided = (
                     self.db.query(Review)
-                    .filter(Review.organization_id == organization_id, Review.content_hash == content_hash)
+                    .filter(
+                        Review.organization_id == organization_id,
+                        Review.content_hash == content_hash,
+                    )
                     .first()
                 )
-                if existing:
-                    existing.last_seen_at = now
+                if collided is not None:
+                    self._apply_update(collided, parsed, now)
                     updated += 1
-                self.db.commit()
+                    existing_by_hash[content_hash] = collided
 
         self.db.commit()
         return seen, inserted, updated
+
+    def _apply_update(self, existing: Review, parsed: ParsedReview, now: datetime) -> None:
+        existing.last_seen_at = now
+        if parsed.response_text and not existing.response_text:
+            # Response first appears on this run: record text + first-observed time (once).
+            existing.response_text = parsed.response_text
+            existing.response_first_seen_at = now
+        elif parsed.response_text:
+            # Response already recorded: refresh text (e.g. business edit), keep the timestamp.
+            existing.response_text = parsed.response_text
+        if existing.analyzed_at is None:
+            self._apply_analysis(existing, now)
 
     def list_for_organization(
         self,
