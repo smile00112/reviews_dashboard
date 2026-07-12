@@ -1,0 +1,607 @@
+Logging to D:\_WORK_\laragon_2025\www\ReviewsDashboard\ReviewsDashboard\apps\api\logs\yandex_full.log
+start platforms=yandex orgs=602 offset=0 dry_run=False
+  [1/602] [yandex] Санкт-Петербург-04 Комендантский 62: updated rating=4.7 rating_count=1391 review_count=1106
+  [2/602] [yandex] Санкт-Петербург-06 ул Николая Рубцова 3: updated rating=4.9 rating_count=231 review_count=164
+  [3/602] [yandex] Санкт-Петербург-03 Карбышева 9: updated rating=4.9 rating_count=43 review_count=36
+  [4/602] [yandex] Красногорск-01 Центральный проезд 3: updated rating=4.8 rating_count=478 review_count=375
+  [5/602] [yandex] Комсомольск-на-Амуре-02 Мира 47: updated rating=4.6 rating_count=601 review_count=413
+  [6/602] [yandex] Лабытнанги-01 Школьная 25: updated rating=4.3 rating_count=10 review_count=8
+  [7/602] [yandex] Ишим-01 Маркса 29: updated rating=4.6 rating_count=571 review_count=320
+  [8/602] [yandex] Ярославль-03 Урицкого 65: updated rating=4.1 rating_count=30 review_count=25
+  [9/602] [yandex] Лангепас-01 Комсомольская 10А/2: updated rating=4.3 rating_count=5 review_count=4
+  [10/602] [yandex] Серов-01 Ленина 142: updated rating=4.6 rating_count=591 review_count=357
+  [11/602] [yandex] Ачинск-01 мкр 1 37а: updated rating=4.6 rating_count=409 review_count=275
+  [12/602] [yandex] Чехов-01 Береговая улица, 21, корп. 1: updated rating=5.0 rating_count=500 review_count=363
+  [13/602] [yandex] Комсомольск-на-Амуре-04 ул Вокзальная 91: updated rating=5.0 rating_count=None review_count=220
+  [14/602] [yandex] Соликамск-01 Матросова 63: updated rating=3.1 rating_count=10 review_count=6
+  [15/602] [yandex] Пермь-05 Революции 2а: updated rating=4.4 rating_count=21 review_count=17
+  [16/602] [yandex] Екатеринбург-09 Крауля 69: updated rating=4.4 rating_count=343 review_count=246
+  [17/602] [yandex] Сургут-08 Набережный 12/2: updated rating=4.4 rating_count=581 review_count=362
+  [18/602] [yandex] Пермь-09 Парковый 33: updated rating=2.6 rating_count=15 review_count=13
+  [19/602] [yandex] Чита-01 Бутина 42а: updated rating=4.3 rating_count=294 review_count=221
+  [20/602] [yandex] Сургут-02 30 лет Победы 41: updated rating=4.7 rating_count=280 review_count=199
+  [21/602] [yandex] Ханты-Мансийск-02 Самаровская 1/4: failed (no rating)
+  [22/602] [yandex] Москва-01 Волочаевская 12А/1: updated rating=2.9 rating_count=10 review_count=9
+  [23/602] [yandex] Заокский-01 Поленова 37: updated rating=4.5 rating_count=69 review_count=54
+  [24/602] [yandex] Москва-01 Волочаевская 12А/1: updated rating=4.3 rating_count=643 review_count=493
+  [25/602] [yandex] Пермь-09 Парковый 33: updated rating=4.9 rating_count=240 review_count=172
+  [26/602] [yandex] Калининград-01 Красная 262: updated rating=4.4 rating_count=47 review_count=42
+  [27/602] [yandex] Хабаровск-01 Суворова 25/1: updated rating=4.1 rating_count=18 review_count=10
+  [28/602] [yandex] Чебоксары-01 ул. Пролетарская 21/22: updated rating=2.0 rating_count=38 review_count=30
+  [29/602] [yandex] Омск-01 Культуры 7: updated rating=4.2 rating_count=25 review_count=20
+  [30/602] [yandex] Омск-02, ул. 70 лет Октября, 24/1: failed (no rating)
+  [31/602] [yandex] Нижневартовск-05 Дзержинского 9/1: updated rating=4.5 rating_count=322 review_count=227
+  [32/602] [yandex] Санкт-Петербург Кудрово, пр-кт Строителей, д.16: failed (no rating)
+  [33/602] [yandex] Комсомольск-на-Амуре-04 ул Вокзальная 91: updated rating=4.3 rating_count=7 review_count=4
+  [34/602] [yandex] Екатеринбург-11 Челюскинцев 19: updated rating=3.8 rating_count=31 review_count=22
+  [35/602] [yandex] Барнаул-02 Ленина 22: updated rating=1.0 rating_count=None review_count=136
+  [36/602] [yandex] Новокузнецк-03 Ленина 35: failed (no rating)
+  [37/602] [yandex] Краснодар-13 Восточно-Кругликовская 24: updated rating=1.0 rating_count=None review_count=146
+  [38/602] [yandex] Чебоксары-01 ул. Пролетарская 21/22: updated rating=4.4 rating_count=366 review_count=280
+  [39/602] [yandex] Нефтеюганск-01 мкр 16а 62: updated rating=2.0 rating_count=None review_count=132
+  [40/602] [yandex] Пермь-08 Мира 51: updated rating=4.3 rating_count=23 review_count=22
+  [41/602] [yandex] Норильск-02 Советская 5: updated rating=4.3 rating_count=131 review_count=75
+  [42/602] [yandex] Калининград , Судостроительная 6/1: updated rating=3.0 rating_count=None review_count=217
+  [43/602] [yandex] Благовещенск-01 ул 50 лет Октября, 24/1: failed (no rating)
+  [44/602] [yandex] Когалым-01 Мира 2: updated rating=4.1 rating_count=15 review_count=12
+  [45/602] [yandex] Хабаровск-05 Карла Маркса 200/1: updated rating=4.2 rating_count=6 review_count=4
+  [46/602] [yandex] Мегион-01 Заречная 15/3: updated rating=4.1 rating_count=4 review_count=4
+  [47/602] [yandex] Братск-02 ТЦ Русич Вокзальная 2в: updated rating=4.2 rating_count=73 review_count=32
+  [48/602] [yandex] Чебоксары-01 ул. Пролетарская 21/22: updated rating=4.1 rating_count=19 review_count=16
+  [49/602] [yandex] Жуковский Лацкова 2к4: updated rating=5.0 rating_count=None review_count=100
+  [50/602] [yandex] Омск-02, ул. 70 лет Октября, 24/1: updated rating=4.7 rating_count=132 review_count=103
+  [51/602] [yandex] Ноябрьск-02 Советская 81/2: updated rating=4.3 rating_count=199 review_count=125
+  [52/602] [yandex] Ижевск-03 Молодежная 107в: updated rating=1.0 rating_count=None review_count=144
+  [53/602] [yandex] Ангарск-01 22 микрорайон 42: updated rating=5.0 rating_count=540 review_count=447
+  [54/602] [yandex] Сочи-01 Советская д. 40 пом 1-4: updated rating=3.9 rating_count=4 review_count=3
+  [55/602] [yandex] Лянтор-01 Кингисеппа 9: updated rating=4.3 rating_count=219 review_count=115
+  [56/602] [yandex] Анапа-01 Лермонтова 118: updated rating=4.9 rating_count=821 review_count=613
+  [57/602] [yandex] Ялуторовск-01 Ленина 17: updated rating=4.1 rating_count=6 review_count=4
+  [58/602] [yandex] Белоярский-01 Мира 1: updated rating=4.0 rating_count=4 review_count=3
+  [59/602] [yandex] Нижний Новгород-01 Кораблестроителей 3: updated rating=3.8 rating_count=59 review_count=48
+  [60/602] [yandex] Нижнекамск-02 Гагарина 24: updated rating=4.3 rating_count=466 review_count=310
+  [61/602] [yandex] Радужный-01 мкр 7 12: updated rating=4.2 rating_count=3 review_count=2
+  [62/602] [yandex] Москва-14 Дмитрия Ульянова 28: updated rating=4.9 rating_count=180 review_count=151
+  [63/602] [yandex] Нижний Новгород-02 ул. Горького 148: skip (no url)
+  [64/602] [yandex] Северск-02 Коммунистический 50: updated rating=3.7 rating_count=3 review_count=2
+  [65/602] [yandex] Ярославль-05 Ньютона 28: updated rating=4.4 rating_count=25 review_count=18
+  [66/602] [yandex] Краснодар-11 Яна Полуяна 39: updated rating=4.5 rating_count=642 review_count=496
+  [67/602] [yandex] Пермь-12 ул. Юрша 84: updated rating=4.0 rating_count=25 review_count=18
+  [68/602] [yandex] Балашиха-01 мкн Авиаторов, бульвар Нестерова 9: updated rating=4.7 rating_count=315 review_count=256
+  [69/602] [yandex] Сочи-04 Адлер Ленина 73: updated rating=4.3 rating_count=137 review_count=111
+  [70/602] [yandex] Дубна Тверская 45А: updated rating=4.2 rating_count=42 review_count=38
+  [71/602] [yandex] Тюмень-13 Беляева 29/1: skip (no url)
+  [72/602] [yandex] Тюмень-07 Горького 55: updated rating=4.7 rating_count=200 review_count=144
+  [73/602] [yandex] Норильск-01 Талнахская 74: updated rating=4.1 rating_count=11 review_count=7
+  [74/602] [yandex] Москва-18 Сущевский Вал 49: updated rating=5.0 rating_count=144 review_count=131
+  [75/602] [yandex] Екатеринбург-10 Восточная 98: updated rating=4.2 rating_count=1229 review_count=976
+  [76/602] [yandex] Туапсе-01 Розы Люксембург 3: updated rating=3.9 rating_count=3 review_count=2
+  [77/602] [yandex] Тюмень-13 Беляева 29/1: updated rating=4.4 rating_count=254 review_count=124
+  [78/602] [yandex] Пыть-Ях-01 мкр 2 15: updated rating=4.0 rating_count=10 review_count=6
+  [79/602] [yandex] Кемерово-04 Строителей 42: updated rating=3.6 rating_count=15 review_count=11
+  [80/602] [yandex] Находка-03 Малиновского 21а: updated rating=4.2 rating_count=36 review_count=13
+  [81/602] [yandex] Томск-06 пер. 1905 года 11: updated rating=2.6 rating_count=9 review_count=5
+  [82/602] [yandex] Норильск-02 Советская 5: updated rating=3.7 rating_count=3 review_count=1
+  [83/602] [yandex] Ухта-01 30 лет Октября 12: updated rating=3.5 rating_count=61 review_count=39
+  [84/602] [yandex] Тюмень-18 Монтажников 47: failed (no rating)
+  [85/602] [yandex] Ханты-Мансийск-02 Самаровская 1/4: updated rating=4.4 rating_count=10 review_count=10
+  [86/602] [yandex] Альметьевск-01 Ленина 101: updated rating=4.5 rating_count=452 review_count=317
+  [87/602] [yandex] Миасс-02 Автозаводцев 32/Б: updated rating=4.1 rating_count=26 review_count=21
+  [88/602] [yandex] Альметьевск-01 Ленина 101: updated rating=4.0 rating_count=55 review_count=44
+  [89/602] [yandex] Стрежевой-01 мкр 1 176: updated rating=4.7 rating_count=341 review_count=169
+  [90/602] [yandex] Находка-01 пр. Находкинский 102: updated rating=4.4 rating_count=317 review_count=207
+  [91/602] [yandex] Хабаровск-06 Амурский бульвар 62: updated rating=4.2 rating_count=175 review_count=99
+  [92/602] [yandex] Ярославль-01 Большая Федоровская 29: updated rating=4.1 rating_count=20 review_count=18
+  [93/602] [yandex] Ухта-01 30 лет Октября 12: updated rating=4.1 rating_count=34 review_count=27
+  [94/602] [yandex] Москва-13 Дмитровское шоссе 70: updated rating=4.4 rating_count=50 review_count=36
+  [95/602] [yandex] Омск-02, ул. 70 лет Октября, 24/1: updated rating=4.3 rating_count=7 review_count=7
+  [96/602] [yandex] Чебоксары-02 пр-т Максима Горького 38/2: updated rating=4.2 rating_count=32 review_count=27
+  [97/602] [yandex] Чусовой-01 50 лет ВЛКСМ 4: updated rating=4.2 rating_count=10 review_count=9
+  [98/602] [yandex] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: updated rating=4.6 rating_count=278 review_count=230
+  [99/602] [yandex] Москва-04 Сходненская 25: updated rating=4.1 rating_count=8 review_count=6
+  [100/602] [yandex] Ангарск-01 22 микрорайон 42: updated rating=1.0 rating_count=None review_count=119
+  [101/602] [yandex] Муравленко-01 Муравленко 12 Б: updated rating=1.1 rating_count=16 review_count=9
+  [102/602] [yandex] Хабаровск-05 Карла Маркса 200/1: updated rating=1.0 rating_count=None review_count=202
+  [103/602] [yandex] Мегион-01 Заречная 15/3: updated rating=3.0 rating_count=6 review_count=4
+  [104/602] [yandex] Хабаровск-07 Тихоокеанская 182 б: updated rating=4.4 rating_count=47 review_count=40
+  [105/602] [yandex] Чусовой-01 50 лет ВЛКСМ 4: updated rating=3.2 rating_count=16 review_count=4
+  [106/602] [yandex] Павловский Посад Железнодорожный проезд, 5: updated rating=3.8 rating_count=7 review_count=4
+  [107/602] [yandex] Тюмень-18 Монтажников 47: updated rating=4.7 rating_count=372 review_count=244
+  [108/602] [yandex] Барнаул-01 Ленина 113: updated rating=4.4 rating_count=27 review_count=20
+  [109/602] [yandex] Барнаул-05 ул. Юрина, 202 (НОВАЯ): updated rating=4.1 rating_count=11 review_count=9
+  [110/602] [yandex] Тобольск-06 8-й микрорайон 8Б: updated rating=5.0 rating_count=None review_count=263
+  [111/602] [yandex] Кемерово-05 Радищева 4: updated rating=4.0 rating_count=26 review_count=23
+  [112/602] [yandex] Рыбинск 02 проспект Мира, д. 23, помещение 5а: updated rating=4.1 rating_count=6 review_count=5
+  [113/602] [yandex] Санкт-Петербург-05 ул Парфёновская 9 к1: updated rating=4.6 rating_count=503 review_count=413
+  [114/602] [yandex] Нефтеюганск-01 мкр 16а 62: updated rating=3.9 rating_count=7 review_count=7
+  [115/602] [yandex] Майкоп-01 Чкалова 71: updated rating=4.7 rating_count=680 review_count=485
+  [116/602] [yandex] Москва-07 Проезд Грайвороновский 2-й 44к3: updated rating=5.0 rating_count=125 review_count=86
+  [117/602] [yandex] Калининград-01 Красная 262: updated rating=4.0 rating_count=6 review_count=5
+  [118/602] [yandex] Заводоуковск-01 Первомайская 9Б: updated rating=4.9 rating_count=328 review_count=189
+  [119/602] [yandex] Салехард-01 Свердлова 41: updated rating=3.6 rating_count=13 review_count=11
+  [120/602] [yandex] Серпухов Ворошилова 68а: updated rating=4.3 rating_count=32 review_count=22
+  [121/602] [yandex] Пермь-07 Солдатова 28: updated rating=4.0 rating_count=14 review_count=8
+  [122/602] [yandex] Долгопрудный: updated rating=4.7 rating_count=61 review_count=53
+  [123/602] [yandex] Комсомольск-на-Амуре-03 Лазо 7: failed (no rating)
+  [124/602] [yandex] Нижневартовск-06 Мира 93: skip (no url)
+  [125/602] [yandex] Москва-10 Братиславская 20: updated rating=4.3 rating_count=673 review_count=490
+  [126/602] [yandex] Екатеринбург Челюскинцев: skip (no url)
+  [127/602] [yandex] Соликамск-01 Матросова 63: updated rating=4.3 rating_count=307 review_count=135
+  [128/602] [yandex] Находка-03 Малиновского 21а: skip (no url)
+  [129/602] [yandex] Красноярск-03 Юности 39: updated rating=4.5 rating_count=9 review_count=8
+  [130/602] [yandex] Воронеж-07 Артамонова 38Д к2: updated rating=4.7 rating_count=87 review_count=68
+  [131/602] [yandex] Лабытнанги-01 Школьная 25: updated rating=4.4 rating_count=244 review_count=139
+  [132/602] [yandex] Омск-05 ул. Маяковского,85: updated rating=4.3 rating_count=10 review_count=9
+  [133/602] [yandex] Барнаул-01 Ленина 113: failed (no rating)
+  [134/602] [yandex] Омск-01 Культуры 7: updated rating=4.2 rating_count=12 review_count=11
+  [135/602] [yandex] Пермь-08 Мира 51: updated rating=4.5 rating_count=453 review_count=356
+  [136/602] [yandex] Нефтеюганск-02 Ленина 33: updated rating=4.3 rating_count=128 review_count=82
+  [137/602] [yandex] Новокузнецк-06 Кирова 21: updated rating=1.2 rating_count=16 review_count=8
+  [138/602] [yandex] Пермь-07 Солдатова 28: updated rating=4.3 rating_count=25 review_count=18
+  [139/602] [yandex] Чита-01 Бутина 42а: updated rating=3.5 rating_count=14 review_count=12
+  [140/602] [yandex] Хабаровск-07 Тихоокеанская 182 б: failed (no rating)
+  [141/602] [yandex] Кемерово-10 проспект Шахтеров 58А: updated rating=4.3 rating_count=35 review_count=23
+  [142/602] [yandex] Северск-02 Коммунистический 50: updated rating=3.0 rating_count=8 review_count=7
+  [143/602] [yandex] Тюмень-22 30 лет Победы 132-1: updated rating=4.4 rating_count=693 review_count=427
+  [144/602] [yandex] Пыть-Ях-01 мкр 2 15: updated rating=1.8 rating_count=11 review_count=4
+  [145/602] [yandex] Хабаровск-02 Ленинградская 28/9: failed (no rating)
+  [146/602] [yandex] Пермь-09 Парковый 33: failed (no rating)
+  [147/602] [yandex] Екатеринбург-21 Победы 102: skip (no url)
+  [148/602] [yandex] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: updated rating=4.1 rating_count=31 review_count=27
+  [149/602] [yandex] Находка-01 пр. Находкинский 102: updated rating=4.5 rating_count=35 review_count=29
+  [150/602] [yandex] Пермь-04 Рыбалко 113: skip (no url)
+  [151/602] [yandex] Реутов-01 Ленина 15: updated rating=4.3 rating_count=676 review_count=512
+  [152/602] [yandex] Ростов-на-Дону-10 бульвар Комарова 20/1: updated rating=4.2 rating_count=17 review_count=17
+  [153/602] [yandex] Югорск-01 Ленина 14: updated rating=4.2 rating_count=7 review_count=5
+  [154/602] [yandex] Барнаул-03 ул. Балтийская, 103: updated rating=4.9 rating_count=259 review_count=185
+  [155/602] [yandex] Тарко-Сале ул. Губкина, 20: updated rating=3.3 rating_count=9 review_count=3
+  [156/602] [yandex] Новокузнецк-07 Разведчиков 52: updated rating=4.1 rating_count=14 review_count=10
+  [157/602] [yandex] Новокузнецк-03 Ленина 35: updated rating=4.3 rating_count=37 review_count=29
+  [158/602] [yandex] Смоленск-01 Октябрьской Революци 17: updated rating=5.0 rating_count=39 review_count=36
+  [159/602] [yandex] Томск-06 пер. 1905 года 11: updated rating=4.4 rating_count=160 review_count=62
+  [160/602] [yandex] Омск-01 Культуры 7: updated rating=4.7 rating_count=229 review_count=171
+  [161/602] [yandex] Новокузнецк-06 Кирова 21: failed (no rating)
+  [162/602] [yandex] Новый Уренгой-03 Советский 5/3: skip (no url)
+  [163/602] [yandex] Усолье-Сибирское Ленинский 72: updated rating=1.0 rating_count=None review_count=265
+  [164/602] [yandex] Кемерово-05 Радищева 4: updated rating=4.5 rating_count=463 review_count=325
+  [165/602] [yandex] Тюмень-25 Щербакова 136: updated rating=5.0 rating_count=192 review_count=171
+  [166/602] [yandex] Прокопьевск-01 Гагарина 26: updated rating=4.3 rating_count=269 review_count=205
+  [167/602] [yandex] Краснодар-08 Метальникова 3: failed (no rating)
+  [168/602] [yandex] Люберцы-01 Юности 3: updated rating=3.1 rating_count=49 review_count=40
+  [169/602] [yandex] Омск-04 ул. Герцена, 12: updated rating=4.9 rating_count=243 review_count=210
+  [170/602] [yandex] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: failed (no rating)
+  [171/602] [yandex] Нижний Новгород-01 Кораблестроителей 3: skip (no url)
+  [172/602] [yandex] Рыбинск 02 проспект Мира, д. 23, помещение 5а: updated rating=4.3 rating_count=10 review_count=9
+  [173/602] [yandex] Тюмень-12 Артамонова 13: updated rating=4.5 rating_count=207 review_count=137
+  [174/602] [yandex] Находка-03 Малиновского 21а: updated rating=4.2 rating_count=6 review_count=5
+  [175/602] [yandex] Пермь-05 Революции 2а: updated rating=4.5 rating_count=524 review_count=365
+  [176/602] [yandex] Екатеринбург-13 Титова 12: updated rating=4.4 rating_count=478 review_count=354
+  [177/602] [yandex] Москва-12 Богданова 2, корпус 1: updated rating=1.8 rating_count=9 review_count=8
+  [178/602] [yandex] Норильск-01 Талнахская 74: updated rating=4.3 rating_count=272 review_count=187
+  [179/602] [yandex] Пермь-11 Докучаева 42: updated rating=4.6 rating_count=396 review_count=272
+  [180/602] [yandex] Барнаул-03 ул. Балтийская, 103: updated rating=4.2 rating_count=20 review_count=16
+  [181/602] [yandex] Красноярск-01 Молоково 1 копус 3: updated rating=4.4 rating_count=17 review_count=12
+  [182/602] [yandex] Прокопьевск-01 Гагарина 26: updated rating=4.1 rating_count=15 review_count=11
+  [183/602] [yandex] Надым-02 Игоря Шаповалова 8/1: updated rating=4.6 rating_count=87 review_count=43
+  [184/602] [yandex] Ростов-на-Дону-06 Металлургическая 117/62: updated rating=4.4 rating_count=552 review_count=394
+  [185/602] [yandex] Барнаул-03 ул. Балтийская, 103: failed (no rating)
+  [186/602] [yandex] Ярославль-04 Машиностроителей 30/18: skip (no url)
+  [187/602] [yandex] Витязево-01 Овражная 54: updated rating=4.1 rating_count=8 review_count=8
+  [188/602] [yandex] Москва-15 Фестивальная 41 к1: updated rating=5.0 rating_count=137 review_count=113
+  [189/602] [yandex] Норильск-01 Талнахская 74: updated rating=4.2 rating_count=6 review_count=5
+  [190/602] [yandex] Пермь-11 Докучаева 42: updated rating=4.1 rating_count=18 review_count=12
+  [191/602] [yandex] Белоярский-01 Мира 1: updated rating=4.5 rating_count=285 review_count=151
+  [192/602] [yandex] Когалым-01 Мира 2: updated rating=3.8 rating_count=5 review_count=4
+  [193/602] [yandex] Ростов-на-Дону-06 Металлургическая 117/62: failed (no rating)
+  [194/602] [yandex] Пермь-04 Рыбалко 113: updated rating=4.0 rating_count=9 review_count=8
+  [195/602] [yandex] Москва-13 Дмитровское шоссе 70: updated rating=5.0 rating_count=269 review_count=234
+  [196/602] [yandex] Уссурийск-01 Некрасова 53: updated rating=4.2 rating_count=319 review_count=178
+  [197/602] [yandex] Белгород-01 б-р Народный 43: updated rating=4.4 rating_count=415 review_count=289
+  [198/602] [yandex] Новокузнецк-07 Разведчиков 52: updated rating=4.6 rating_count=330 review_count=204
+  [199/602] [yandex] Благовещенск-01 ул 50 лет Октября, 24/1: updated rating=3.4 rating_count=6 review_count=5
+  [200/602] [yandex] Каменск-Уральский-01 Победы 87а: updated rating=4.0 rating_count=6 review_count=4
+  [201/602] [yandex] Ярославль-04 Машиностроителей 30/18: updated rating=4.7 rating_count=197 review_count=171
+  [202/602] [yandex] Муравленко-01 Муравленко 12 Б: updated rating=4.3 rating_count=16 review_count=14
+  [203/602] [yandex] Ханты-Мансийск-01 Мира 52: updated rating=4.3 rating_count=313 review_count=173
+  [204/602] [yandex] Сургут-10 Тюменский тракт 2: updated rating=4.1 rating_count=19 review_count=12
+  [205/602] [yandex] Екатеринбург-09 Крауля 69: updated rating=2.4 rating_count=49 review_count=29
+  [206/602] [yandex] Коломна улица Фрунзе, 46Б: updated rating=4.3 rating_count=36 review_count=33
+  [207/602] [yandex] Тюмень-04 Ямская 102: failed (no rating)
+  [208/602] [yandex] Новороссийск-02 ул. Видова, 210 Д: updated rating=3.2 rating_count=14 review_count=11
+  [209/602] [yandex] Комсомольск-на-Амуре-02 Мира 47: failed (no rating)
+  [210/602] [yandex] Ярославль-03 Урицкого 65: updated rating=4.3 rating_count=23 review_count=14
+  [211/602] [yandex] Майкоп-01 Чкалова 71: updated rating=2.8 rating_count=28 review_count=21
+  [212/602] [yandex] Салехард-01 Свердлова 41: updated rating=4.2 rating_count=5 review_count=5
+  [213/602] [yandex] Уссурийск-01 Некрасова 53: updated rating=1.4 rating_count=17 review_count=10
+  [214/602] [yandex] Ростов-на-Дону-10 бульвар Комарова 20/1: updated rating=4.0 rating_count=18 review_count=12
+  [215/602] [yandex] Люберцы-01 Юности 3: updated rating=4.4 rating_count=804 review_count=568
+  [216/602] [yandex] Новый Уренгой-03 Советский 5/3: updated rating=3.8 rating_count=10 review_count=8
+  [217/602] [yandex] Екатеринбург-13 Титова 12: failed (no rating)
+  [218/602] [yandex] Миасс-02 Автозаводцев 32/Б: updated rating=4.2 rating_count=321 review_count=208
+  [219/602] [yandex] Ярославль-01 Большая Федоровская 29: updated rating=4.5 rating_count=715 review_count=529
+  [220/602] [yandex] Ханты-Мансийск-01 Мира 52: failed (no rating)
+  [221/602] [yandex] Тюмень-03 Газовиков 61: skip (no url)
+  [222/602] [yandex] Чебаркуль-01 9 мая 29: updated rating=4.1 rating_count=17 review_count=14
+  [223/602] [yandex] Усинск-01 60 лет Октября 5: updated rating=2.0 rating_count=4 review_count=2
+  [224/602] [yandex] Белгород-02 Бульвар юности 5б: updated rating=4.9 rating_count=281 review_count=233
+  [225/602] [yandex] Королев-01 проезд Циолковского, 5: updated rating=4.9 rating_count=845 review_count=702
+  [226/602] [yandex] Красноярск-01 Молоково 1 копус 3: updated rating=4.2 rating_count=292 review_count=154
+  [227/602] [yandex] Стрежевой-01 мкр 1 176: updated rating=3.2 rating_count=13 review_count=10
+  [228/602] [yandex] Сыктывкар-04 Первомайская 85/2: updated rating=1.5 rating_count=14 review_count=11
+  [229/602] [yandex] Егорьевск, Касимовское шоссе, 9: updated rating=4.7 rating_count=50 review_count=47
+  [230/602] [yandex] Ангарск-01 22 микрорайон 42: updated rating=4.0 rating_count=13 review_count=12
+  [231/602] [yandex] Надым-02 Игоря Шаповалова 8/1: updated rating=4.1 rating_count=9 review_count=6
+  [232/602] [yandex] Ялуторовск-01 Ленина 17: updated rating=4.2 rating_count=3 review_count=2
+  [233/602] [yandex] Туапсе-01 Розы Люксембург 3: updated rating=4.5 rating_count=257 review_count=197
+  [234/602] [yandex] Тюмень-23 Обдорская 1к2 суши: failed (no rating)
+  [235/602] [yandex] Екатеринбург-10 Восточная 98: failed (no rating)
+  [236/602] [yandex] Новороссийск-01 Бориса Пупко 1: updated rating=4.6 rating_count=810 review_count=624
+  [237/602] [yandex] Новый Уренгой-02 Оптимистов 4/1: updated rating=5.0 rating_count=None review_count=319
+  [238/602] [yandex] Сочи-01 Советская д. 40 пом 1-4: updated rating=4.2 rating_count=34 review_count=29
+  [239/602] [yandex] Нижневартовск-06 Мира 93: updated rating=4.5 rating_count=224 review_count=141
+  [240/602] [yandex] Нижнекамск-02 Гагарина 24: failed (no rating)
+  [241/602] [yandex] Тюмень Лесопарковая 1 к2: failed (no rating)
+  [242/602] [yandex] Киров-01 Челюскинцев д.7 пом.1004: updated rating=1.0 rating_count=None review_count=151
+  [243/602] [yandex] Ухта-01 30 лет Октября 12: updated rating=4.0 rating_count=16 review_count=12
+  [244/602] [yandex] Томск-02 Учебная 20: updated rating=4.1 rating_count=37 review_count=28
+  [245/602] [yandex] Хабаровск-05 Карла Маркса 200/1: updated rating=4.0 rating_count=39 review_count=29
+  [246/602] [yandex] Междуреченск-01 Коммунистический 8: updated rating=3.8 rating_count=5 review_count=3
+  [247/602] [yandex] Москва Сущевский вал 49: updated rating=5.0 rating_count=None review_count=221
+  [248/602] [yandex] Пермь-12 ул. Юрша 84: skip (no url)
+  [249/602] [yandex] Екатеринбург-11 Челюскинцев 19: updated rating=3.8 rating_count=78 review_count=66
+  [250/602] [yandex] Хабаровск-06 Амурский бульвар 62: updated rating=3.9 rating_count=42 review_count=35
+  [251/602] [yandex] Уссурийск-01 Некрасова 53: updated rating=1.6 rating_count=22 review_count=20
+  [252/602] [yandex] Нижний Новгород-02 ул. Горького 148: skip (no url)
+  [253/602] [yandex] Барнаул-05 ул. Юрина, 202 (НОВАЯ): updated rating=4.7 rating_count=100 review_count=74
+  [254/602] [yandex] Хабаровск-07 Тихоокеанская 182 б: updated rating=4.3 rating_count=9 review_count=9
+  [255/602] [yandex] Москва-14 Дмитрия Ульянова 28: updated rating=1.0 rating_count=None review_count=227
+  [256/602] [yandex] Воскресенск ул. Железнодорожная, 18б: updated rating=4.1 rating_count=13 review_count=10
+  [257/602] [yandex] Лангепас-01 Комсомольская 10А/2: updated rating=4.0 rating_count=12 review_count=7
+  [258/602] [yandex] Ишим-01 Маркса 29: updated rating=4.9 rating_count=103 review_count=86
+  [259/602] [yandex] Стрежевой-01 мкр 1 176: updated rating=4.3 rating_count=4 review_count=4
+  [260/602] [yandex] Одинцово-01 Можайское шоссе 71Б: updated rating=4.1 rating_count=7 review_count=5
+  [261/602] [yandex] Соликамск-01 Матросова 63: updated rating=4.0 rating_count=9 review_count=7
+  [262/602] [yandex] Краснодар-09 Стасова 186: updated rating=4.7 rating_count=381 review_count=311
+  [263/602] [yandex] Пермь-11 Докучаева 42: updated rating=4.1 rating_count=26 review_count=18
+  [264/602] [yandex] Сочи-04 Адлер Ленина 73: updated rating=5.0 rating_count=1134 review_count=888
+  [265/602] [yandex] Хабаровск-02 Ленинградская 28/9: updated rating=4.1 rating_count=7 review_count=7
+  [266/602] [yandex] Новый Уренгой-02 Оптимистов 4/1: failed (no rating)
+  [267/602] [yandex] Жуковский  Лацкова, 2, корп. 4: updated rating=4.3 rating_count=30 review_count=26
+  [268/602] [yandex] Ялуторовск-01 Ленина 17: updated rating=4.7 rating_count=284 review_count=153
+  [269/602] [yandex] Урай-01 мкр 2 61: updated rating=3.9 rating_count=19 review_count=8
+  [270/602] [yandex] Ярославль-01 Большая Федоровская 29: updated rating=4.0 rating_count=57 review_count=49
+  [271/602] [yandex] Северск-02 Коммунистический 50: updated rating=4.5 rating_count=358 review_count=171
+  [272/602] [yandex] Верхняя Пышма-01 Успенский 48: updated rating=4.0 rating_count=30 review_count=22
+  [273/602] [yandex] Нижнекамск-02 Гагарина 24: updated rating=2.7 rating_count=50 review_count=45
+  [274/602] [yandex] Губкинский-01 мкр 12 39: updated rating=4.0 rating_count=7 review_count=4
+  [275/602] [yandex] Кемерово-10 проспект Шахтеров 58А: updated rating=4.5 rating_count=250 review_count=185
+  [276/602] [yandex] Москва-04 Сходненская 25: updated rating=4.3 rating_count=484 review_count=313
+  [277/602] [yandex] Серов-01 Ленина 142: updated rating=4.3 rating_count=8 review_count=7
+  [278/602] [yandex] Чебоксары-01 ул. Пролетарская 21/22: failed (no rating)
+  [279/602] [yandex] Красноярск-11 Имени газеты КР 135: updated rating=4.2 rating_count=11 review_count=11
+  [280/602] [yandex] Ноябрьск-02 Советская 81/2: updated rating=3.8 rating_count=17 review_count=12
+  [281/602] [yandex] Кемерово-10 проспект Шахтеров 58А: skip (no url)
+  [282/602] [yandex] Нижний Новгород-03 Комсомольская 9: updated rating=3.5 rating_count=53 review_count=43
+  [283/602] [yandex] Нижнекамск-02 Гагарина 24: updated rating=1.0 rating_count=30 review_count=18
+  [284/602] [yandex] Туапсе-01 Розы Люксембург 3: updated rating=2.1 rating_count=11 review_count=8
+  [285/602] [yandex] Омск-01 Культуры 7: failed (no rating)
+  [286/602] [yandex] Санкт-Петербург-04 Комендантский 62: updated rating=3.2 rating_count=6 review_count=4
+  [287/602] [yandex] Краснодар-13 Восточно-Кругликовская 24: updated rating=3.6 rating_count=98 review_count=72
+  [288/602] [yandex] Иркутск-03 Волжская 33: updated rating=3.9 rating_count=3 review_count=2
+  [289/602] [yandex] Барнаул-02 Ленина 22: skip (no url)
+  [290/602] [yandex] Екатеринбург-21 Победы 102: updated rating=4.1 rating_count=15 review_count=10
+  [291/602] [yandex] Нижнекамск-02 Гагарина 24: skip (no url)
+  [292/602] [yandex] Комсомольск-на-Амуре-03 Лазо 7: updated rating=5.0 rating_count=None review_count=224
+  [293/602] [yandex] Каменск-Уральский-01 Победы 87а: updated rating=4.6 rating_count=718 review_count=405
+  [294/602] [yandex] Нижний Новгород-01 Кораблестроителей 3: updated rating=4.4 rating_count=141 review_count=114
+  [295/602] [yandex] Краснодар-09 Стасова 186: updated rating=4.3 rating_count=82 review_count=66
+  [296/602] [yandex] Омск-05 ул. Маяковского,85: failed (no rating)
+  [297/602] [yandex] Томск-06 пер. 1905 года 11: updated rating=5.0 rating_count=None review_count=291
+  [298/602] [yandex] Томск-04 Иркутский 32: updated rating=4.0 rating_count=4 review_count=3
+  [299/602] [yandex] Пермь-09 Парковый 33: updated rating=4.4 rating_count=22 review_count=18
+  [300/602] [yandex] Ханты-Мансийск-02 Самаровская 1/4: updated rating=4.0 rating_count=10 review_count=7
+  [301/602] [yandex] Томск-03 79 Гвардейской дивизии 24: updated rating=4.3 rating_count=470 review_count=179
+  [302/602] [yandex] Тюмень Червишевский тракт: failed (no rating)
+  [303/602] [yandex] Зеленоград-01 Новокрюковская 10: updated rating=4.7 rating_count=1310 review_count=1028
+  [304/602] [yandex] Курск-03 Бойцов 9 дивизии 185а: updated rating=4.9 rating_count=143 review_count=109
+  [305/602] [yandex] Екатеринбург-13 Титова 12: updated rating=4.0 rating_count=22 review_count=18
+  [306/602] [yandex] Химки-01 Юбилейный 70А: updated rating=4.7 rating_count=439 review_count=343
+  [307/602] [yandex] Ижевск-03 Молодежная 107в: updated rating=3.0 rating_count=None review_count=244
+  [308/602] [yandex] Нижний Новгород-03 Комсомольская 9: updated rating=4.3 rating_count=34 review_count=27
+  [309/602] [yandex] Нягань-01 4 мкр 15 к2: updated rating=4.3 rating_count=13 review_count=10
+  [310/602] [yandex] Березники-01 Мира 83: updated rating=4.4 rating_count=320 review_count=218
+  [311/602] [yandex] Барнаул-05 ул. Юрина, 202 (НОВАЯ): updated rating=4.2 rating_count=17 review_count=15
+  [312/602] [yandex] Югорск-01 Ленина 14: updated rating=4.4 rating_count=455 review_count=269
+  [313/602] [yandex] Новокузнецк-07 Разведчиков 52: updated rating=2.5 rating_count=6 review_count=4
+  [314/602] [yandex] Хабаровск-02 Ленинградская 28/9: updated rating=4.2 rating_count=386 review_count=284
+  [315/602] [yandex] Череповец, проспект Победы 144: updated rating=4.4 rating_count=20 review_count=19
+  [316/602] [yandex] Березники-01 Мира 83: updated rating=2.6 rating_count=8 review_count=7
+  [317/602] [yandex] Ярославль-05 Ньютона 28: skip (no url)
+  [318/602] [yandex] Новокузнецк-08 Новоселов 23А: skip (no url)
+  [319/602] [yandex] Новокузнецк-06 Кирова 21: updated rating=4.4 rating_count=861 review_count=627
+  [320/602] [yandex] Новороссийск-01 Бориса Пупко 1: updated rating=4.2 rating_count=33 review_count=24
+  [321/602] [yandex] Витязево-01 Овражная 54: updated rating=4.7 rating_count=369 review_count=263
+  [322/602] [yandex] Сургут-01 Ленина 50: failed (no rating)
+  [323/602] [yandex] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: failed (no rating)
+  [324/602] [yandex] Ноябрьск-02 Советская 81/2: updated rating=4.3 rating_count=12 review_count=10
+  [325/602] [yandex] Киров-01 Челюскинцев 7: updated rating=2.0 rating_count=None review_count=130
+  [326/602] [yandex] Урай-01 мкр 2 61: updated rating=4.3 rating_count=408 review_count=167
+  [327/602] [yandex] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: updated rating=3.5 rating_count=17 review_count=15
+  [328/602] [yandex] Москва Первомайская 52 пом.2: updated rating=5.0 rating_count=None review_count=221
+  [329/602] [yandex] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: updated rating=4.0 rating_count=39 review_count=35
+  [330/602] [yandex] Комсомольск-на-Амуре-04 ул Вокзальная 91: updated rating=4.4 rating_count=89 review_count=66
+  [331/602] [yandex] Люберцы-01 Юности 3: skip (no url)
+  [332/602] [yandex] Ханты-Мансийск-02 Самаровская 1/4: updated rating=4.4 rating_count=186 review_count=104
+  [333/602] [yandex] Комсомольск-на-Амуре-04 ул Вокзальная 91: failed (no rating)
+  [334/602] [yandex] Томск-04 Иркутский 32: updated rating=4.3 rating_count=20 review_count=13
+  [335/602] [yandex] Междуреченск-01 Коммунистический 8: updated rating=4.3 rating_count=8 review_count=7
+  [336/602] [yandex] Геленджик-01 Леселидзе 11: updated rating=3.2 rating_count=10 review_count=9
+  [337/602] [yandex] Талнах-01 Бауманская 9: updated rating=4.9 rating_count=134 review_count=105
+  [338/602] [yandex] Хабаровск-01 Суворова 25/1: updated rating=4.3 rating_count=20 review_count=17
+  [339/602] [yandex] Подольск-02 ул Генерала Варенникова, 4: updated rating=4.2 rating_count=3 review_count=3
+  [340/602] [yandex] Краснодар-08 Метальникова 3: updated rating=4.1 rating_count=57 review_count=47
+  [341/602] [yandex] Ачинск-01 мкр 1 37а: skip (no url)
+  [342/602] [yandex] Усинск-01 60 лет Октября 5: updated rating=4.0 rating_count=8 review_count=8
+  [343/602] [yandex] Комсомольск-на-Амуре-03 Лазо 7: updated rating=4.3 rating_count=202 review_count=136
+  [344/602] [yandex] Сыктывкар-04 Первомайская 85/2: skip (no url)
+  [345/602] [yandex] Сургут-04 Ленина 66: updated rating=4.5 rating_count=670 review_count=500
+  [346/602] [yandex] Омск-05 ул. Маяковского,85: updated rating=4.5 rating_count=67 review_count=51
+  [347/602] [yandex] Чебоксары-02 пр-т Максима Горького 38/2: updated rating=4.1 rating_count=19 review_count=13
+  [348/602] [yandex] Москва-07 Проезд Грайвороновский 2-й 44к3: updated rating=4.2 rating_count=12 review_count=10
+  [349/602] [yandex] Ростов-на-Дону-06 Металлургическая 117/62: updated rating=4.1 rating_count=112 review_count=87
+  [350/602] [yandex] Ачинск-01 мкр 1 37а: updated rating=4.5 rating_count=13 review_count=12
+  [351/602] [yandex] Усинск-01 60 лет Октября 5: updated rating=4.6 rating_count=423 review_count=290
+  [352/602] [yandex] Омск-02, ул. 70 лет Октября, 24/1: updated rating=4.3 rating_count=33 review_count=26
+  [353/602] [yandex] Тюмень-24 Ямская 104: updated rating=4.4 rating_count=112 review_count=71
+  [354/602] [yandex] Сургут-04 Ленина 66: skip (no url)
+  [355/602] [yandex] Екатеринбург-16 Вильгельма де Геннина 37: updated rating=4.2 rating_count=32 review_count=23
+  [356/602] [yandex] Салехард-01 Свердлова 41: updated rating=4.2 rating_count=287 review_count=180
+  [357/602] [yandex] Сургут-08 Набережный 12/2: updated rating=3.9 rating_count=25 review_count=21
+  [358/602] [yandex] Кемерово-04 Строителей 42: updated rating=4.2 rating_count=27 review_count=22
+  [359/602] [yandex] Находка-01 пр. Находкинский 102: updated rating=5.0 rating_count=None review_count=134
+  [360/602] [yandex] Радужный-01 мкр 7 12: updated rating=4.0 rating_count=5 review_count=4
+  [361/602] [yandex] Воронеж-04 Юлюса Янониса 1: updated rating=4.4 rating_count=311 review_count=221
+  [362/602] [yandex] Тюмень-03 Газовиков 61: updated rating=4.5 rating_count=469 review_count=322
+  [363/602] [yandex] Краснодар-08 Метальникова 3: updated rating=3.9 rating_count=27 review_count=21
+  [364/602] [yandex] Рыбинск-01 Плеханова 33: updated rating=4.9 rating_count=652 review_count=470
+  [365/602] [yandex] Рыбинск-01 Плеханова 33: updated rating=4.2 rating_count=9 review_count=7
+  [366/602] [yandex] Междуреченск-01 Коммунистический 8: updated rating=4.4 rating_count=454 review_count=312
+  [367/602] [yandex] Губкинский-01 мкр 12 39: updated rating=4.3 rating_count=7 review_count=5
+  [368/602] [yandex] Пермь-05 Революции 2а: updated rating=4.6 rating_count=17 review_count=16
+  [369/602] [yandex] Тюмень-15 Пермякова 50Б: failed (no rating)
+  [370/602] [yandex] Ростов-на-Дону-10 бульвар Комарова 20/1: updated rating=4.7 rating_count=157 review_count=128
+  [371/602] [yandex] Кемерово-05 Радищева 4: updated rating=4.2 rating_count=13 review_count=12
+  [372/602] [yandex] Барнаул-01 Ленина 113: skip (no url)
+  [373/602] [yandex] Хабаровск-01 Суворова 25/1: updated rating=4.3 rating_count=228 review_count=150
+  [374/602] [yandex] Чита-01 Бутина 42а: failed (no rating)
+  [375/602] [yandex] Нягань-01 4 мкр 15 к2: updated rating=4.2 rating_count=49 review_count=36
+  [376/602] [yandex] Сочи-01 Советская д. 40 пом 1-4: failed (no rating)
+  [377/602] [yandex] Ростов-на-Дону-10 бульвар Комарова 20/1: failed (no rating)
+  [378/602] [yandex] Краснодар-09 Стасова 186: updated rating=4.4 rating_count=58 review_count=46
+  [379/602] [yandex] Братск-01 Обручева 29: updated rating=4.0 rating_count=243 review_count=125
+  [380/602] [yandex] Ханты-Мансийск-01 Мира 52: updated rating=4.1 rating_count=18 review_count=14
+  [381/602] [yandex] Лангепас-01 Комсомольская 10А/2: updated rating=4.4 rating_count=348 review_count=214
+  [382/602] [yandex] Комсомольск-на-Амуре-03 Лазо 7: updated rating=3.9 rating_count=7 review_count=4
+  [383/602] [yandex] Тобольск-03 7А микрорайон 12А: updated rating=3.9 rating_count=13 review_count=12
+  [384/602] [yandex] Москва, Скандинавский бульвар, 17: updated rating=3.5 rating_count=6 review_count=6
+  [385/602] [yandex] Усолье-Сибирское: updated rating=4.7 rating_count=30 review_count=26
+  [386/602] [yandex] Березники-01 Мира 83: updated rating=4.0 rating_count=10 review_count=8
+  [387/602] [yandex] Сургут-02 30 лет Победы 41: failed (no rating)
+  [388/602] [yandex] Тюмень-07 Горького 55: updated rating=5.0 rating_count=None review_count=142
+  [389/602] [yandex] Екатеринбург-16 Вильгельма де Геннина 37: updated rating=3.0 rating_count=29 review_count=20
+  [390/602] [yandex] Кемерово-04 Строителей 42: updated rating=4.6 rating_count=423 review_count=319
+  [391/602] [yandex] Иркутск-03 Волжская 33: updated rating=4.0 rating_count=13 review_count=11
+  [392/602] [yandex] Красноярск-09 Чернышевского 79: updated rating=4.1 rating_count=26 review_count=19
+  [393/602] [yandex] Островцы: updated rating=4.9 rating_count=70 review_count=61
+  [394/602] [yandex] Сочи-04 Адлер Ленина 73: updated rating=3.6 rating_count=63 review_count=52
+  [395/602] [yandex] Омск-04 ул. Герцена, 12: failed (no rating)
+  [396/602] [yandex] Альметьевск-01 Ленина 101: updated rating=3.9 rating_count=16 review_count=11
+  [397/602] [yandex] Тюмень-20 Олимпийская 31: updated rating=4.5 rating_count=348 review_count=145
+  [398/602] [yandex] Екатеринбург-09 Крауля 69: updated rating=4.4 rating_count=343 review_count=246
+  [399/602] [yandex] Нефтеюганск-02 Ленина 33: updated rating=4.3 rating_count=5 review_count=4
+  [400/602] [yandex] Красноярск-09 Чернышевского 79: updated rating=4.1 rating_count=155 review_count=75
+  [401/602] [yandex] Витязево-01 Овражная 54: updated rating=4.1 rating_count=5 review_count=5
+  [402/602] [yandex] Краснодар-15 Западный обход 45 стр.3 пом.1110/1: updated rating=4.2 rating_count=18 review_count=18
+  [403/602] [yandex] Каменск-Уральский-03 Алюминевая 75: updated rating=4.7 rating_count=469 review_count=334
+  [404/602] [yandex] Благовещенск-01 ул 50 лет Октября, 24/1: updated rating=4.3 rating_count=189 review_count=146
+  [405/602] [yandex] Геленджик-01 Леселидзе 11: updated rating=4.6 rating_count=622 review_count=505
+  [406/602] [yandex] Тюмень-15 Пермякова 50Б: updated rating=4.8 rating_count=126 review_count=101
+  [407/602] [yandex] Смоленск-01 Октябрьской Революци 17: updated rating=4.4 rating_count=486 review_count=382
+  [408/602] [yandex] Новокузнецк-04 Тореза 10: updated rating=4.7 rating_count=414 review_count=297
+  [409/602] [yandex] Нижний Новгород-01 Кораблестроителей 3: updated rating=4.1 rating_count=66 review_count=52
+  [410/602] [yandex] Ижевск-03 Молодежная 107в: updated rating=3.7 rating_count=8 review_count=4
+  [411/602] [yandex] Новокузнецк-03 Ленина 35: updated rating=4.3 rating_count=6 review_count=4
+  [412/602] [yandex] Мытищи-01 Юбилейная 6: updated rating=5.0 rating_count=1507 review_count=1145
+  [413/602] [yandex] Каменск-Уральский-01 Победы 87а: updated rating=4.2 rating_count=10 review_count=8
+  [414/602] [yandex] Краснодар-11 Яна Полуяна 39: updated rating=3.8 rating_count=62 review_count=53
+  [415/602] [yandex] Томск-03 79 Гвардейской дивизии 24: updated rating=4.2 rating_count=3 review_count=2
+  [416/602] [yandex] Санкт-Петербург Кудрово, пр-кт Строителей, д.16: failed (no rating)
+  [417/602] [yandex] Тюмень-10 Лесопарковая 1 корп.2: updated rating=4.7 rating_count=25 review_count=23
+  [418/602] [yandex] Нефтеюганск-02 Ленина 33: updated rating=3.6 rating_count=4 review_count=4
+  [419/602] [yandex] Федоровский-01 Ленина 12/2: failed (no rating)
+  [420/602] [yandex] Лобня-01 ул. Батарейная, 8: updated rating=4.3 rating_count=15 review_count=9
+  [421/602] [yandex] Тобольск-06 8-й микрорайон 8Б: updated rating=2.5 rating_count=10 review_count=6
+  [422/602] [yandex] Чита-01 Бутина 42а: updated rating=3.8 rating_count=10 review_count=10
+  [423/602] [yandex] Екатеринбург-21 Победы 102: updated rating=4.9 rating_count=132 review_count=113
+  [424/602] [yandex] Москва-16 Скандинавский бульвар 17: updated rating=4.5 rating_count=98 review_count=85
+  [425/602] [yandex] Ярославль-03 Урицкого 65: updated rating=4.6 rating_count=292 review_count=220
+  [426/602] [yandex] Новый Уренгой-03 Советский 5/3: updated rating=4.3 rating_count=395 review_count=207
+  [427/602] [yandex] Ярославль-05 Ньютона 28: updated rating=4.2 rating_count=27 review_count=20
+  [428/602] [yandex] Омск-04 ул. Герцена, 12: updated rating=4.1 rating_count=42 review_count=34
+  [429/602] [yandex] Каменск-Уральский-03 Алюминевая 75: updated rating=4.4 rating_count=64 review_count=51
+  [430/602] [yandex] Миасс-02 Автозаводцев 32/Б: updated rating=5.0 rating_count=None review_count=271
+  [431/602] [yandex] Мегион-01 Заречная 15/3: updated rating=4.4 rating_count=328 review_count=150
+  [432/602] [yandex] Пермь-08 Мира 51: failed (no rating)
+  [433/602] [yandex] Новокузнецк-07 Разведчиков 52: skip (no url)
+  [434/602] [yandex] Хабаровск-07 Тихоокеанская 182 б: updated rating=4.0 rating_count=5 review_count=2
+  [435/602] [yandex] Новый Уренгой-02 Оптимистов 4/1: updated rating=4.3 rating_count=312 review_count=180
+  [436/602] [yandex] Пермь-07 Солдатова 28: failed (no rating)
+  [437/602] [yandex] Москва-09 Первомайская 52: updated rating=4.5 rating_count=650 review_count=481
+  [438/602] [yandex] Екатеринбург-16 Вильгельма де Геннина 37: skip (no url)
+  [439/602] [yandex] Реутов-01 Ленина 15: updated rating=2.6 rating_count=7 review_count=5
+  [440/602] [yandex] Сочи-04 Адлер Ленина 73: failed (no rating)
+  [441/602] [yandex] Лабытнанги-01 Школьная 25: updated rating=4.0 rating_count=10 review_count=6
+  [442/602] [yandex] Томск-03 79 Гвардейской дивизии 24: updated rating=5.0 rating_count=None review_count=304
+  [443/602] [yandex] Чебоксары-02 пр-т Максима Горького 38/2: updated rating=4.6 rating_count=237 review_count=192
+  [444/602] [yandex] Федоровский-01 Ленина 12/2: updated rating=4.2 rating_count=190 review_count=65
+  [445/602] [yandex] Югорск-01 Ленина 14: updated rating=4.2 rating_count=19 review_count=16
+  [446/602] [yandex] Хабаровск-05 Карла Маркса 200/1: failed (no rating)
+  [447/602] [yandex] Санкт-Петербург-06 ул Николая Рубцова 3: updated rating=4.8 rating_count=63 review_count=57
+  [448/602] [yandex] Ярославль-01 Большая Федоровская 29: failed (no rating)
+  [449/602] [yandex] Краснодар-11 Яна Полуяна 39: updated rating=3.8 rating_count=37 review_count=28
+  [450/602] [yandex] Нижний Новгород-03 Комсомольская 9: updated rating=2.0 rating_count=None review_count=134
+  [451/602] [yandex] Ростов-на-Дону-07 339-й Стрелковой Дивизии 5/60Б: updated rating=4.4 rating_count=446 review_count=322
+  [452/602] [yandex] Тюмень-06 Республики 204 корп 7 помещение 4: failed (no rating)
+  [453/602] [yandex] Хабаровск-01 Суворова 25/1: failed (no rating)
+  [454/602] [yandex] Талнах-01 Бауманская 9: failed (no rating)
+  [455/602] [yandex] Краснодар-13 Восточно-Кругликовская 24: updated rating=3.9 rating_count=94 review_count=73
+  [456/602] [yandex] Томск-02 Учебная 20: updated rating=4.1 rating_count=17 review_count=15
+  [457/602] [yandex] Лобня-01 ул. Батарейная, 8: updated rating=4.7 rating_count=171 review_count=135
+  [458/602] [yandex] Радужный-01 мкр 7 12: updated rating=4.5 rating_count=361 review_count=208
+  [459/602] [yandex] Чехов-01 Береговая улица, 21, корп. 1: updated rating=5.0 rating_count=None review_count=226
+  [460/602] [yandex] Новороссийск-02 ул. Видова, 210 Д: updated rating=4.5 rating_count=321 review_count=247
+  [461/602] [yandex] Омск-04 ул. Герцена, 12: updated rating=4.2 rating_count=13 review_count=9
+  [462/602] [yandex] Ярославль-05 Ньютона 28: updated rating=4.6 rating_count=637 review_count=454
+  [463/602] [yandex] Нижневартовск-05 Дзержинского 9/1: skip (no url)
+  [464/602] [yandex] Кемерово-04 Строителей 42: failed (no rating)
+  [465/602] [yandex] Чусовой-01 50 лет ВЛКСМ 4: updated rating=4.5 rating_count=337 review_count=149
+  [466/602] [yandex] Надым-01 проспект Ленинградский 10: updated rating=4.4 rating_count=9 review_count=4
+  [467/602] [yandex] Верхняя Салда-01 Спортивная 2: updated rating=3.8 rating_count=7 review_count=6
+  [468/602] [yandex] Калининград , Судостроительная 6/1: updated rating=4.1 rating_count=29 review_count=23
+  [469/602] [yandex] Сыктывкар-04 Первомайская 85/2: updated rating=4.2 rating_count=188 review_count=127
+  [470/602] [yandex] Красноярск-11 Имени газеты КР 135: updated rating=4.5 rating_count=400 review_count=241
+  [471/602] [yandex] Новый Уренгой-02 Оптимистов 4/1: updated rating=4.3 rating_count=8 review_count=6
+  [472/602] [yandex] Ростов-на-Дону-08 Буденовский 68: updated rating=4.4 rating_count=981 review_count=746
+  [473/602] [yandex] Находка-03 Малиновского 21а: updated rating=4.7 rating_count=44 review_count=35
+  [474/602] [yandex] Тюмень-12 Артамонова 13: failed (no rating)
+  [475/602] [yandex] Уссурийск-01 Некрасова 53: failed (no rating)
+  [476/602] [yandex] Пермь-04 Рыбалко 113: updated rating=4.5 rating_count=398 review_count=285
+  [477/602] [yandex] Нефтеюганск-02 Ленина 33: failed (no rating)
+  [478/602] [yandex] Ростов-на-Дону-08 Буденовский 68: updated rating=3.5 rating_count=59 review_count=47
+  [479/602] [yandex] Воронеж, улица Владимира Невского, 48з/10: updated rating=5.0 rating_count=None review_count=230
+  [480/602] [yandex] Томск-04 Иркутский 32: updated rating=4.5 rating_count=282 review_count=106
+  [481/602] [yandex] Тюмень-06 Республики 204 корп 7 помещение 4: updated rating=4.7 rating_count=239 review_count=146
+  [482/602] [yandex] Новороссийск-02 ул. Видова, 210 Д: updated rating=3.7 rating_count=5 review_count=4
+  [483/602] [yandex] Нефтеюганск-01 мкр 16а 62: updated rating=4.1 rating_count=4 review_count=4
+  [484/602] [yandex] Серов-01 Ленина 142: updated rating=3.1 rating_count=5 review_count=5
+  [485/602] [yandex] Нягань-01 4 мкр 15 к2: updated rating=4.4 rating_count=20 review_count=12
+  [486/602] [yandex] Белоярский-01 Мира 1: updated rating=3.7 rating_count=4 review_count=3
+  [487/602] [yandex] Ишим-01 Маркса 29: updated rating=4.0 rating_count=6 review_count=4
+  [488/602] [yandex] Верхняя Пышма-01 Успенский 48: updated rating=4.3 rating_count=61 review_count=48
+  [489/602] [yandex] Находка-01 пр. Находкинский 102: updated rating=4.0 rating_count=10 review_count=5
+  [490/602] [yandex] Пермь-07 Солдатова 28: updated rating=4.5 rating_count=385 review_count=265
+  [491/602] [yandex] Тюмень-14 Одесская 29 стр 1 помещ 7: failed (no rating)
+  [492/602] [yandex] Москва Братиславская 20: updated rating=1.0 rating_count=None review_count=213
+  [493/602] [yandex] Надым-01 проспект Ленинградский 10: failed (no rating)
+  [494/602] [yandex] Хабаровск-02 Ленинградская 28/9: updated rating=4.1 rating_count=12 review_count=9
+  [495/602] [yandex] Чебоксары-02 пр-т Максима Горького 38/2: failed (no rating)
+  [496/602] [yandex] Краснодар-08 Метальникова 3: updated rating=4.7 rating_count=426 review_count=345
+  [497/602] [yandex] Ханты-Мансийск-01 Мира 52: updated rating=4.9 rating_count=60 review_count=54
+  [498/602] [yandex] Прокопьевск-01 Гагарина 26: updated rating=3.9 rating_count=9 review_count=7
+  [499/602] [yandex] Ярославль-03 Урицкого 65: failed (no rating)
+  [500/602] [yandex] Екатеринбург-10 Восточная 98: updated rating=3.9 rating_count=86 review_count=65
+  [501/602] [yandex] Сыктывкар-04 Первомайская 85/2: updated rating=3.9 rating_count=14 review_count=9
+  [502/602] [yandex] Нижневартовск-04 Профсоюзная 2: updated rating=4.5 rating_count=327 review_count=235
+  [503/602] [yandex] Сургут-10 Тюменский тракт 2: failed (no rating)
+  [504/602] [yandex] Сургут-10 Тюменский тракт 2: updated rating=4.5 rating_count=287 review_count=201
+  [505/602] [yandex] Новокузнецк-03 Ленина 35: updated rating=4.8 rating_count=385 review_count=243
+  [506/602] [yandex] Одинцово-02 Молодежная 5: updated rating=4.9 rating_count=157 review_count=114
+  [507/602] [yandex] Благовещенск-01 ул 50 лет Октября, 24/1: updated rating=4.0 rating_count=14 review_count=12
+  [508/602] [yandex] Тюмень-23 Обдорская 1к2 суши: updated rating=4.6 rating_count=174 review_count=103
+  [509/602] [yandex] Тюмень-14 Одесская 29 стр 1 помещ 7: updated rating=4.8 rating_count=258 review_count=178
+  [510/602] [yandex] Воронеж-03 Владимира Невского 48з/10: updated rating=4.3 rating_count=465 review_count=317
+  [511/602] [yandex] Сочи-01 Советская д. 40 пом 1-4: updated rating=4.2 rating_count=10 review_count=10
+  [512/602] [yandex] Киров-01 Челюскинцев 7: updated rating=4.6 rating_count=189 review_count=151
+  [513/602] [yandex] Нефтеюганск-01 мкр 16а 62: updated rating=4.1 rating_count=313 review_count=170
+  [514/602] [yandex] Барнаул-05 ул. Юрина, 202 (НОВАЯ): failed (no rating)
+  [515/602] [yandex] Москва-11 проспект мира 122: updated rating=5.0 rating_count=138 review_count=108
+  [516/602] [yandex] Новокузнецк-04 Тореза 10: updated rating=3.8 rating_count=15 review_count=13
+  [517/602] [yandex] Долгопрудный: updated rating=3.6 rating_count=5 review_count=4
+  [518/602] [yandex] Комсомольск-на-Амуре-02 Мира 47: updated rating=3.4 rating_count=8 review_count=5
+  [519/602] [yandex] Верхняя Пышма-01 Успенский 48: updated rating=4.5 rating_count=713 review_count=511
+  [520/602] [yandex] Омск-05 ул. Маяковского,85: updated rating=4.1 rating_count=8 review_count=8
+  [521/602] [yandex] Ижевск-03 Молодежная 107в: updated rating=5.0 rating_count=194 review_count=171
+  [522/602] [yandex] Подольск-02 ул Генерала Варенникова, 4: updated rating=3.9 rating_count=21 review_count=18
+  [523/602] [yandex] Дубна Тверская 45А: failed (no rating)
+  [524/602] [yandex] Екатеринбург-21 Победы 102: updated rating=4.4 rating_count=28 review_count=28
+  [525/602] [yandex] Томск-02 Учебная 20: updated rating=4.3 rating_count=447 review_count=236
+  [526/602] [yandex] Екатеринбург-11 Челюскинцев 19: updated rating=4.6 rating_count=359 review_count=257
+  [527/602] [yandex] Усолье-Сибирское Ленинский 72: failed (no rating)
+  [528/602] [yandex] Геленджик-01 Леселидзе 11: updated rating=2.0 rating_count=20 review_count=17
+  [529/602] [yandex] Пермь-12 ул. Юрша 84: updated rating=4.0 rating_count=18 review_count=11
+  [530/602] [yandex] Барнаул-02 Ленина 22: updated rating=4.3 rating_count=26 review_count=22
+  [531/602] [yandex] Новокузнецк-08 Новоселов 23А: updated rating=1.0 rating_count=None review_count=336
+  [532/602] [yandex] Краснодар-11 Яна Полуяна 39: failed (no rating)
+  [533/602] [yandex] Новокузнецк-04 Тореза 10: updated rating=4.1 rating_count=47 review_count=39
+  [534/602] [yandex] Москва-11 проспект мира 122: updated rating=2.8 rating_count=6 review_count=2
+  [535/602] [yandex] Ростов-на-Дону-06 Металлургическая 117/62: updated rating=2.7 rating_count=46 review_count=31
+  [536/602] [yandex] Новокузнецк-08 Новоселов 23А: updated rating=4.4 rating_count=304 review_count=212
+  [537/602] [yandex] Пермь-05 Революции 2а: failed (no rating)
+  [538/602] [yandex] Норильск-02 Советская 5: failed (no rating)
+  [539/602] [yandex] Краснодар-09 Стасова 186: failed (no rating)
+  [540/602] [yandex] Серпухов Ворошилова, 68-А: skip (no url)
+  [541/602] [yandex] Когалым-01 Мира 2: updated rating=4.4 rating_count=426 review_count=256
+  [542/602] [yandex] Кемерово-05 Радищева 4: failed (no rating)
+  [543/602] [yandex] Красноярск-01 Молоково 1 копус 3: updated rating=4.4 rating_count=31 review_count=25
+  [544/602] [yandex] Подольск-02 ул Генерала Варенникова, 4: updated rating=3.4 rating_count=6 review_count=5
+  [545/602] [yandex] Санкт-Петербург -09 Мурино (Петровский бульвар 5): updated rating=4.3 rating_count=29 review_count=24
+  [546/602] [yandex] Хабаровск-06 Амурский бульвар 62: failed (no rating)
+  [547/602] [yandex] Комсомольск-на-Амуре-02 Мира 47: updated rating=4.3 rating_count=6 review_count=6
+  [548/602] [yandex] Кемерово-10 проспект Шахтеров 58А: updated rating=4.4 rating_count=56 review_count=39
+  [549/602] [yandex] Екатеринбург-10 Восточная 98: updated rating=3.6 rating_count=27 review_count=25
+  [550/602] [yandex] Красноярск-09 Чернышевского 79: updated rating=4.3 rating_count=38 review_count=29
+  [551/602] [yandex] Надым-01 проспект Ленинградский 10: updated rating=4.4 rating_count=367 review_count=200
+  [552/602] [yandex] Муравленко-01 Муравленко 12 Б: updated rating=4.3 rating_count=270 review_count=157
+  [553/602] [yandex] Верхняя Салда-01 Спортивная 2: updated rating=3.2 rating_count=7 review_count=4
+  [554/602] [yandex] Санкт-Петербург-03 Карбышева 9: updated rating=4.8 rating_count=608 review_count=482
+  [555/602] [yandex] Новокузнецк-08 Новоселов 23А: updated rating=4.1 rating_count=4 review_count=4
+  [556/602] [yandex] Тюмень-09 Червишевский тракт 66: updated rating=4.5 rating_count=403 review_count=259
+  [557/602] [yandex] Москва-12 Богданова 2, корпус 1: updated rating=4.9 rating_count=259 review_count=195
+  [558/602] [yandex] Тобольск-03 7А микрорайон 12А: updated rating=4.6 rating_count=240 review_count=142
+  [559/602] [yandex] Нижний Новгород-02 ул. Горького 148: updated rating=4.4 rating_count=141 review_count=114
+  [560/602] [yandex] Ростов-на-Дону-08 Буденовский 68: updated rating=4.1 rating_count=36 review_count=28
+  [561/602] [yandex] Пермь-11 Докучаева 42: failed (no rating)
+  [562/602] [yandex] Тобольск-03 7А микрорайон 12А: updated rating=3.9 rating_count=4 review_count=4
+  [563/602] [yandex] Краснодар-13 Восточно-Кругликовская 24: updated rating=4.5 rating_count=488 review_count=384
+  [564/602] [yandex] Тобольск-06 8-й микрорайон 8Б: updated rating=4.3 rating_count=390 review_count=235
+  [565/602] [yandex] Барнаул-03 ул. Балтийская, 103: updated rating=4.4 rating_count=15 review_count=13
+  [566/602] [yandex] Санкт-Петербург-09 Петровский бульвар 5: updated rating=4.6 rating_count=77 review_count=70
+  [567/602] [yandex] Нижневартовск-04 Профсоюзная 2: updated rating=4.1 rating_count=15 review_count=11
+  [568/602] [yandex] Барнаул-01 Ленина 113: updated rating=4.9 rating_count=492 review_count=407
+  [569/602] [yandex] Барнаул-02 Ленина 22: updated rating=4.9 rating_count=226 review_count=162
+  [570/602] [yandex] Сургут-03 Геологическая 10: updated rating=4.8 rating_count=237 review_count=138
+  [571/602] [yandex] Новокузнецк-04 Тореза 10: failed (no rating)
+  [572/602] [yandex] Сургут-01 Ленина 50: updated rating=4.8 rating_count=323 review_count=226
+  [573/602] [yandex] Москва-15 Фестивальная 41 к1: updated rating=1.0 rating_count=None review_count=205
+  [574/602] [yandex] Пермь-08 Мира 51: updated rating=4.4 rating_count=52 review_count=41
+  [575/602] [yandex] Губкинский-01 мкр 12 39: updated rating=4.3 rating_count=289 review_count=180
+  [576/602] [yandex] Тюмень-04 Ямская 102: updated rating=4.4 rating_count=544 review_count=363
+  [577/602] [yandex] Сургут-03 Геологическая 10: failed (no rating)
+  [578/602] [yandex] Новокузнецк-06 Кирова 21: updated rating=3.9 rating_count=23 review_count=16
+  [579/602] [yandex] Анапа-01 Лермонтова 118: skip (no url)
+  [580/602] [yandex] Нижний Новгород-03 Комсомольская 9: updated rating=4.4 rating_count=416 review_count=323
+  [581/602] [yandex] Красноярск-03 Юности 39: updated rating=3.9 rating_count=12 review_count=6
+  [582/602] [yandex] Екатеринбург-16 Вильгельма де Геннина 37: updated rating=4.3 rating_count=183 review_count=138
+  [583/602] [yandex] Новый Уренгой-03 Советский 5/3: updated rating=3.7 rating_count=12 review_count=8
+  [584/602] [yandex] Красноярск-11 Имени газеты КР 135: updated rating=4.1 rating_count=19 review_count=11
+  [585/602] [yandex] Пермь-04 Рыбалко 113: updated rating=4.0 rating_count=20 review_count=12
+  [586/602] [yandex] Красноярск-03 Юности 39: updated rating=4.5 rating_count=253 review_count=151
+  [587/602] [yandex] Урай-01 мкр 2 61: updated rating=4.4 rating_count=6 review_count=6
+  [588/602] [yandex] Верхняя Салда-01 Спортивная 2: updated rating=4.6 rating_count=492 review_count=310
+  [589/602] [yandex] Одинцово-02 Молодежная 5: updated rating=5.0 rating_count=None review_count=245
+  [590/602] [yandex] Тюмень Щербакова: failed (no rating)
+  [591/602] [yandex] Ярославль-04 Машиностроителей 30/18: updated rating=3.9 rating_count=21 review_count=17
+  [592/602] [yandex] Люберцы-01 Юности 3: updated rating=1.0 rating_count=None review_count=144
+  [593/602] [yandex] Екатеринбург-09 Крауля 69: updated rating=1.0 rating_count=None review_count=141
+  [594/602] [yandex] Ярославль-04 Машиностроителей 30/18: updated rating=4.3 rating_count=19 review_count=19
+  [595/602] [yandex] Каменск-Уральский-03 Алюминевая 75: updated rating=4.2 rating_count=9 review_count=8
+  [596/602] [yandex] Одинцово-01 Можайское шоссе 71Б: updated rating=4.9 rating_count=556 review_count=424
+  [597/602] [yandex] Хабаровск-06 Амурский бульвар 62: updated rating=3.9 rating_count=22 review_count=16
+  [598/602] [yandex] Екатеринбург-13 Титова 12: updated rating=4.2 rating_count=10 review_count=10
+  [599/602] [yandex] Пермь-12 ул. Юрша 84: updated rating=4.5 rating_count=275 review_count=208
+  [600/602] [yandex] Анапа-01 Лермонтова 118: skip (no url)
+  [601/602] [yandex] Королев-01 проезд Циолковского, 5: updated rating=1.0 rating_count=None review_count=244
+  [602/602] [yandex] Пыть-Ях-01 мкр 2 15: updated rating=4.4 rating_count=368 review_count=182
+
+Scrape metrics committed:
+  yandex: updated=503 failed=70 manual_action=0 skipped=29

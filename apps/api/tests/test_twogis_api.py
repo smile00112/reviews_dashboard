@@ -110,6 +110,8 @@ def test_resolve_firm_id_short_link_picks_dominant_id(monkeypatch):
 
 
 def test_short_link_without_proxy_key_needs_manual_action(monkeypatch):
+    # No proxy pool AND no ScrapeOps key → short link cannot be resolved offline.
+    monkeypatch.setattr("app.scraper.twogis_api.settings.proxy_pool", "")
     monkeypatch.setattr("app.scraper.twogis_api.settings.scrapeops_api_key", "")
     result = TwogisApiScraper().scrape("https://go.2gis.com/xbrHO")
     assert result.needs_manual_action is True
