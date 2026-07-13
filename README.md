@@ -48,6 +48,19 @@ cd ../web && npm run lint && npm run test:e2e
 
 See `specs/001-yandex-reviews-mvp/quickstart.md` for milestone validation steps.
 
+## Operator Scripts
+
+```bash
+cd apps/api
+python -m scripts.sync_ratings_to_sheet --dry-run   # preview the match/write plan
+python -m scripts.sync_ratings_to_sheet             # append a dated rating/count column block
+```
+
+Appends a new 6-column block (rating + review count for Yandex/2GIS/Google) to the
+operator's Google Sheet, matching rows by their latest Yandex Maps link. Requires a
+service-account key at `apps/api/.local/credentials.json` (gitignored) shared as
+Editor on the target sheet — see `GOOGLE_SHEETS_*` below.
+
 ## Environment Variables
 
 | Variable | Description |
@@ -58,6 +71,9 @@ See `specs/001-yandex-reviews-mvp/quickstart.md` for milestone validation steps.
 | `YANDEX_STORAGE_STATE_PATH` | Playwright session file path |
 | `SCRAPER_DEBUG_DIR` | Failed scrape debug artifacts |
 | `NEXT_PUBLIC_API_URL` | API URL for web frontend |
+| `GOOGLE_SHEETS_CREDENTIALS_PATH` | Service-account key path (default `.local/credentials.json`) |
+| `GOOGLE_SHEETS_SPREADSHEET_ID` | Target spreadsheet ID for `sync_ratings_to_sheet` |
+| `GOOGLE_SHEETS_WORKSHEET_GID` | Target worksheet `gid` within that spreadsheet |
 
 ## Features
 

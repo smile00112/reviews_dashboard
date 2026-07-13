@@ -54,5 +54,11 @@ class Settings(BaseSettings):
     # How many distinct pool proxies to try before giving up on a single request.
     proxy_pool_max_tries: int = 4
 
+    # Google Sheets ratings export (operator script, scripts/sync_ratings_to_sheet.py).
+    # Service-account key is gitignored under .local/ like other local secrets.
+    google_sheets_credentials_path: str = ".local/credentials.json"
+    google_sheets_spreadsheet_id: str = "1T4IS8-P5YoGAfkFicSu43iLT0-qPtRtTPBpw0VoSKQI"
+    google_sheets_worksheet_gid: int = 1208334728
+
 
 settings = Settings()
