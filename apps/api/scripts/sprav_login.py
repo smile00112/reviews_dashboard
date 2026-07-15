@@ -22,6 +22,13 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_MANUAL = 2
 
+_CHECK_MESSAGES: dict[SessionStatus, str] = {
+    SessionStatus.valid: "session works — operator_auth scrapes can use it",
+    SessionStatus.missing: "no saved session — run: python -m scripts.sprav_login",
+    SessionStatus.expired: "session no longer accepted — run: python -m scripts.sprav_login again",
+    SessionStatus.needs_manual_action: "cabinet/Maps served a challenge (captcha or Passport redirect)",
+}
+
 
 def exit_code_for(status: SessionStatus) -> int:
     if status == SessionStatus.valid:
@@ -29,6 +36,14 @@ def exit_code_for(status: SessionStatus) -> int:
     if status == SessionStatus.needs_manual_action:
         return EXIT_MANUAL
     return EXIT_ERROR
+
+
+def check_message_for(status: SessionStatus) -> str:
+    """Terse, operator-useful line for `--check` describing what the status means.
+
+    Never includes cookie values or storage-state contents — only prose.
+    """
+    return _CHECK_MESSAGES.get(status, status.value)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check:
         status = scraper.check_session(path)
-        message = "checked saved session"
+        message = check_message_for(status)
     else:
         print("Opening Yandex Passport — sign in by hand in the browser window.", file=sys.stderr)
         print("Waiting for the session cookie…", file=sys.stderr)

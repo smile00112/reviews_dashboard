@@ -199,6 +199,8 @@ Add:
 - `sprav_orgs_output_path: str = ".local/sprav-orgs.json"`
 - `sprav_companies_url: str = "https://yandex.ru/sprav/"` — the entry point, kept in
   settings so a cabinet URL change is a config edit, not a code edit.
+- `sprav_page_timeout_ms: int = 90000` — cabinet page-load timeout, since the
+  companies page can be slower than the Maps scrapers' default.
 
 ## Data flow
 

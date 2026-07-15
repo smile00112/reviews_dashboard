@@ -30,14 +30,15 @@ All work happens on branch `feature/011-sprav-cabinet`. All commands run from `a
 
 | File | Responsibility |
 |---|---|
-| `apps/api/app/scraper/yandex_auth.py` (modify) | Add `headless` parameter to `login`. Existing behaviour is the default. |
+| `apps/api/app/scraper/yandex_auth.py` (modify) | Adds `login_manual` + `_has_session_cookie`; `login()` left unchanged and stale. |
 | `apps/api/app/scraper/yandex_sprav.py` (create) | `SpravOrg`, `SpravListResult`, pure `parse_sprav_orgs`, and the `YandexSpravScraper` Playwright I/O class. |
-| `apps/api/app/core/config.py` (modify) | `sprav_companies_url`, `sprav_orgs_output_path`. |
+| `apps/api/app/core/config.py` (modify) | `sprav_companies_url`, `sprav_orgs_output_path`, `sprav_page_timeout_ms`. |
 | `apps/api/scripts/sprav_login.py` (create) | Auth test command. |
 | `apps/api/scripts/sprav_orgs.py` (create) | Org-list command: JSON to stdout + file. |
 | `apps/api/tests/test_sprav_login_cli.py` (create) | Exit-code mapping + no-credentials short circuit. |
 | `apps/api/tests/test_sprav_parser.py` (create) | `parse_sprav_orgs` happy path + degenerate inputs. |
 | `apps/api/tests/test_sprav_scraper.py` (create) | Missing-session short circuit + challenge detection. |
+| `apps/api/tests/test_sprav_orgs_cli.py` (create) | Serialization + exit-code mapping for the org-list command. |
 | `apps/api/tests/fixtures/sprav_companies_preload.json` (created in Task 2) | The cabinet's inlined state, cut down to `initialState.companiesList` and scrubbed: business name/address/site only, zero tokens or personal data. |
 
 Parser and scraper share one module because they change together (a payload shape change touches both) and the module stays small. This mirrors `yandex_http.py`, which delegates to a parser but keeps its own transport concerns local.

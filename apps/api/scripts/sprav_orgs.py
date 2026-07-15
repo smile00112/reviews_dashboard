@@ -50,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     if result.needs_manual_action or result.error_code:
         print(f"error:   {result.error_code}", file=sys.stderr)
         print(f"message: {result.error_message}", file=sys.stderr)
+        if result.debug_screenshot:
+            print(f"debug:   {result.debug_screenshot}", file=sys.stderr)
         if result.debug_html:
             print(f"debug:   {result.debug_html}", file=sys.stderr)
         return exit_code_for(result)
