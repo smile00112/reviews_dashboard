@@ -18,6 +18,14 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
+
+from playwright.sync_api import sync_playwright
+
+from app.core.config import settings
+from app.scraper.debug_artifacts import save_debug_artifacts
+from app.scraper.markers import BOT_MARKERS
+from app.scraper.yandex_public import YandexPublicScraper
 
 # The cabinet inlines its state as `window.__PRELOAD_DATA = {...};</script>`.
 _PRELOAD_RE = re.compile(r"window\.__PRELOAD_DATA\s*=\s*(\{.*?\})\s*;?\s*</script>", re.S)
@@ -137,3 +145,71 @@ def parse_sprav_orgs(preload: object) -> list[SpravOrg]:
         return []
     parsed = (_parse_one(item) for item in raw_list)
     return [org for org in parsed if org is not None]
+
+
+class YandexSpravScraper:
+    """Reads the operator's organization list from the Yandex Business cabinet.
+
+    Reuses the operator storage-state: the cabinet and Maps share the .yandex.ru
+    Passport cookies, so no separate session is needed.
+    """
+
+    @staticmethod
+    def _is_challenge(html: str, url: str) -> bool:
+        """Passport redirect or a bot wall — both mean a human must intervene."""
+        if "passport.yandex" in url:
+            return True
+        lowered = html.lower()
+        return any(marker.lower() in lowered for marker in BOT_MARKERS)
+
+    def list_organizations(self, storage_state_path: str) -> SpravListResult:
+        path = Path(storage_state_path)
+        if not path.exists() or path.stat().st_size == 0:
+            return SpravListResult(
+                needs_manual_action=True,
+                error_code="missing_session",
+                error_message="Storage state not found — run: python -m scripts.sprav_login",
+            )
+
+        public = YandexPublicScraper()
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)
+                context = browser.new_context(
+                    storage_state=str(path),
+                    locale=public.LOCALE,
+                    extra_http_headers=public.EXTRA_HTTP_HEADERS,
+                )
+                page = context.new_page()
+                try:
+                    page.goto(
+                        settings.sprav_companies_url,
+                        wait_until="networkidle",
+                        timeout=settings.sprav_page_timeout_ms,
+                    )
+                    html = page.content()
+
+                    if self._is_challenge(html, page.url):
+                        shot, dbg = save_debug_artifacts(page, "sprav-list")
+                        return SpravListResult(
+                            needs_manual_action=True,
+                            error_code="access_challenge",
+                            error_message="Session invalid or captcha — run: python -m scripts.sprav_login",
+                            debug_screenshot=shot,
+                            debug_html=dbg,
+                        )
+
+                    orgs = parse_sprav_orgs(extract_preload_data(html))
+                    if not orgs:
+                        shot, dbg = save_debug_artifacts(page, "sprav-list-empty")
+                        return SpravListResult(
+                            error_code="sprav_list_not_found",
+                            error_message="Cabinet page carried no organization list",
+                            debug_screenshot=shot,
+                            debug_html=dbg,
+                        )
+                    return SpravListResult(organizations=orgs)
+                finally:
+                    browser.close()
+        except Exception as exc:
+            return SpravListResult(error_code="sprav_scrape_error", error_message=str(exc))

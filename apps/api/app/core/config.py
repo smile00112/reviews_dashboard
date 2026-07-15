@@ -28,6 +28,13 @@ class Settings(BaseSettings):
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     )
 
+    # Sprav cabinet reader (feature 011, console-only). Read-only: the cabinet
+    # entry point is settings-driven so a URL change is a config edit. The
+    # cabinet redirects /sprav/ -> /sprav/companies and inlines the list.
+    sprav_companies_url: str = "https://yandex.ru/sprav/"
+    sprav_orgs_output_path: str = ".local/sprav-orgs.json"
+    sprav_page_timeout_ms: int = 90000
+
     # ScrapeOps proxy scraper (scrapeops mode, feature 005)
     scrapeops_api_key: str = ""
     scrapeops_limit: int = 150
