@@ -9,7 +9,18 @@ from app.scraper.yandex_public import CAPTCHA_MARKERS, YandexPublicScraper
 
 
 class YandexAuthScraper:
-    def login(self, login: str, password: str, storage_state_path: str) -> tuple[SessionStatus, str]:
+    # A headed login is the escape hatch for 2FA/captcha: the operator finishes
+    # the challenge by hand and we wait for Passport to hand off. Headless
+    # auto-login cannot pass either and honestly reports needs_manual_action.
+    MANUAL_LOGIN_TIMEOUT_MS = 180000
+
+    def login(
+        self,
+        login: str,
+        password: str,
+        storage_state_path: str,
+        headless: bool = True,
+    ) -> tuple[SessionStatus, str]:
         if not login or not password:
             return SessionStatus.missing, "YANDEX_OPERATOR_LOGIN and YANDEX_OPERATOR_PASSWORD must be set"
 
@@ -18,7 +29,7 @@ class YandexAuthScraper:
 
         try:
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=True)
+                browser = playwright.chromium.launch(headless=headless)
                 context = browser.new_context()
                 page = context.new_page()
                 try:
@@ -34,6 +45,21 @@ class YandexAuthScraper:
                     page.fill('input[name="passwd"]', password)
                     page.click('button[type="submit"]')
                     page.wait_for_timeout(3000)
+
+                    if not headless:
+                        # Operator completes 2FA/captcha in the visible window.
+                        try:
+                            page.wait_for_url(
+                                lambda url: "passport.yandex" not in url,
+                                timeout=self.MANUAL_LOGIN_TIMEOUT_MS,
+                            )
+                        except Exception:
+                            return (
+                                SessionStatus.needs_manual_action,
+                                "Manual login not completed within the timeout",
+                            )
+                        context.storage_state(path=str(path))
+                        return SessionStatus.valid, "Login successful (manual)"
 
                     html = page.content()
                     if any(marker.lower() in html.lower() for marker in CAPTCHA_MARKERS):
