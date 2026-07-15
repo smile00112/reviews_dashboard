@@ -93,6 +93,17 @@ def test_record_missing_optional_fields_still_parses():
     assert org.publishing_status is None
 
 
+@pytest.mark.parametrize("bad_branch_count", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_branch_count_yields_none_without_raising(bad_branch_count):
+    """json.loads accepts NaN/Infinity/-Infinity; int() on those raises. Must degrade to None."""
+    payload = {"initialState": {"companiesList": {"listCompanies": [
+        {"permanent_id": 1, "displayName": "Weird", "chain": {"branchCount": bad_branch_count}},
+    ]}}}
+    orgs = parse_sprav_orgs(payload)
+    assert len(orgs) == 1
+    assert orgs[0].branch_count is None
+
+
 def test_extract_preload_data_reads_the_inline_script():
     html = '<html><script nonce="">window.__PRELOAD_DATA = {"a": {"b": 1}};</script></html>'
     assert extract_preload_data(html) == {"a": {"b": 1}}

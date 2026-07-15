@@ -15,6 +15,7 @@ data at all — those remain the Maps scrapers' job.
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass, field
 
@@ -77,7 +78,7 @@ def _as_int(value: object) -> int | None:
     if isinstance(value, int):
         return value
     if isinstance(value, float):
-        return int(value)
+        return int(value) if math.isfinite(value) else None
     return None
 
 
