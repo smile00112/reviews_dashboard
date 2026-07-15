@@ -44,6 +44,8 @@ Parser and scraper share one module because they change together (a payload shap
 
 ### Task 1: `headless` parameter + `sprav_login` command
 
+> **⚠️ Partially superseded by Task 1a.** Implemented as written (commit `f175842`), then disproved against the live Passport: the headless auto-login this task builds cannot work, because Passport's selectors are stale. Task 1a reverts the `headless` parameter and replaces auto-login with a manual headed flow. The surviving parts of this task are the `sprav_login` CLI skeleton and `exit_code_for`. Read Task 1a before touching this code.
+
 Threads a `headless` flag through the existing login and adds the operator command that exercises it. Default stays `True`, so the API login path is untouched.
 
 **Files:**
@@ -253,6 +255,191 @@ git commit -m "feat: sprav_login command and headless flag on operator login"
 
 ---
 
+### Task 1a: Rework login to a manual headed flow (supersedes Task 1's headless auto-login)
+
+**Why this exists.** Task 1 shipped headless auto-login as the default, per the user's choice at brainstorming time. Running it against the live Passport disproved that choice. Evidence gathered 2026-07-15:
+
+```
+GET https://passport.yandex.ru/auth
+  → redirects to https://passport.yandex.ru/pwl-yandex/auth/add?cause=auth&process_uuid=…
+  bot markers hit: none        (not a bot wall — the page loaded fully, 139 KB)
+  input name=None id='react-aria-«R166b»' type='text' placeholder='Логин или email'
+  buttons: 'Войти'  'Не помню пароль'  'QR-код'
+```
+
+Passport now serves a React passwordless (`pwl`) flow. There is **no** `input[name="login"]`; the login field has no `name` at all and its `id` is generated per render (`react-aria-«R166b»`), so it is unstable across loads. `login()`'s hardcoded selectors cannot match — the failure is `Page.fill: Timeout 30000ms exceeded waiting for locator("input[name=\"login\"]")`. This is a pre-existing bug in `login()`, not a regression from Task 1.
+
+**Decision (user, 2026-07-15):** drop auto-login; the operator signs in by hand. Any selector we hardcode against this flow goes stale on Yandex's next redesign, and repeated automated login attempts risk tripping antifraud on a real account.
+
+**Scope decision (controller):** do **not** modify the existing `login()`. It is called by `ScrapeService.login_operator` behind the `/api/scraper/yandex/login` endpoint, which runs server-side where a headed browser is impossible — repairing that path is a separate concern from this console-only feature. Add `login_manual()` alongside it, revert Task 1's `headless` parameter, and leave an honest docstring note on `login()`. This keeps the global constraint "do not touch `app/api/` or `app/services/`" intact.
+
+**Files:**
+- Modify: `apps/api/app/scraper/yandex_auth.py`
+- Modify: `apps/api/scripts/sprav_login.py`
+- Test: `apps/api/tests/test_sprav_login_cli.py`
+
+**Interfaces:**
+- Consumes: `SessionStatus` from `app.models.enums`; `YandexPublicScraper.LOCALE`.
+- Produces:
+  - `YandexAuthScraper.login_manual(storage_state_path: str, timeout_ms: int | None = None) -> tuple[SessionStatus, str]`
+  - `YandexAuthScraper._has_session_cookie(cookies: list[dict]) -> bool` (static, pure — the tested seam)
+  - `YandexAuthScraper.SESSION_COOKIE = "Session_id"`
+  - `login()` reverts to its pre-branch signature: `login(self, login: str, password: str, storage_state_path: str) -> tuple[SessionStatus, str]`
+
+- [ ] **Step 1: Write the failing test**
+
+Replace the two `headless`-flag tests in `apps/api/tests/test_sprav_login_cli.py` (they test a flow that no longer exists) with cookie-seam tests. Keep the existing `test_exit_code_for` and `test_login_without_credentials_short_circuits` tests as they are.
+
+```python
+def test_session_cookie_present_is_detected():
+    cookies = [
+        {"name": "yandexuid", "value": "123", "domain": ".yandex.ru"},
+        {"name": "Session_id", "value": "3:abc", "domain": ".yandex.ru"},
+    ]
+    assert YandexAuthScraper._has_session_cookie(cookies) is True
+
+
+def test_no_cookies_is_not_logged_in():
+    assert YandexAuthScraper._has_session_cookie([]) is False
+
+
+def test_other_cookies_alone_are_not_a_session():
+    cookies = [{"name": "yandexuid", "value": "123", "domain": ".yandex.ru"}]
+    assert YandexAuthScraper._has_session_cookie(cookies) is False
+
+
+def test_empty_session_value_is_not_a_session():
+    cookies = [{"name": "Session_id", "value": "", "domain": ".yandex.ru"}]
+    assert YandexAuthScraper._has_session_cookie(cookies) is False
+
+
+def test_session_cookie_on_a_foreign_domain_is_ignored():
+    cookies = [{"name": "Session_id", "value": "3:abc", "domain": ".example.com"}]
+    assert YandexAuthScraper._has_session_cookie(cookies) is False
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pytest tests/test_sprav_login_cli.py -v`
+
+Expected: FAIL — `AttributeError: type object 'YandexAuthScraper' has no attribute '_has_session_cookie'`.
+
+- [ ] **Step 3: Revert the `headless` parameter from `login()` and note its staleness**
+
+In `apps/api/app/scraper/yandex_auth.py`, restore `login` to its pre-branch form — signature `login(self, login: str, password: str, storage_state_path: str)`, `launch(headless=True)`, and delete the `if not headless:` manual branch added by Task 1. Add this docstring as the method's first statement:
+
+```python
+        """Automated login with credentials. Kept for the API path
+        (ScrapeService.login_operator) and currently STALE: Passport serves a
+        React passwordless flow whose login field has no name= and a generated
+        id, so these selectors no longer match and this returns
+        needs_manual_action. Console users want login_manual() instead.
+        """
+```
+
+- [ ] **Step 4: Add the manual login**
+
+In `apps/api/app/scraper/yandex_auth.py`, replace the `MANUAL_LOGIN_TIMEOUT_MS` class attribute block with:
+
+```python
+class YandexAuthScraper:
+    PASSPORT_AUTH_URL = "https://passport.yandex.ru/auth"
+    # Session_id on a .yandex.ru domain is what Passport SSO hands out; it
+    # authorizes Maps and the Sprav cabinet alike.
+    SESSION_COOKIE = "Session_id"
+    MANUAL_LOGIN_TIMEOUT_MS = 180000
+    MANUAL_LOGIN_POLL_MS = 1000
+```
+
+Add these two methods to the class:
+
+```python
+    @staticmethod
+    def _has_session_cookie(cookies: list[dict]) -> bool:
+        """True once Passport has issued a session cookie for yandex.ru."""
+        return any(
+            cookie.get("name") == YandexAuthScraper.SESSION_COOKIE
+            and cookie.get("value")
+            and "yandex.ru" in (cookie.get("domain") or "")
+            for cookie in cookies
+        )
+
+    def login_manual(
+        self,
+        storage_state_path: str,
+        timeout_ms: int | None = None,
+    ) -> tuple[SessionStatus, str]:
+        """Open Passport in a visible browser; the operator signs in by hand.
+
+        Fills nothing. Passport's React flow generates its input ids per render,
+        so any hardcoded selector goes stale — and 2FA/QR cannot be automated
+        anyway (constitution: no captcha/2FA bypass). Polling for the session
+        cookie is independent of the markup and of which method the operator
+        used to sign in.
+        """
+        path = Path(storage_state_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        deadline_ms = timeout_ms if timeout_ms is not None else self.MANUAL_LOGIN_TIMEOUT_MS
+
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=False)
+                context = browser.new_context(locale=YandexPublicScraper.LOCALE)
+                page = context.new_page()
+                try:
+                    page.goto(self.PASSPORT_AUTH_URL, wait_until="domcontentloaded", timeout=30000)
+                    waited_ms = 0
+                    while waited_ms < deadline_ms:
+                        if self._has_session_cookie(context.cookies()):
+                            context.storage_state(path=str(path))
+                            return SessionStatus.valid, "Login successful (manual)"
+                        page.wait_for_timeout(self.MANUAL_LOGIN_POLL_MS)
+                        waited_ms += self.MANUAL_LOGIN_POLL_MS
+                    return SessionStatus.needs_manual_action, "Manual login not completed within the timeout"
+                finally:
+                    browser.close()
+        except Exception as exc:
+            return SessionStatus.needs_manual_action, f"Manual login failed: {exc}"
+```
+
+- [ ] **Step 5: Point the CLI at the manual login**
+
+In `apps/api/scripts/sprav_login.py`: drop the `--headed` argument (the login is always headed now), and replace the login branch of `main` so the default action is the manual login. The `--check` branch and `exit_code_for` are unchanged.
+
+```python
+    if args.check:
+        status = scraper.check_session(path)
+        message = "checked saved session"
+    else:
+        print("Opening Yandex Passport — sign in by hand in the browser window.", file=sys.stderr)
+        print("Waiting for the session cookie…", file=sys.stderr)
+        status, message = scraper.login_manual(path)
+```
+
+Update the module docstring's usage block to:
+
+```
+  python -m scripts.sprav_login           # opens a browser; operator signs in by hand
+  python -m scripts.sprav_login --check   # only verify the saved session
+```
+
+Remove the now-unreachable `--headed` hint line at the end of `main`. Credentials are no longer read by this command; drop the `settings.yandex_operator_login` / `settings.yandex_operator_password` references from it.
+
+- [ ] **Step 6: Run tests to verify they pass**
+
+Run: `pytest tests/test_sprav_login_cli.py tests/test_yandex_auth_scraper.py tests/test_scraper_session_async.py -v`
+
+Expected: PASS. `test_login_without_credentials_short_circuits` still passes because `login()`'s credential guard is unchanged.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add app/scraper/yandex_auth.py scripts/sprav_login.py tests/test_sprav_login_cli.py
+git commit -m "fix: manual headed login — Passport's React flow broke auto-login selectors"
+```
+
+---
+
 ### Task 2: Discovery spike — capture the real cabinet payload
 
 **This is an exploratory task, not a TDD task.** Its deliverable is knowledge plus a fixture. Tasks 3-5 depend on it; do not guess the payload shape ahead of it.
@@ -267,7 +454,7 @@ git commit -m "feat: sprav_login command and headless flag on operator login"
 
 - [ ] **Step 1: Establish a session**
 
-Run: `python -m scripts.sprav_login` (or `--headed` if it reports `needs_manual_action`).
+Run: `python -m scripts.sprav_login` — a browser window opens; sign in by hand (password, QR, or 2FA — whatever the account uses).
 
 Expected: `status: valid` and `.local/yandex-storage-state.json` exists and is non-empty.
 
@@ -331,7 +518,7 @@ Record for the spec:
 - the JSON path to the array,
 - the field names for id / name / address / rating / reviews count.
 
-**If `page.url` redirected to `passport.yandex.ru`:** the session is not valid for the cabinet — stop and re-run Task 2 Step 1 with `--headed`. Do not proceed on a guess.
+**If `page.url` redirected to `passport.yandex.ru`:** the session is not valid for the cabinet — stop and re-run Task 2 Step 1. Do not proceed on a guess.
 
 **If no JSON response contains the list:** the cabinet server-renders it. Save `page.content()` to `apps/api/tests/fixtures/sprav_orgs_page.html` instead, and note in the spec that `parse_sprav_orgs` takes HTML. Task 3's parser then uses BeautifulSoup like `app/scraper/parser.py`; its contract (`-> list[SpravOrg]`) is unchanged.
 
@@ -744,7 +931,7 @@ class YandexSpravScraper:
                         return SpravListResult(
                             needs_manual_action=True,
                             error_code="access_challenge",
-                            error_message="Session invalid or captcha — run: python -m scripts.sprav_login --headed",
+                            error_message="Session invalid or captcha — run: python -m scripts.sprav_login",
                             debug_screenshot=shot,
                             debug_html=html,
                         )
@@ -975,7 +1162,7 @@ Automated tests cover only the pure seams; this task proves the two commands act
 
 Run: `python -m scripts.sprav_login --check`
 
-Expected: `status: valid`, exit code 0. If not, run `python -m scripts.sprav_login` (add `--headed` on `needs_manual_action`).
+Expected: `status: valid`, exit code 0. If not, run `python -m scripts.sprav_login` and sign in by hand.
 
 - [ ] **Step 2: Read the organization list**
 

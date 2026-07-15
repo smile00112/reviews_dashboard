@@ -109,26 +109,42 @@ failure semantics read the same as every other scraper.
 ### 3. `scripts/sprav_login.py` — authorization test command
 
 ```
-python -m scripts.sprav_login [--check] [--headed]
+python -m scripts.sprav_login [--check]
 ```
 
 Thin wrapper over `YandexAuthScraper`, **no database** — it tests the login path in
 isolation.
 
-- default: `login(login, password, path)` with env credentials, headless. Prints the
-  resulting `SessionStatus` + message.
+- default: `login_manual(path)` — opens a **visible** browser at Passport and waits
+  for the operator to sign in by hand, then saves the storage-state.
 - `--check`: skip login, run `check_session(path)` against the existing storage-state
   and print the status.
-- `--headed`: escape hatch. Launches a visible browser so the operator can complete
-  2FA/captcha by hand; the script waits for login to complete and then saves the
-  storage-state. Needed because a headless auto-login **cannot** pass 2FA or a
-  captcha — on such an account the default path honestly returns
-  `needs_manual_action` and saves nothing.
-- Exit code `0` only on `SessionStatus.valid`.
+- Exit code `0` only on `SessionStatus.valid`; `2` on `needs_manual_action`; `1`
+  otherwise.
 
-Supporting `--headed` requires threading a `headless: bool = True` parameter through
-`YandexAuthScraper.login`. Default preserves today's behaviour, so
-`ScrapeService.login_operator` and the API path are unaffected.
+### Why manual, not automated (revised 2026-07-15)
+
+The first cut of this design specified headless auto-login with env credentials, with
+a headed browser as an escape hatch. Running it against the live Passport disproved
+that: `passport.yandex.ru/auth` now redirects to a React passwordless flow
+(`/pwl-yandex/auth/add`) whose login field has **no `name` attribute** and a
+per-render generated id (`react-aria-«R166b»`). The `input[name="login"]` /
+`input[name="passwd"]` selectors cannot match; the observed failure is a 30s
+`Page.fill` timeout, with no bot markers on the page — this is a redesign, not a
+bot wall.
+
+Any selector hardcoded against that flow goes stale on the next redesign, and 2FA/QR
+cannot be automated anyway without violating the no-bypass rule. So `login_manual`
+**fills nothing**: it opens Passport, lets the operator authenticate by whatever
+method the account uses, and polls for the `Session_id` cookie on a `.yandex.ru`
+domain — a completion signal independent of the page's markup. Sessions are
+long-lived, so this is a rare, interactive step.
+
+The pre-existing `login(login, password, path)` is left **unchanged and stale**: it
+is called by `ScrapeService.login_operator` behind `/api/scraper/yandex/login`, which
+runs server-side where a headed browser is impossible. Repairing that API path is out
+of scope for this console-only feature; `login()` carries a docstring saying it is
+stale and pointing at `login_manual()`.
 
 ### 4. `scripts/sprav_orgs.py` — organization list command
 
@@ -156,8 +172,8 @@ Add:
 ## Data flow
 
 ```
-sprav_login  → YandexAuthScraper.login (headless by default, env creds)
-             → .local/yandex-storage-state.json
+sprav_login  → YandexAuthScraper.login_manual (visible browser, operator signs in)
+             → poll for Session_id cookie → .local/yandex-storage-state.json
 
 sprav_orgs   → YandexSpravScraper.list_organizations
                  → Playwright context(storage_state) → capture companies XHR
