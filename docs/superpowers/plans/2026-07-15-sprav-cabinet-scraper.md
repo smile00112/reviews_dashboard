@@ -4,7 +4,9 @@
 
 **Goal:** Read the list of organizations the operator manages from the Yandex Business cabinet (`https://yandex.ru/sprav/`), driven from two console commands, using the storage-state session the project already produces.
 
-**Architecture:** A Playwright context loaded with the existing operator storage-state opens the cabinet and captures the companies-list XHR. I/O lives in `YandexSpravScraper`; parsing lives in a pure `parse_sprav_orgs` function that is the only unit-tested piece. Two operator CLIs (`sprav_login`, `sprav_orgs`) drive it. Nothing is written to the database.
+**Architecture:** A Playwright context loaded with the existing operator storage-state opens the cabinet and reads the organization list out of the `window.__PRELOAD_DATA` state the page inlines (Task 2 established there is no companies XHR). I/O lives in `YandexSpravScraper`; parsing lives in pure `extract_preload_data` / `parse_sprav_orgs` functions that are the only unit-tested pieces. Two operator CLIs (`sprav_login`, `sprav_orgs`) drive it. Nothing is written to the database.
+
+**Reality check (Task 2, live):** the cabinet lists **chains** (2 of them, 357 and 2 branches), not individual branches, and carries **no rating or review data at all**. Ratings/reviews remain the existing Maps scrapers' job. See the design spec's "Confirmed cabinet payload" section.
 
 **Tech Stack:** Python 3, Playwright (sync API), pydantic-settings, pytest, argparse.
 
@@ -36,7 +38,7 @@ All work happens on branch `feature/011-sprav-cabinet`. All commands run from `a
 | `apps/api/tests/test_sprav_login_cli.py` (create) | Exit-code mapping + no-credentials short circuit. |
 | `apps/api/tests/test_sprav_parser.py` (create) | `parse_sprav_orgs` happy path + degenerate inputs. |
 | `apps/api/tests/test_sprav_scraper.py` (create) | Missing-session short circuit + challenge detection. |
-| `apps/api/tests/fixtures/sprav_orgs_response.json` (create, Task 2) | Real captured cabinet payload, credential-scrubbed. |
+| `apps/api/tests/fixtures/sprav_companies_preload.json` (created in Task 2) | The cabinet's inlined state, cut down to `initialState.companiesList` and scrubbed: business name/address/site only, zero tokens or personal data. |
 
 Parser and scraper share one module because they change together (a payload shape change touches both) and the module stays small. This mirrors `yandex_http.py`, which delegates to a parser but keeps its own transport concerns local.
 
@@ -550,60 +552,87 @@ git commit -m "chore: capture sprav cabinet companies payload fixture"
 
 ### Task 3: `SpravOrg`, `SpravListResult`, and the pure parser
 
+> **Revised after Task 2's discovery.** The original version of this task assumed the cabinet fetches its organization list as an XHR carrying `rating` and `reviews_count`. All three assumptions were wrong. What Task 2 actually found, against the live cabinet:
+>
+> - The list is **server-rendered** into `window.__PRELOAD_DATA` in the page HTML. There is no companies XHR. (The plan's stated fallback — "if the cabinet server-renders it" — is what happened.)
+> - **`rating` and `reviews_count` do not exist.** The string `rating` appears **0 times** in the entire 64 KB preload. These fields are dropped from `SpravOrg`; they are unobtainable here and are still the existing Maps scrapers' job.
+> - The records are **chains**, not branches: `type: "chain"`, `total: 2`, with `chain.branchCount` of 357 and 2.
+> - `address.formatted` is a **dict** `{"value": "…", "locale": "ru"}`, not a string.
+> - `id == permanent_id` — the Yandex Maps permalink. `tycoon_id` is a separate internal id used in cabinet page URLs (`/sprav/chain/{tycoon_id}`).
+
 **Files:**
 - Create: `apps/api/app/scraper/yandex_sprav.py`
 - Test: `apps/api/tests/test_sprav_parser.py`
-- Read: `apps/api/tests/fixtures/sprav_orgs_response.json` (from Task 2)
+- Read: `apps/api/tests/fixtures/sprav_companies_preload.json` (captured and scrubbed in Task 2)
 
 **Interfaces:**
-- Consumes: the fixture and field mapping confirmed in Task 2.
+- Consumes: the fixture captured in Task 2.
 - Produces:
-  - `SpravOrg(sprav_id: str, name: str, address: str | None, rating: float | None, reviews_count: int | None, url: str | None)`
+  - `SpravOrg(sprav_id: str, name: str, address: str | None, url: str | None, org_type: str | None, branch_count: int | None, publishing_status: str | None)`
   - `SpravListResult(organizations: list[SpravOrg], needs_manual_action: bool, error_code: str | None, error_message: str | None, debug_screenshot: str | None, debug_html: str | None)`
-  - `parse_sprav_orgs(payload: object) -> list[SpravOrg]`
+  - `extract_preload_data(html: str) -> dict`
+  - `parse_sprav_orgs(preload: object) -> list[SpravOrg]`
+
+The parser is split in two so the fixture can be a small scrubbed JSON instead of a 142 KB HTML page carrying the operator's uid, phone, and CSRF token. `extract_preload_data` handles the HTML→dict step; `parse_sprav_orgs` consumes the dict.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `apps/api/tests/test_sprav_parser.py`. The degenerate cases are exact; the happy-path assertions read the real values out of the Task 2 fixture rather than hardcoding invented ones.
+Create `apps/api/tests/test_sprav_parser.py`:
 
 ```python
-"""Pure parser for the Sprav cabinet companies payload. No I/O, no network."""
+"""Pure parser for the Sprav cabinet companies payload. No I/O, no network.
+
+The cabinet server-renders its company list into window.__PRELOAD_DATA; the
+fixture is that structure, scrubbed of everything except business data.
+"""
 
 import json
 from pathlib import Path
 
 import pytest
 
-from app.scraper.yandex_sprav import SpravOrg, parse_sprav_orgs
+from app.scraper.yandex_sprav import SpravOrg, extract_preload_data, parse_sprav_orgs
 
-FIXTURE = Path(__file__).parent / "fixtures" / "sprav_orgs_response.json"
+FIXTURE = Path(__file__).parent / "fixtures" / "sprav_companies_preload.json"
 
 
 @pytest.fixture
-def payload():
+def preload():
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
-def test_parses_every_organization(payload):
-    orgs = parse_sprav_orgs(payload)
-    assert len(orgs) > 0
+def test_parses_every_organization(preload):
+    orgs = parse_sprav_orgs(preload)
+    assert len(orgs) == 2
     assert all(isinstance(o, SpravOrg) for o in orgs)
 
 
-def test_every_organization_has_identity(payload):
-    """id and name are the two fields the cabinet always provides; without
-    them a record is useless downstream."""
-    for org in parse_sprav_orgs(payload):
+def test_every_organization_has_identity(preload):
+    for org in parse_sprav_orgs(preload):
         assert org.sprav_id
         assert org.name
 
 
-def test_optional_fields_are_correctly_typed(payload):
-    for org in parse_sprav_orgs(payload):
-        assert org.rating is None or isinstance(org.rating, float)
-        assert org.reviews_count is None or isinstance(org.reviews_count, int)
-        assert org.address is None or isinstance(org.address, str)
-        assert org.url is None or isinstance(org.url, str)
+def test_maps_the_chain_fields(preload):
+    """The 357-branch chain is the first record; its permalink is the Maps id."""
+    org = parse_sprav_orgs(preload)[0]
+    assert org.sprav_id == "81562141869"
+    assert org.org_type == "chain"
+    assert org.branch_count == 357
+    assert org.publishing_status == "publish"
+    assert org.url == "https://sushi-master.ru/"
+
+
+def test_address_is_flattened_from_the_formatted_dict(preload):
+    """address.formatted is {"value": ..., "locale": ...}, not a string."""
+    org = parse_sprav_orgs(preload)[0]
+    assert isinstance(org.address, str)
+
+
+def test_only_the_main_url_is_taken(preload):
+    """The record also carries a 'social' url; it must not win."""
+    org = parse_sprav_orgs(preload)[0]
+    assert "vk.com" not in (org.url or "")
 
 
 @pytest.mark.parametrize("bad", [
@@ -613,28 +642,53 @@ def test_optional_fields_are_correctly_typed(payload):
     "",
     "not json at all",
     {"unexpected": "shape"},
-    {"result": None},
-    {"result": {"companies": None}},
+    {"initialState": None},
+    {"initialState": {"companiesList": None}},
+    {"initialState": {"companiesList": {"listCompanies": None}}},
+    {"initialState": {"companiesList": {"listCompanies": "nope"}}},
     42,
 ])
 def test_degenerate_payloads_return_empty_without_raising(bad):
-    """Analysis-style safe degradation: never raise on unexpected input."""
+    """Safe degradation: a cabinet change must surface as an empty run, never a crash."""
     assert parse_sprav_orgs(bad) == []
 
 
-def test_record_missing_optional_fields_still_parses():
-    """A record with only identity fields must survive with None optionals.
-
-    Uses the identity field names confirmed in Task 2 — substitute them here.
-    """
-    orgs = parse_sprav_orgs(_minimal_payload())
+def test_record_without_identity_is_skipped():
+    payload = {"initialState": {"companiesList": {"listCompanies": [
+        {"displayName": "no id here"},
+        {"permanent_id": 123},
+        {"permanent_id": 456, "displayName": "keeper"},
+    ]}}}
+    orgs = parse_sprav_orgs(payload)
     assert len(orgs) == 1
-    assert orgs[0].rating is None
-    assert orgs[0].reviews_count is None
-    assert orgs[0].address is None
-```
+    assert orgs[0].sprav_id == "456"
 
-Add `_minimal_payload()` to the test file, built from the shape confirmed in Task 2 — the smallest payload carrying exactly one record with only id and name populated.
+
+def test_record_missing_optional_fields_still_parses():
+    payload = {"initialState": {"companiesList": {"listCompanies": [
+        {"permanent_id": 999, "displayName": "Bare"},
+    ]}}}
+    org = parse_sprav_orgs(payload)[0]
+    assert org.address is None
+    assert org.url is None
+    assert org.branch_count is None
+    assert org.publishing_status is None
+
+
+def test_extract_preload_data_reads_the_inline_script():
+    html = '<html><script nonce="">window.__PRELOAD_DATA = {"a": {"b": 1}};</script></html>'
+    assert extract_preload_data(html) == {"a": {"b": 1}}
+
+
+@pytest.mark.parametrize("html", [
+    "",
+    "<html>nothing here</html>",
+    "<html><script>window.__PRELOAD_DATA = not-json;</script></html>",
+    "<html><script>window.__OTHER = {\"a\": 1};</script></html>",
+])
+def test_extract_preload_data_returns_empty_on_anything_unexpected(html):
+    assert extract_preload_data(html) == {}
+```
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -644,29 +698,46 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'app.scraper.yandex_spr
 
 - [ ] **Step 3: Write the module**
 
-Create `apps/api/app/scraper/yandex_sprav.py`. Fill `_ORG_ARRAY_PATH` and the field names from Task 2's findings.
+Create `apps/api/app/scraper/yandex_sprav.py`:
 
 ```python
 """Yandex Sprav (Business cabinet) reader — organization list.
 
 Read-only: the cabinet also exposes editing and review replies; this module
-performs GET/read only (constitution hard rule). Parsing is pure and lives
-beside the Playwright I/O, mirroring the yandex_http.py / parser.py split.
+performs GET/read only (constitution hard rule).
+
+The cabinet is a React app that server-renders its state into a
+window.__PRELOAD_DATA script tag rather than fetching the list over XHR, so the
+list is read out of the page HTML. Parsing is pure and split from the I/O,
+mirroring the yandex_http.py / parser.py split.
+
+Note the cabinet lists *chains*, not branches, and carries no rating or review
+data at all — those remain the Maps scrapers' job.
 """
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass, field
+
+# The cabinet inlines its state as `window.__PRELOAD_DATA = {...};</script>`.
+_PRELOAD_RE = re.compile(r"window\.__PRELOAD_DATA\s*=\s*(\{.*?\})\s*;?\s*</script>", re.S)
+
+# Where the company records live inside that state.
+_ORG_ARRAY_PATH: tuple[str, ...] = ("initialState", "companiesList", "listCompanies")
 
 
 @dataclass
 class SpravOrg:
+    # permanent_id: the Yandex Maps permalink, the join key to organizations.
     sprav_id: str
     name: str
     address: str | None = None
-    rating: float | None = None
-    reviews_count: int | None = None
     url: str | None = None
+    org_type: str | None = None
+    branch_count: int | None = None
+    publishing_status: str | None = None
 
 
 @dataclass
@@ -679,16 +750,27 @@ class SpravListResult:
     debug_html: str | None = None
 
 
-def _as_float(value: object) -> float | None:
-    if isinstance(value, bool) or value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value.replace(",", ".").strip())
-        except ValueError:
-            return None
+def extract_preload_data(html: str) -> dict:
+    """Pull the cabinet's inlined state out of the page HTML.
+
+    Returns {} for anything unexpected so a markup change degrades to an empty
+    run rather than an exception.
+    """
+    if not isinstance(html, str):
+        return {}
+    match = _PRELOAD_RE.search(html)
+    if not match:
+        return {}
+    try:
+        data = json.loads(match.group(1))
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _as_str(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
     return None
 
 
@@ -699,20 +781,11 @@ def _as_int(value: object) -> int | None:
         return value
     if isinstance(value, float):
         return int(value)
-    if isinstance(value, str):
-        digits = "".join(ch for ch in value if ch.isdigit())
-        return int(digits) if digits else None
-    return None
-
-
-def _as_str(value: object) -> str | None:
-    if isinstance(value, str) and value.strip():
-        return value.strip()
     return None
 
 
 def _dig(payload: object, path: tuple[str, ...]) -> object:
-    """Walk a dotted path, returning None the moment the shape disagrees."""
+    """Walk a nested path, bailing out the moment the shape disagrees."""
     current = payload
     for key in path:
         if not isinstance(current, dict):
@@ -721,42 +794,52 @@ def _dig(payload: object, path: tuple[str, ...]) -> object:
     return current
 
 
-# JSON path to the organization array — confirmed in Task 2.
-_ORG_ARRAY_PATH: tuple[str, ...] = ()
+def _address(raw: dict) -> str | None:
+    """address.formatted is {"value": ..., "locale": ...} — flatten to the value."""
+    formatted = (raw.get("address") or {}).get("formatted") if isinstance(raw.get("address"), dict) else None
+    if isinstance(formatted, dict):
+        return _as_str(formatted.get("value"))
+    return _as_str(formatted)
+
+
+def _main_url(raw: dict) -> str | None:
+    """Records carry several urls (main, social); only the main one identifies the org."""
+    for entry in raw.get("urls") or []:
+        if isinstance(entry, dict) and entry.get("type") == "main":
+            return _as_str(entry.get("value"))
+    return None
 
 
 def _parse_one(raw: object) -> SpravOrg | None:
     if not isinstance(raw, dict):
         return None
-    # Field names confirmed in Task 2.
-    sprav_id = _as_str(raw.get("id"))
-    name = _as_str(raw.get("name"))
+    sprav_id = _as_str(str(raw["permanent_id"])) if raw.get("permanent_id") is not None else None
+    name = _as_str(raw.get("displayName"))
     if not sprav_id or not name:
         return None
+    chain = raw.get("chain") if isinstance(raw.get("chain"), dict) else {}
     return SpravOrg(
         sprav_id=sprav_id,
         name=name,
-        address=_as_str(raw.get("address")),
-        rating=_as_float(raw.get("rating")),
-        reviews_count=_as_int(raw.get("reviews_count")),
-        url=_as_str(raw.get("url")),
+        address=_address(raw),
+        url=_main_url(raw),
+        org_type=_as_str(raw.get("type")),
+        branch_count=_as_int(chain.get("branchCount")),
+        publishing_status=_as_str(raw.get("publishing_status")),
     )
 
 
-def parse_sprav_orgs(payload: object) -> list[SpravOrg]:
-    """Map the cabinet companies payload to SpravOrg records.
+def parse_sprav_orgs(preload: object) -> list[SpravOrg]:
+    """Map the cabinet's inlined state to SpravOrg records.
 
-    Degrades safely: any unexpected shape yields [] rather than raising, so a
-    cabinet change surfaces as an empty run, never a crash.
+    Degrades safely: any unexpected shape yields [] rather than raising.
     """
-    raw_list = _dig(payload, _ORG_ARRAY_PATH) if _ORG_ARRAY_PATH else payload
+    raw_list = _dig(preload, _ORG_ARRAY_PATH)
     if not isinstance(raw_list, list):
         return []
     parsed = (_parse_one(item) for item in raw_list)
     return [org for org in parsed if org is not None]
 ```
-
-Adjust `_ORG_ARRAY_PATH` and the `raw.get(...)` keys in `_parse_one` to the names confirmed in Task 2. If Task 2 found the list is server-rendered, replace `_dig`/`parse_sprav_orgs` internals with a BeautifulSoup parse of the HTML (`from bs4 import BeautifulSoup`, as in `app/scraper/parser.py`) — the signature and return type stay identical.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -767,7 +850,7 @@ Expected: PASS (all cases).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/scraper/yandex_sprav.py tests/test_sprav_parser.py
+git add app/scraper/yandex_sprav.py tests/test_sprav_parser.py tests/fixtures/sprav_companies_preload.json
 git commit -m "feat: pure parser for sprav cabinet organization list"
 ```
 
@@ -775,17 +858,19 @@ git commit -m "feat: pure parser for sprav cabinet organization list"
 
 ### Task 4: `YandexSpravScraper` — Playwright I/O layer
 
+> **Revised after Task 2's discovery.** The original version registered a `page.on("response")` handler to capture a companies XHR. No such XHR exists — the list is inlined in the HTML. The interception code is gone; the scraper now reads `page.content()` and hands it to `extract_preload_data`. Verified live: with a valid storage-state, `https://yandex.ru/sprav/` redirects to `https://yandex.ru/sprav/companies` and renders the list; with no session it redirects to `passport.yandex.ru`.
+
 **Files:**
 - Modify: `apps/api/app/scraper/yandex_sprav.py`
-- Modify: `apps/api/app/core/config.py:22` (add settings next to the other scraper blocks)
+- Modify: `apps/api/app/core/config.py` (add settings after the `http_scrape_*` block)
 - Test: `apps/api/tests/test_sprav_scraper.py`
 
 **Interfaces:**
-- Consumes: `parse_sprav_orgs`, `SpravListResult` (Task 3); `BOT_MARKERS` from `app.scraper.markers`; `save_debug_artifacts` from `app.scraper.debug_artifacts`; `YandexPublicScraper.LOCALE` / `EXTRA_HTTP_HEADERS`.
+- Consumes: `extract_preload_data`, `parse_sprav_orgs`, `SpravListResult` (Task 3); `BOT_MARKERS` from `app.scraper.markers`; `save_debug_artifacts` from `app.scraper.debug_artifacts`; `YandexPublicScraper.LOCALE` / `EXTRA_HTTP_HEADERS`.
 - Produces:
   - `YandexSpravScraper.list_organizations(storage_state_path: str) -> SpravListResult`
   - `YandexSpravScraper._is_challenge(html: str, url: str) -> bool` (static, pure — the tested seam)
-  - `settings.sprav_companies_url`, `settings.sprav_orgs_output_path`
+  - `settings.sprav_companies_url`, `settings.sprav_orgs_output_path`, `settings.sprav_page_timeout_ms`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -818,18 +903,20 @@ def test_empty_storage_state_short_circuits(tmp_path):
 
 
 def test_passport_redirect_is_a_challenge():
+    """An expired session bounces to Passport — that needs a human, not a retry."""
     assert YandexSpravScraper._is_challenge("<html>ok</html>", "https://passport.yandex.ru/auth") is True
 
 
 def test_bot_marker_is_a_challenge():
     assert YandexSpravScraper._is_challenge(
-        "<html>Обнаружена защита от ботов</html>", "https://yandex.ru/sprav/"
+        "<html>Обнаружена защита от ботов</html>", "https://yandex.ru/sprav/companies"
     ) is True
 
 
-def test_normal_cabinet_page_is_not_a_challenge():
+def test_rendered_cabinet_page_is_not_a_challenge():
     assert YandexSpravScraper._is_challenge(
-        "<html><div>Мои организации</div></html>", "https://yandex.ru/sprav/"
+        "<html><script>window.__PRELOAD_DATA = {};</script></html>",
+        "https://yandex.ru/sprav/companies",
     ) is False
 ```
 
@@ -845,15 +932,16 @@ In `apps/api/app/core/config.py`, after the `http_scrape_*` block (line 29), add
 
 ```python
     # Sprav cabinet reader (feature 011, console-only). Read-only: the cabinet
-    # entry point is settings-driven so a URL change is a config edit.
+    # entry point is settings-driven so a URL change is a config edit. The
+    # cabinet redirects /sprav/ -> /sprav/companies and inlines the list.
     sprav_companies_url: str = "https://yandex.ru/sprav/"
     sprav_orgs_output_path: str = ".local/sprav-orgs.json"
-    sprav_page_timeout_ms: int = 60000
+    sprav_page_timeout_ms: int = 90000
 ```
 
 - [ ] **Step 4: Write the scraper**
 
-Append to `apps/api/app/scraper/yandex_sprav.py`:
+Append to `apps/api/app/scraper/yandex_sprav.py` (move the new imports up to the module's import block):
 
 ```python
 from pathlib import Path
@@ -869,27 +957,9 @@ from app.scraper.yandex_public import YandexPublicScraper
 class YandexSpravScraper:
     """Reads the operator's organization list from the Yandex Business cabinet.
 
-    Reuses the operator storage-state: cabinet and Maps share the .yandex.ru
+    Reuses the operator storage-state: the cabinet and Maps share the .yandex.ru
     Passport cookies, so no separate session is needed.
     """
-
-    def _capture_companies_json(self, page) -> list[object]:
-        """Collect JSON bodies that look like the companies list.
-
-        Registered before navigation so the initial fetch is not missed.
-        """
-        captured: list[object] = []
-
-        def on_response(response) -> None:
-            if "json" not in response.headers.get("content-type", ""):
-                return
-            try:
-                captured.append(response.json())
-            except Exception:
-                return
-
-        page.on("response", on_response)
-        return captured
 
     @staticmethod
     def _is_challenge(html: str, url: str) -> bool:
@@ -919,42 +989,38 @@ class YandexSpravScraper:
                 )
                 page = context.new_page()
                 try:
-                    captured = self._capture_companies_json(page)
                     page.goto(
                         settings.sprav_companies_url,
                         wait_until="networkidle",
                         timeout=settings.sprav_page_timeout_ms,
                     )
+                    html = page.content()
 
-                    if self._is_challenge(page.content(), page.url):
-                        shot, html = save_debug_artifacts(page, "sprav-list")
+                    if self._is_challenge(html, page.url):
+                        shot, dbg = save_debug_artifacts(page, "sprav-list")
                         return SpravListResult(
                             needs_manual_action=True,
                             error_code="access_challenge",
                             error_message="Session invalid or captcha — run: python -m scripts.sprav_login",
                             debug_screenshot=shot,
-                            debug_html=html,
+                            debug_html=dbg,
                         )
 
-                    for payload in captured:
-                        orgs = parse_sprav_orgs(payload)
-                        if orgs:
-                            return SpravListResult(organizations=orgs)
-
-                    shot, html = save_debug_artifacts(page, "sprav-list-not-found")
-                    return SpravListResult(
-                        error_code="sprav_list_not_found",
-                        error_message="No response matched the companies payload",
-                        debug_screenshot=shot,
-                        debug_html=html,
-                    )
+                    orgs = parse_sprav_orgs(extract_preload_data(html))
+                    if not orgs:
+                        shot, dbg = save_debug_artifacts(page, "sprav-list-empty")
+                        return SpravListResult(
+                            error_code="sprav_list_not_found",
+                            error_message="Cabinet page carried no organization list",
+                            debug_screenshot=shot,
+                            debug_html=dbg,
+                        )
+                    return SpravListResult(organizations=orgs)
                 finally:
                     browser.close()
         except Exception as exc:
             return SpravListResult(error_code="sprav_scrape_error", error_message=str(exc))
 ```
-
-Move the `from pathlib import Path` / Playwright / settings imports to the top of the module with the existing imports rather than leaving them mid-file.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -970,6 +1036,7 @@ git commit -m "feat: sprav cabinet scraper I/O layer with challenge detection"
 ```
 
 ---
+
 
 ### Task 5: `sprav_orgs` command
 
@@ -996,24 +1063,26 @@ from scripts.sprav_orgs import exit_code_for, orgs_to_json
 
 def _org():
     return SpravOrg(
-        sprav_id="123",
+        sprav_id="81562141869",
         name="Суши Мастер",
-        address="Сочи, ул. Ленина, 1",
-        rating=4.7,
-        reviews_count=42,
-        url="https://yandex.ru/maps/org/x/123/",
+        address="Россия",
+        url="https://sushi-master.ru/",
+        org_type="chain",
+        branch_count=357,
+        publishing_status="publish",
     )
 
 
 def test_orgs_to_json_roundtrips_all_fields():
     payload = json.loads(orgs_to_json([_org()], pretty=False))
     assert payload == [{
-        "sprav_id": "123",
+        "sprav_id": "81562141869",
         "name": "Суши Мастер",
-        "address": "Сочи, ул. Ленина, 1",
-        "rating": 4.7,
-        "reviews_count": 42,
-        "url": "https://yandex.ru/maps/org/x/123/",
+        "address": "Россия",
+        "url": "https://sushi-master.ru/",
+        "org_type": "chain",
+        "branch_count": 357,
+        "publishing_status": "publish",
     }]
 
 

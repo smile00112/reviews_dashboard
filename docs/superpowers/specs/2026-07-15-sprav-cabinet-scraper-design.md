@@ -72,34 +72,65 @@ Flow:
    "missing_session"`. No browser launched.
 2. `browser.new_context(storage_state=..., locale=..., extra_http_headers=...)`
    reusing `YandexPublicScraper.LOCALE` / `EXTRA_HTTP_HEADERS`.
-3. Register a `page.on("response")` handler to capture the companies-list XHR
-   before navigating, then go to the cabinet companies page.
+3. Navigate to the cabinet; `/sprav/` redirects to `/sprav/companies`.
 4. Detect challenge: URL now on `passport.yandex.ru`, or a marker from
    `scraper/markers.py` present in the HTML → `needs_manual_action`,
    `error_code = "access_challenge"`, `save_debug_artifacts(page, "sprav-list")`.
-5. Hand the captured JSON to `parse_sprav_orgs`.
+5. Hand `page.content()` to `extract_preload_data`, then to `parse_sprav_orgs`.
 
-Network interception is preferred over DOM scraping: the cabinet is an SPA whose
-markup is volatile, whereas the JSON it fetches is structured and stable enough to
-snapshot as a fixture.
+### Confirmed cabinet payload (Task 2, live, 2026-07-15)
 
-### 2. `parse_sprav_orgs(payload: dict) -> list[SpravOrg]` — pure parser
+The first cut of this design assumed the list arrives as an XHR that we would
+capture via network interception. **It does not.** With a valid storage-state,
+`https://yandex.ru/sprav/` redirects to `/sprav/companies` and inlines its state
+into the page:
 
-Same module, no I/O, no DB, independently testable.
+```
+window.__PRELOAD_DATA = { … "initialState": { "companiesList": {
+    "listCompanies": [ … ], "total": 2, "page": 1, "limit": 10 } } }
+```
 
-`SpravOrg` dataclass:
+The eight JSON responses the page does fetch are ads, mail counters, metrics and
+a survey — plus `/sprav/api/companies/get-companies-adv`, which returns only
+per-chain advertising flags. None carries the list. So the parser reads the HTML,
+and the design's stated fallback ("if the cabinet server-renders it") is the path
+taken.
 
-| field           | type          | notes                                   |
-|-----------------|---------------|-----------------------------------------|
-| `sprav_id`      | `str`         | cabinet's own organization id           |
-| `name`          | `str`         |                                         |
-| `address`       | `str \| None` |                                         |
-| `rating`        | `float \| None` |                                       |
-| `reviews_count` | `int \| None` |                                         |
-| `url`           | `str \| None` | public Yandex Maps link, when available  |
+Two further findings that reshaped the data model:
+
+- **No rating or review data exists in the cabinet's company pages.** The string
+  `rating` occurs 0 times in the 64 KB companies preload and 0 times in the
+  630 KB chain page. `rating`/`reviews_count` are therefore **dropped** from
+  `SpravOrg` — unobtainable here, and still the Maps scrapers' job.
+- **The records are chains, not branches.** `type: "chain"`, `total: 2`, with
+  `chain.branchCount` 357 and 2. Individual branches live a level deeper at
+  `/sprav/chain/{tycoon_id}` (`companyList.pager.total` = 209 for the big chain).
+  Listing branches is out of scope for this feature.
+
+Field mapping, verified against the live payload:
+
+| `SpravOrg` field    | Source in `listCompanies[i]`     | Note                                    |
+|---------------------|----------------------------------|-----------------------------------------|
+| `sprav_id`          | `permanent_id`                   | equals `id`; the Yandex Maps permalink  |
+| `name`              | `displayName`                    |                                         |
+| `address`           | `address.formatted.value`        | `formatted` is a dict, **not** a string |
+| `url`               | `urls[type == "main"].value`     | records also carry a `social` url       |
+| `org_type`          | `type`                           | `"chain"`                               |
+| `branch_count`      | `chain.branchCount`              |                                         |
+| `publishing_status` | `publishing_status`              | `"publish"`                             |
+
+`tycoon_id` is a separate internal id used only in cabinet URLs
+(`/sprav/chain/{tycoon_id}`); it is not the Maps permalink and is not mapped.
+
+### 2. `extract_preload_data(html) -> dict` + `parse_sprav_orgs(preload) -> list[SpravOrg]`
+
+Same module, no I/O, no DB, independently testable. Split in two so the test
+fixture can be a small scrubbed JSON rather than a 142 KB HTML page carrying the
+operator's uid, phone number, and CSRF token.
 
 Degrades safely: unknown/empty/garbage payload → `[]`, never raises. Missing
-per-field values → `None`.
+per-field values → `None`. A record without both `permanent_id` and
+`displayName` is skipped — it cannot be identified downstream.
 
 `SpravListResult` dataclass: `organizations: list[SpravOrg]`,
 `needs_manual_action: bool`, `error_code: str | None`, `error_message: str | None`,
@@ -176,8 +207,8 @@ sprav_login  → YandexAuthScraper.login_manual (visible browser, operator signs
              → poll for Session_id cookie → .local/yandex-storage-state.json
 
 sprav_orgs   → YandexSpravScraper.list_organizations
-                 → Playwright context(storage_state) → capture companies XHR
-                 → parse_sprav_orgs(json) → list[SpravOrg]
+                 → Playwright context(storage_state) → /sprav/ -> /sprav/companies
+                 → extract_preload_data(html) → parse_sprav_orgs(dict) → list[SpravOrg]
                  → stdout (JSON) + .local/sprav-orgs.json
 ```
 
@@ -187,7 +218,7 @@ sprav_orgs   → YandexSpravScraper.list_organizations
 |--------------------------------------|--------------------------------------------------------|
 | storage-state missing/empty          | `needs_manual_action`, `missing_session`, no browser    |
 | redirect to passport / captcha wall  | `needs_manual_action`, `access_challenge` + artifacts   |
-| companies XHR never seen             | `error_code = "sprav_list_not_found"` + artifacts       |
+| preload absent / list empty          | `error_code = "sprav_list_not_found"` + artifacts       |
 | unexpected/empty JSON                | parser returns `[]` (no raise)                          |
 | network/timeout/other exception      | `error_code = "sprav_scrape_error"`, message attached   |
 
@@ -201,21 +232,67 @@ Critical path here is the parser — it is the only pure, deterministic unit.
 - No live-network test (constitution: scrapers are not exercised against real sites
   in tests). The Playwright I/O layer is not mocked.
 
-## Implementation note — endpoint discovery comes first
+## Discovery outcome (resolved)
 
-The exact companies-list URL and JSON shape are **not** assumed by this design. Task
-one of implementation is to discover them live: open the cabinet in a headed browser
-with a valid storage-state, capture the companies XHR, and save the response as the
-test fixture under `tests/fixtures/`. The parser is then written against the real
-payload, not a guess. If the cabinet turns out to server-render the list instead of
-fetching it, the fallback is a DOM parse of the same page — the pure-parser boundary
-is unchanged, only its input type is.
+The endpoint and payload shape were not assumed by this design: Task 2 opened the
+cabinet live with a valid storage-state, established that the list is inlined
+rather than fetched, and saved a scrubbed fixture to
+`apps/api/tests/fixtures/sprav_companies_preload.json`. The parser is written
+against that real payload. See "Confirmed cabinet payload" above.
 
 ## Out of scope
 
-- Reviews from the cabinet (planned as a follow-up once the list works).
-- Any write action in the cabinet (permanently out — constitution).
+- **The reviews feed** — deliberately deferred to its own feature; see below.
+- Listing a chain's individual branches (`/sprav/chain/{tycoon_id}`, 209 for the
+  big chain).
+- Any write action in the cabinet (permanently out under the current
+  constitution — see "Replying to reviews" below).
 - Persisting cabinet organizations to the `organizations` table / mapping them to
   existing rows.
 - A new `ScrapeMode`, an API endpoint, or a web page. Console only for now.
 - Captcha bypass.
+
+## Findings banked for the next feature (Task 2, live, 2026-07-15)
+
+Discovery went past this feature's scope and found what the operator actually
+wants. Recording it here so the knowledge survives this branch.
+
+### The cabinet does have reviews — on the updates page, not the company pages
+
+`/sprav/chain/{tycoon_id}/updates` renders `initialState.chain.lenta`, an
+event feed. Paging is a plain authorized GET:
+
+```
+GET https://yandex.ru/sprav/api/chain/{chain_permalink}/{geo_id}/more-events
+    ?offset=N&limit=10&total=T&filter=reviews
+
+→ { "lenta":  [ { "type": "reviews",
+                  "data": { "company": { "permanent_id": …, "displayName": …, … },
+                            "reviews": [ { "id", "rating", "time_created",
+                                           "full_text", "snippet", "author",
+                                           "comments_count", … } ] } } ],
+    "pager":  { "offset": 0, "limit": 10, "total": 58 },
+    "filter": "reviews" }
+```
+
+Verified live for chain `81562141869` / geo `10000`: `filter=reviews` → 58 review
+events across all 209 branches, one time-ordered feed, each carrying a rating, the
+full text, the author, and the branch's Maps permalink.
+
+**Why this matters:** it answers the operator's real need — spotting new reviews
+without re-scraping every organization — which the organization list in this
+feature does not.
+
+Two constraints found the hard way:
+- **`limit` is capped at 10 server-side.** A request with `limit=50` comes back
+  with `"limit": 10`. 58 reviews = 6 requests; `filter=all` (231 events) = 24.
+- `time_created` is epoch **milliseconds**.
+
+### Replying to reviews
+
+Each review carries `cmnt_entity_id`, `cmnt_official_token`, `comments_count`, and
+`can_generate_answer`, so the cabinet's reply mechanism is reachable. **It is a
+write, and the constitution forbids writes as a hard rule** ("Never publish, edit,
+or delete replies on Yandex"; "Out of scope: posting replies"). Building it
+requires a constitution amendment first — an explicit decision, not an incidental
+one.
