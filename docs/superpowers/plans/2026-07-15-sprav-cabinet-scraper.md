@@ -1065,7 +1065,7 @@ def _org():
     return SpravOrg(
         sprav_id="81562141869",
         name="Суши Мастер",
-        address="Россия",
+        address="Земля",
         url="https://sushi-master.ru/",
         org_type="chain",
         branch_count=357,
@@ -1078,7 +1078,7 @@ def test_orgs_to_json_roundtrips_all_fields():
     assert payload == [{
         "sprav_id": "81562141869",
         "name": "Суши Мастер",
-        "address": "Россия",
+        "address": "Земля",
         "url": "https://sushi-master.ru/",
         "org_type": "chain",
         "branch_count": 357,
