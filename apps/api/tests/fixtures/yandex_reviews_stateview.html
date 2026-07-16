@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="utf-8"><title>Мир Суши — Яндекс Карты</title></head>
+<body>
+  <h1 class="orgpage-header-view__header">Мир Суши</h1>
+  <div class="business-rating-badge-view__rating">4,4</div>
+  <div class="business-header-rating-view__text">6 отзывов</div>
+
+  <div class="business-reviews-card-view__reviews-container">
+
+    <!-- Review whose org reply is hidden behind the expander: no bubble in the DOM -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Ольга Петровская</div>
+      </div>
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 5 Из 5"></div>
+      <span class="business-review-view__body-text">Заказала онлайн доставку, осталась довольна всем.</span>
+      <span class="business-review-view__date">15 февраля</span>
+      <div class="business-review-view__comment-expand">Посмотреть ответ организации</div>
+    </div>
+
+    <!-- Same idea, second review -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Sofya.m.0807</div>
+      </div>
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 5 Из 5"></div>
+      <span class="business-review-view__body-text">Ездила в этот ресторан, всё очень понравилось.</span>
+      <span class="business-review-view__date">5 февраля</span>
+      <div class="business-review-view__comment-expand">Посмотреть ответ организации</div>
+    </div>
+
+    <!-- Review without a business comment in the state JSON -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Семен Pidjr</div>
+      </div>
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 5 Из 5"></div>
+      <span class="business-review-view__body-text">Если повезет с поваром и сборщиком — будет вкусно и недорого.</span>
+      <span class="business-review-view__date">12 февраля</span>
+    </div>
+
+    <!-- Same author appears twice: disambiguation must go through the review text -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Ольга Петровская</div>
+      </div>
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 4 Из 5"></div>
+      <span class="business-review-view__body-text">Второй заказ понравился меньше, роллы были тёплые.</span>
+      <span class="business-review-view__date">1 марта</span>
+      <div class="business-review-view__comment-expand">Посмотреть ответ организации</div>
+    </div>
+
+    <!-- DOM bubble already present: must keep priority over the state JSON -->
+    <div class="business-review-view">
+      <div class="business-review-view__author">
+        <div class="business-review-view__author-name">Мария С.</div>
+      </div>
+      <div class="business-rating-badge-view__stars" aria-label="Оценка 5 Из 5"></div>
+      <span class="business-review-view__body-text">Отличное кафе, всё понравилось!</span>
+      <span class="business-review-view__date">10.01.2024</span>
+      <div class="business-review-comment-content__bubble">Спасибо за отзыв! Будем рады видеть вас снова.</div>
+    </div>
+
+  </div>
+
+  <script type="application/json" class="state-view">{
+    "config": {},
+    "reviews": {
+      "reviewResults": {
+        "reviews": [
+          {
+            "businessComment": {"text": "Здравствуйте, огромное спасибо за добрые слова. Будем стараться и дальше!", "updatedTime": "2026-02-16T05:34:51.427Z"},
+            "reviewId": "r1",
+            "author": {"name": "Ольга Петровская"},
+            "text": "Заказала онлайн доставку, осталась довольна всем.",
+            "rating": 5
+          },
+          {
+            "businessComment": {"text": "Спасибо за ваш отзыв и оценку 💛 Мы стараемся 🌸", "updatedTime": "2026-02-08T09:00:00.000Z"},
+            "reviewId": "r2",
+            "author": {"name": "Sofya.m.0807"},
+            "text": "Ездила в этот ресторан, всё очень понравилось.",
+            "rating": 5
+          },
+          {
+            "reviewId": "r3",
+            "author": {"name": "Семен Pidjr"},
+            "text": "Если повезет с поваром и сборщиком — будет вкусно и недорого.",
+            "rating": 5
+          },
+          {
+            "businessComment": {"text": "Жаль, что второй раз не оправдал ожиданий — разберёмся.", "updatedTime": "2026-03-02T10:00:00.000Z"},
+            "reviewId": "r4",
+            "author": {"name": "Ольга Петровская"},
+            "text": "Второй заказ понравился меньше, роллы были тёплые.",
+            "rating": 4
+          },
+          {
+            "businessComment": {"text": "ЭТОТ ТЕКСТ НЕ ДОЛЖЕН ПОБЕДИТЬ DOM-ПУЗЫРЬ", "updatedTime": "2026-01-11T10:00:00.000Z"},
+            "reviewId": "r5",
+            "author": {"name": "Мария С."},
+            "text": "Отличное кафе, всё понравилось!",
+            "rating": 5
+          }
+        ],
+        "params": {},
+        "tags": [],
+        "aspects": []
+      }
+    }
+  }</script>
+</body>
+</html>

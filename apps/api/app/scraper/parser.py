@@ -7,6 +7,7 @@ guest-review set (responses are still attached as ``response_text`` when adjacen
 
 from __future__ import annotations
 
+import json
 import re
 
 from bs4 import BeautifulSoup, Tag
@@ -51,6 +52,88 @@ def is_owner_response(text: str) -> bool:
     """True if the text reads as a business reply, not a customer review."""
     lowered = text.lower()
     return any(marker in lowered for marker in OWNER_RESPONSE_MARKERS)
+
+
+def _normalize_match_text(text: str | None) -> str:
+    return re.sub(r"\s+", " ", (text or "")).strip().lower()
+
+
+def _business_comments_from_state(soup: BeautifulSoup) -> list[dict]:
+    """Business replies from the embedded SPA state JSON.
+
+    On live pages the org reply is collapsed behind "Посмотреть ответ
+    организации" — the reply text is NOT in the review DOM at all. It only
+    exists in the ``<script class="state-view">`` JSON under
+    ``reviewResults.reviews[].businessComment``. Returns a list of
+    ``{author, text, comment}`` dicts (normalized author/text for matching).
+    Malformed or absent state JSON yields ``[]`` — never raises.
+    """
+    entries: list[dict] = []
+    for script in soup.find_all("script", attrs={"type": "application/json"}):
+        content = script.string or ""
+        if '"reviewResults"' not in content:
+            continue
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        results = _find_nested_key(data, "reviewResults")
+        if not isinstance(results, dict):
+            continue
+        for item in results.get("reviews") or []:
+            if not isinstance(item, dict):
+                continue
+            comment = item.get("businessComment")
+            comment_text = comment.get("text") if isinstance(comment, dict) else None
+            if not comment_text:
+                continue
+            author = item.get("author")
+            entries.append(
+                {
+                    "author": _normalize_match_text(author.get("name") if isinstance(author, dict) else None),
+                    "text": _normalize_match_text(item.get("text")),
+                    "comment": comment_text.strip(),
+                }
+            )
+    return entries
+
+
+def _find_nested_key(obj, key: str, depth: int = 0):
+    """Depth-first search for ``key`` in nested dicts/lists (state JSON layout
+    shifts between page versions, so the path is not hardcoded)."""
+    if depth > 8:
+        return None
+    if isinstance(obj, dict):
+        if key in obj:
+            return obj[key]
+        for value in obj.values():
+            found = _find_nested_key(value, key, depth + 1)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for value in obj:
+            found = _find_nested_key(value, key, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _match_state_comment(entries: list[dict], author: str | None, body: str) -> str | None:
+    """Pick the reply for a DOM review: author must match; among an author's
+    entries the review texts must agree (prefix match — the DOM body may be a
+    truncated version of the full JSON text, or vice versa)."""
+    norm_author = _normalize_match_text(author)
+    norm_body = _normalize_match_text(body).rstrip("…").rstrip(".")
+    candidates = [e for e in entries if e["author"] == norm_author]
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]["comment"]
+    for entry in candidates:
+        text = entry["text"].rstrip("…").rstrip(".")
+        if text.startswith(norm_body) or norm_body.startswith(text):
+            return entry["comment"]
+    return None
 
 
 def _parse_rating(block: Tag) -> int:
@@ -100,6 +183,8 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
 
     org.rating_count = _microdata_number(agg, "ratingCount", as_int=True)
 
+    state_comments = _business_comments_from_state(soup)
+
     reviews: list[ParsedReview] = []
     for block in soup.select(".business-review-view")[:_MAX_REVIEWS]:
         # Yandex renamed __body-text → __body / spoiler-view__text; itemprop is most stable.
@@ -129,6 +214,10 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
             or block.select_one(".business-review-view__comment .spoiler-view__text")
         )
         response_text = _text(response_node) or None
+        # Live pages keep the reply collapsed ("Посмотреть ответ организации"):
+        # no bubble node exists, so fall back to the state-view JSON.
+        if response_text is None and state_comments:
+            response_text = _match_state_comment(state_comments, author, body)
 
         reviews.append(
             ParsedReview(
