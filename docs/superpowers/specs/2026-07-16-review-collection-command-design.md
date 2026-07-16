@@ -134,7 +134,13 @@ python -m scripts.scrape_reviews --all
 - `--all-reviews` — lift the settings cap (see §2). Omitted = settings values (150/5).
 - `--limit` / `--offset` — how many **organizations** to process (not reviews); for
   test batches. Named to match `scrape_metrics.py`.
-- `--dry-run` — scrape and log, then roll back.
+- `--dry-run` — print the plan (org, mode, URL); scrape nothing, write nothing.
+
+  **Corrected during implementation.** This originally specified `scrape_metrics.py`'s
+  shape — scrape, then `rollback()`. That is impossible here: `ScrapeService` commits
+  its own writes, so a rollback afterwards has nothing to undo. The first
+  implementation shipped exactly that bug — a `--dry-run` wrote 150 reviews. Preview
+  semantics is the honest option when the persistence path owns its transactions.
 
 Each org gets its own `ScrapeRun` via `ScrapeService.create_run` + `execute_run`
 (constitution: every attempt produces a `ScrapeRun`). `--all` creates one run per org

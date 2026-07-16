@@ -200,8 +200,12 @@ class _FakeScraper:
 
 
 def _twogis_org(db):
+    # The 2GIS link belongs in gis2_url, not yandex_url: twogis_api scrapes its own
+    # platform's column. (This fixture used to stash it in yandex_url, which only
+    # worked while ScrapeService fed every mode the Yandex URL — see
+    # tests/test_scrape_url_routing.py.)
     org = Organization(
-        yandex_url="https://2gis.ru/achinsk/firm/70000001027742089",
+        gis2_url="https://2gis.ru/achinsk/firm/70000001027742089",
         normalized_url="https://2gis.ru/achinsk/firm/70000001027742089",
         preferred_scrape_mode=ScrapeMode.twogis_api,
     )
