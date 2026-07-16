@@ -43,12 +43,14 @@ services:
   web:
     build:
       context: ./apps/web
+      args:
+        # Build-time, not runtime: next.config.ts serialises its rewrites into
+        # routes-manifest.json during `next build`, so the /api/* proxy target
+        # must be set here. The browser only ever talks to web; web forwards to
+        # api over the compose network, keeping the session cookie same-origin.
+        API_PROXY_URL: http://api:8000
     ports:
       - "3000:3000"
-    environment:
-      # Server-side only: next.config.ts rewrites /api/* here so the admin
-      # session cookie stays same-origin with the browser.
-      API_PROXY_URL: http://api:8000
     depends_on:
       - api
     restart: always
