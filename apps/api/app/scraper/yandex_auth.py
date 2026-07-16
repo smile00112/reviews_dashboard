@@ -9,7 +9,25 @@ from app.scraper.yandex_public import CAPTCHA_MARKERS, YandexPublicScraper
 
 
 class YandexAuthScraper:
-    def login(self, login: str, password: str, storage_state_path: str) -> tuple[SessionStatus, str]:
+    PASSPORT_AUTH_URL = "https://passport.yandex.ru/auth"
+    # Session_id on a .yandex.ru domain is what Passport SSO hands out; it
+    # authorizes Maps and the Sprav cabinet alike.
+    SESSION_COOKIE = "Session_id"
+    MANUAL_LOGIN_TIMEOUT_MS = 180000
+    MANUAL_LOGIN_POLL_MS = 1000
+
+    def login(
+        self,
+        login: str,
+        password: str,
+        storage_state_path: str,
+    ) -> tuple[SessionStatus, str]:
+        """Automated login with credentials. Kept for the API path
+        (ScrapeService.login_operator) and currently STALE: Passport serves a
+        React passwordless flow whose login field has no name= and a generated
+        id, so these selectors no longer match and this returns
+        needs_manual_action. Console users want login_manual() instead.
+        """
         if not login or not password:
             return SessionStatus.missing, "YANDEX_OPERATOR_LOGIN and YANDEX_OPERATOR_PASSWORD must be set"
 
@@ -48,6 +66,53 @@ class YandexAuthScraper:
                     browser.close()
         except Exception as exc:
             return SessionStatus.needs_manual_action, f"Login failed: {exc}"
+
+    @staticmethod
+    def _has_session_cookie(cookies: list[dict]) -> bool:
+        """True once Passport has issued a session cookie for yandex.ru."""
+        return any(
+            cookie.get("name") == YandexAuthScraper.SESSION_COOKIE
+            and cookie.get("value")
+            and "yandex.ru" in (cookie.get("domain") or "")
+            for cookie in cookies
+        )
+
+    def login_manual(
+        self,
+        storage_state_path: str,
+        timeout_ms: int | None = None,
+    ) -> tuple[SessionStatus, str]:
+        """Open Passport in a visible browser; the operator signs in by hand.
+
+        Fills nothing. Passport's React flow generates its input ids per render,
+        so any hardcoded selector goes stale — and 2FA/QR cannot be automated
+        anyway (constitution: no captcha/2FA bypass). Polling for the session
+        cookie is independent of the markup and of which method the operator
+        used to sign in.
+        """
+        path = Path(storage_state_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        deadline_ms = timeout_ms if timeout_ms is not None else self.MANUAL_LOGIN_TIMEOUT_MS
+
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=False)
+                context = browser.new_context(locale=YandexPublicScraper.LOCALE)
+                page = context.new_page()
+                try:
+                    page.goto(self.PASSPORT_AUTH_URL, wait_until="domcontentloaded", timeout=30000)
+                    waited_ms = 0
+                    while waited_ms < deadline_ms:
+                        if self._has_session_cookie(context.cookies()):
+                            context.storage_state(path=str(path))
+                            return SessionStatus.valid, "Login successful (manual)"
+                        page.wait_for_timeout(self.MANUAL_LOGIN_POLL_MS)
+                        waited_ms += self.MANUAL_LOGIN_POLL_MS
+                    return SessionStatus.needs_manual_action, "Manual login not completed within the timeout"
+                finally:
+                    browser.close()
+        except Exception as exc:
+            return SessionStatus.needs_manual_action, f"Manual login failed: {exc}"
 
     def check_session(self, storage_state_path: str) -> SessionStatus:
         path = Path(storage_state_path)

@@ -10,6 +10,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.env.bak
+.env.*.bak
 
 # Local scraper artifacts
 .local/

@@ -1,0 +1,72 @@
+{
+  "initialState": {
+    "companiesList": {
+      "listCompanies": [
+        {
+          "id": 81562141869,
+          "tycoon_id": 2082553,
+          "permanent_id": 81562141869,
+          "type": "chain",
+          "publishing_status": "publish",
+          "displayName": "Суши Мастер",
+          "address": {
+            "formatted": {
+              "value": "Земля",
+              "locale": "ru"
+            },
+            "geo_id": 10000
+          },
+          "urls": [
+            {
+              "type": "main",
+              "value": "https://sushi-master.ru/",
+              "hide": false
+            },
+            {
+              "type": "social",
+              "value": "https://vk.com/sushi_takeaway",
+              "hide": false
+            }
+          ],
+          "chain": {
+            "id": 81562141869,
+            "permanent_id": 81562141869,
+            "displayName": "Суши Мастер",
+            "branchCount": 357
+          }
+        },
+        {
+          "id": 31343159903,
+          "tycoon_id": 63010332,
+          "permanent_id": 31343159903,
+          "type": "chain",
+          "publishing_status": "publish",
+          "displayName": "Поликлиника № 2 Медборисовка",
+          "address": {
+            "formatted": {
+              "value": "Земля",
+              "locale": "ru"
+            },
+            "geo_id": 10000
+          },
+          "urls": [
+            {
+              "type": "main",
+              "value": "https://medborisovka.ru/",
+              "hide": false
+            }
+          ],
+          "chain": {
+            "id": 31343159903,
+            "permanent_id": 31343159903,
+            "displayName": "Поликлиника № 2 Медборисовка",
+            "branchCount": 2
+          }
+        }
+      ],
+      "total": 2,
+      "page": 1,
+      "limit": 10
+    }
+  }
+}
