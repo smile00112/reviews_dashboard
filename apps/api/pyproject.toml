@@ -17,6 +17,7 @@ dependencies = [
     "PySocks>=1.7.1",  # SOCKS5 support for requests (rotating proxy pool)
     "sqladmin>=0.20.0",
     "bcrypt>=4.0.0",
+    "itsdangerous>=2.1.0",  # required by Starlette's SessionMiddleware (app/main.py)
     "gspread>=6.2.0",
     "google-auth>=2.35.0",
 ]

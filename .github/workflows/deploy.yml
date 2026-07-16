@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -17,8 +22,15 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            set -e
+            set -euo pipefail
             cd ${{ secrets.DEPLOY_PATH }}
+
             git fetch origin main
             git reset --hard origin/main
-            docker compose up --build -d
+
+            docker compose -f docker-compose.prod.yml up -d --build
+
+            # Migrations are not applied on container start — run them explicitly.
+            docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
+
+            docker compose -f docker-compose.prod.yml ps
