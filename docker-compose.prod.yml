@@ -1,0 +1,57 @@
+# Production stack. Used by .github/workflows/deploy.yml on push to main.
+#
+# Differences from the dev docker-compose.yml:
+#   - postgres is not published to the host (reachable only on the compose network)
+#   - POSTGRES_PASSWORD comes from .env instead of a hardcoded default
+#   - restart: always on every service
+#   - the browser talks only to web; web proxies /api/* to api over the compose
+#     network (API_PROXY_URL), so no API URL is baked into the client bundle
+#
+# Migrations do NOT run on container start — deploy.yml runs `alembic upgrade head`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: yandex_reviews
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  api:
+    build:
+      context: ./apps/api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD}@postgres:5432/yandex_reviews
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./.local:/app/.local
+    restart: always
+
+  web:
+    build:
+      context: ./apps/web
+    ports:
+      - "3000:3000"
+    environment:
+      # Server-side only: next.config.ts rewrites /api/* here so the admin
+      # session cookie stays same-origin with the browser.
+      API_PROXY_URL: http://api:8000
+    depends_on:
+      - api
+    restart: always
+
+volumes:
+  postgres_data:
