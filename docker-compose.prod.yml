@@ -28,7 +28,11 @@ services:
     build:
       context: ./apps/api
     ports:
-      - "8000:8000"
+      # Loopback only. The API has no auth of its own — the login gates the web
+      # UI, not this — so publishing it would expose every endpoint, reads and
+      # scrape triggers alike, to the internet. web reaches it over the compose
+      # network instead. For /health or /docs, SSH-tunnel to this port.
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     environment:
