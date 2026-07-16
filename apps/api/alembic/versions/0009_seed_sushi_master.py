@@ -19,6 +19,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0009_seed_sushi_master"
 down_revision: Union[str, None] = "0008_org_map_links"
@@ -244,17 +245,25 @@ ORGANIZATIONS = [
 
 def upgrade() -> None:
     bind = op.get_bind()
+    is_postgres = bind.dialect.name == "postgresql"
+    id_type = postgresql.UUID(as_uuid=True) if is_postgres else sa.String
+    scrape_mode_type = (
+        postgresql.ENUM(name="scrape_mode_enum", create_type=False) if is_postgres else sa.Text
+    )
+    scrape_status_type = (
+        postgresql.ENUM(name="org_scrape_status_enum", create_type=False) if is_postgres else sa.Text
+    )
     org = sa.table(
         "organizations",
-        sa.column("id", sa.String),
+        sa.column("id", id_type),
         sa.column("name", sa.Text),
         sa.column("yandex_url", sa.Text),
         sa.column("normalized_url", sa.Text),
         sa.column("twogis_url", sa.Text),
         sa.column("google_url", sa.Text),
         sa.column("external_id", sa.Text),
-        sa.column("preferred_scrape_mode", sa.Text),
-        sa.column("last_scrape_status", sa.Text),
+        sa.column("preferred_scrape_mode", scrape_mode_type),
+        sa.column("last_scrape_status", scrape_status_type),
         sa.column("is_franchise", sa.Boolean),
     )
     rows = [
@@ -273,10 +282,13 @@ def upgrade() -> None:
         for r in ORGANIZATIONS
     ]
     # Idempotent: skip ids already present (rerun-safe).
+    all_ids = [r["id"] for r in ORGANIZATIONS]
     existing = {
         str(row[0])
         for row in bind.execute(
-            sa.text("SELECT id FROM organizations WHERE id = ANY(:ids)")
+            sa.text("SELECT id FROM organizations WHERE id = ANY(:ids)").bindparams(
+                ids=all_ids
+            )
             if bind.dialect.name == "postgresql"
             else sa.text("SELECT id FROM organizations")
         )
