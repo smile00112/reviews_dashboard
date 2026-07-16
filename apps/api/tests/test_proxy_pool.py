@@ -37,6 +37,25 @@ def test_requests_proxies_mapping():
     }
 
 
+def test_playwright_proxy_mapping_splits_credentials():
+    pool = ProxyPool("socks5://u:p@host:1080")
+    assert pool.next_playwright_proxy() == {
+        "server": "socks5://host:1080",
+        "username": "u",
+        "password": "p",
+    }
+
+
+def test_playwright_proxy_mapping_without_credentials():
+    pool = ProxyPool("http://host:8080")
+    assert pool.next_playwright_proxy() == {"server": "http://host:8080"}
+
+
+def test_playwright_proxy_mapping_empty_pool_is_none():
+    pool = ProxyPool("")
+    assert pool.next_playwright_proxy() is None
+
+
 def test_redact_strips_credentials():
     pool = ProxyPool("socks5://secretuser:secretpass@host:1080")
     msg = "error connecting via secretuser:secretpass@host:1080"

@@ -80,6 +80,22 @@ class ProxyPool:
             return None
         return {"http": proxy, "https": proxy}
 
+    def next_playwright_proxy(self) -> dict[str, str] | None:
+        """Next proxy as a Playwright ``proxy=`` mapping, or None if empty.
+
+        Playwright wants credentials split out of the server URL (``server``/
+        ``username``/``password``), unlike ``requests`` which takes them embedded.
+        """
+        proxy = self.next()
+        if proxy is None:
+            return None
+        scheme, _, rest = proxy.partition("://")
+        creds, _, host = rest.rpartition("@")
+        if not creds:
+            return {"server": proxy}
+        user, _, password = creds.partition(":")
+        return {"server": f"{scheme}://{host}", "username": user, "password": password}
+
     def redact(self, text: str) -> str:
         """Strip proxy credentials (``user:pass@``) from a message before logging."""
         for proxy in self._proxies:

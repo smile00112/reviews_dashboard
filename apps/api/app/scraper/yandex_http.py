@@ -22,6 +22,7 @@ from app.scraper.debug_artifacts import save_html_debug
 # on excluding a bare "captcha".
 from app.scraper.markers import BOT_MARKERS
 from app.scraper.parser import parse_reviews_from_html
+from app.scraper.proxy_pool import ProxyPool
 from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
 
 
@@ -39,12 +40,25 @@ class YandexHttpScraper:
                 "Upgrade-Insecure-Requests": "1",
             }
         )
+        self._pool = ProxyPool(settings.proxy_pool)
 
-    def scrape(self, url: str, metrics_only: bool = False) -> ScrapeResult:
+    def scrape(
+        self,
+        url: str,
+        metrics_only: bool = False,
+        limit: float | None = None,
+        max_pages: int | None = None,
+    ) -> ScrapeResult:
+        """Collect reviews for one org.
+
+        ``limit``/``max_pages`` default to ``None`` → the settings values, so existing
+        callers are unaffected. Pass ``limit=math.inf`` to collect every review the
+        pagination yields (the settings cap of 150 otherwise truncates large orgs).
+        """
         url = self._resolve_reviews_url(url)
         result = ScrapeResult()
-        limit = settings.http_scrape_limit
-        max_pages = settings.http_scrape_max_pages
+        limit = settings.http_scrape_limit if limit is None else limit
+        max_pages = settings.http_scrape_max_pages if max_pages is None else max_pages
         delay = settings.http_scrape_delay_seconds
 
         organization = ParsedOrganization()
@@ -122,13 +136,32 @@ class YandexHttpScraper:
         return base + "/"
 
     def _fetch(self, url: str) -> str | None:
-        """Download a page; return HTML, or None on network / non-200 error."""
+        """Download a page; return HTML, or None on network / non-200 error.
+
+        Routed through the rotating proxy pool when configured (a datacenter
+        IP gets rate-limited by Yandex — HTTP 429 — well before a residential
+        pool would), retrying on the next proxy when one is blocked or errors.
+        """
+        if self._pool.enabled:
+            return self._fetch_via_pool(url)
         try:
             response = self.session.get(url, timeout=self.REQUEST_TIMEOUT_SECONDS)
             response.raise_for_status()
             return response.text
         except requests.RequestException:
             return None
+
+    def _fetch_via_pool(self, url: str) -> str | None:
+        tries = min(settings.proxy_pool_max_tries, len(self._pool)) or 1
+        for _ in range(tries):
+            proxies = self._pool.next_requests_proxies()
+            try:
+                response = self.session.get(url, proxies=proxies, timeout=self.REQUEST_TIMEOUT_SECONDS)
+                response.raise_for_status()
+                return response.text
+            except requests.RequestException:
+                continue
+        return None
 
     @staticmethod
     def _page_url(base_url: str, page: int) -> str:

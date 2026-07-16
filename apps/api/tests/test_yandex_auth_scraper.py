@@ -1,6 +1,8 @@
 """Feature 010 / US4: operator-auth scrape detects challenges at the same
 checkpoints as the public scraper and saves debug artifacts."""
 
+from types import SimpleNamespace
+
 from app.scraper import yandex_auth as auth_module
 from app.scraper.yandex_auth import YandexAuthScraper
 from app.scraper.yandex_public import YandexPublicScraper
@@ -39,6 +41,27 @@ def test_normal_reviews_page_is_not_a_challenge():
     public = YandexPublicScraper()
     page = _FakePage("<html><div class='business-review-view'>Отличное место</div></html>")
     assert YandexAuthScraper._challenge_result(public, page) is None
+
+
+def test_429_response_yields_needs_manual_action(monkeypatch):
+    saved = {}
+
+    def fake_save(page, prefix):
+        saved["prefix"] = prefix
+        return "/dbg/shot.png", "/dbg/page.html"
+
+    monkeypatch.setattr(auth_module, "save_debug_artifacts", fake_save)
+
+    public = YandexPublicScraper()
+    page = _FakePage("<html><pre>limited</pre></html>")
+    response = SimpleNamespace(status=429)
+    result = YandexAuthScraper._challenge_result(public, page, response)
+
+    assert result is not None
+    assert result.needs_manual_action is True
+    assert result.error_code == "access_challenge"
+    assert "429" in result.error_message
+    assert saved["prefix"] == "auth-challenge"
 
 
 def test_missing_storage_state_short_circuits(tmp_path):
