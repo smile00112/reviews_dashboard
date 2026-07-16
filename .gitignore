@@ -16,6 +16,9 @@ Thumbs.db
 # Local scraper artifacts
 .local/
 
+# Ad-hoc CSV exports (export_reviews_csv.py)
+apps/api/reports/
+
 # Python
 __pycache__/
 *.py[cod]
