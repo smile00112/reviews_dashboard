@@ -58,7 +58,20 @@ class TwogisApiScraper:
     def __init__(self) -> None:
         self._pool = ProxyPool(settings.proxy_pool)
 
-    def scrape(self, url: str, metrics_only: bool = False) -> ScrapeResult:
+    def scrape(
+        self,
+        url: str,
+        metrics_only: bool = False,
+        limit: float | None = None,
+        max_pages: int | None = None,
+    ) -> ScrapeResult:
+        """Collect an org's 2GIS reviews.
+
+        ``limit``/``max_pages`` default to ``None`` → the settings values, keeping
+        existing callers unchanged. ``limit=math.inf`` collects everything the API
+        pages out; ``max_pages`` caps the offset pages walked (runaway guard — the
+        loop already stops when a page comes back empty).
+        """
         result = ScrapeResult()
         try:
             firm_id, challenge = self._resolve_firm_id(url)
@@ -75,7 +88,7 @@ class TwogisApiScraper:
 
             result.organization = organization
             # catalog already carries rating/counts; skip the reviews pagination.
-            result.reviews = [] if metrics_only else self._fetch_reviews(org_id)
+            result.reviews = [] if metrics_only else self._fetch_reviews(org_id, limit, max_pages)
             return result
         except Exception as exc:  # never raise out of a scrape attempt (constitution IV)
             result.error_code = "twogis_error"
@@ -229,15 +242,24 @@ class TwogisApiScraper:
 
     # --- reviews pagination -------------------------------------------------
 
-    def _fetch_reviews(self, org_id: str) -> list[ParsedReview]:
+    def _fetch_reviews(
+        self,
+        org_id: str,
+        limit: float | None = None,
+        max_pages: int | None = None,
+    ) -> list[ParsedReview]:
         collected: list[ParsedReview] = []
-        limit = settings.twogis_review_limit
+        limit = settings.twogis_review_limit if limit is None else limit
         page_size = settings.twogis_page_size
         delay = settings.twogis_request_delay_seconds
         url = REVIEWS_URL.format(org_id=org_id)
         offset = 0
+        pages = 0
 
         while len(collected) < limit:
+            if max_pages is not None and pages >= max_pages:
+                break
+            pages += 1
             params = {
                 "key": settings.twogis_review_key,
                 "limit": page_size,

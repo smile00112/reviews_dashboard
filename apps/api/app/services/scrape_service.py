@@ -28,6 +28,12 @@ def _mode_platform(mode: ScrapeMode) -> str:
     return "2gis" if mode == ScrapeMode.twogis_api else "yandex"
 
 
+def _mode_url(org, mode: ScrapeMode) -> str | None:
+    """The org link a scrape mode must follow — each mode reads its own platform's
+    column. Handing every mode ``yandex_url`` makes a 2GIS run scrape Yandex."""
+    return org.gis2_url if mode == ScrapeMode.twogis_api else org.yandex_url
+
+
 class ScrapeService:
     def __init__(
         self,
@@ -66,7 +72,24 @@ class ScrapeService:
             query = query.filter(ScrapeRun.organization_id == organization_id)
         return query.order_by(ScrapeRun.started_at.desc()).offset(offset).limit(limit).all()
 
-    def execute_run(self, run_id: UUID) -> None:
+    def execute_run(
+        self,
+        run_id: UUID,
+        limit: float | None = None,
+        max_pages: int | None = None,
+    ) -> None:
+        """Execute a queued run.
+
+        ``limit``/``max_pages`` override the settings caps for this run only and are
+        forwarded to the scrapers that paginate. Omitted (the API path) = unchanged
+        behaviour; the scrapers fall back to their settings values.
+        """
+        overrides: dict = {}
+        if limit is not None:
+            overrides["limit"] = limit
+        if max_pages is not None:
+            overrides["max_pages"] = max_pages
+
         run = self.get_run(run_id)
         if not run:
             return
@@ -83,7 +106,9 @@ class ScrapeService:
                 self._finalize(run, ScrapeRunStatus.failed, error_code="not_found", error_message="Organization not found")
                 return
             org_service.update_scrape_status(org.id, _mode_platform(run.mode), OrganizationScrapeStatus.running)
-            self._scrape_organization(run, org.yandex_url, org.id, run.mode, org_service, review_service)
+            self._scrape_organization(
+                run, _mode_url(org, run.mode), org.id, run.mode, org_service, review_service, overrides
+            )
             return
 
         org_ids = org_service.list_ids()
@@ -96,7 +121,9 @@ class ScrapeService:
             self.db.add(child)
             self.db.commit()
             self.db.refresh(child)
-            self._scrape_organization(child, org.yandex_url, org.id, run.mode, org_service, review_service)
+            self._scrape_organization(
+                child, _mode_url(org, run.mode), org.id, run.mode, org_service, review_service, overrides
+            )
             self.db.refresh(child)
             children.append(child)
 
@@ -124,7 +151,20 @@ class ScrapeService:
         mode: ScrapeMode,
         org_service: OrganizationService,
         review_service: ReviewService,
+        overrides: dict | None = None,
     ) -> None:
+        overrides = overrides or {}
+        if not url:
+            # No link for this mode's platform. Scraping the other platform's URL
+            # would collect the wrong org's reviews, so this is a failure.
+            self._finalize(
+                run,
+                ScrapeRunStatus.failed,
+                error_code="no_url",
+                error_message=f"Organization has no {_mode_platform(mode)} URL",
+            )
+            org_service.update_scrape_status(organization_id, _mode_platform(mode), OrganizationScrapeStatus.failed)
+            return
         try:
             if mode == ScrapeMode.operator_auth:
                 session = self._get_or_create_session_record()
@@ -141,12 +181,15 @@ class ScrapeService:
                     return
                 scrape_result = self.auth_scraper.scrape(url, session.storage_state_path)
             elif mode == ScrapeMode.public_http:
-                scrape_result = self.http_scraper.scrape(url)
+                scrape_result = self.http_scraper.scrape(url, **overrides)
             elif mode == ScrapeMode.scrapeops:
                 scrape_result = self.scrapeops_scraper.scrape(url)
             elif mode == ScrapeMode.twogis_api:
-                scrape_result = self.twogis_scraper.scrape(url)
+                scrape_result = self.twogis_scraper.scrape(url, **overrides)
             else:
+                # Playwright modes scroll rather than paginate; they have no
+                # limit/max_pages knob, so overrides do not apply (the CLI rejects
+                # --all-reviews for these modes rather than silently ignoring it).
                 scrape_result = self.public_scraper.scrape(url)
 
             self._persist_scrape_result(run, organization_id, mode, scrape_result, org_service, review_service)

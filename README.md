@@ -50,6 +50,51 @@ See `specs/001-yandex-reviews-mvp/quickstart.md` for milestone validation steps.
 
 ## Operator Scripts
 
+### Collecting reviews
+
+```bash
+cd apps/api
+python -m scripts.scrape_reviews --org-id <uuid>              # one org, Yandex, settings cap (150)
+python -m scripts.scrape_reviews --org-id <uuid> --all-reviews # one org, every review available
+python -m scripts.scrape_reviews --all --platform 2gis        # every org, 2GIS
+python -m scripts.scrape_reviews --all --limit 5 --dry-run    # print the plan; scrape nothing
+python -m scripts.scrape_reviews --all --all-reviews --log-file
+```
+
+Collects reviews and persists them through `ScrapeService`, so each org gets its own
+`ScrapeRun` row and the dedup contract, the org info refresh (name/rating/review
+count/rating count/address) and the daily rating snapshot all apply. `--limit` and
+`--offset` count **organizations**, not reviews.
+
+`--platform` selects both the URL column and the default mode — `yandex` (default) →
+`public_http` on `yandex_url`, `2gis` → `twogis_api` on `gis2_url`. `--mode` overrides
+it; a mode belonging to the other platform is rejected at startup.
+
+**Two limits worth knowing before reading the numbers:**
+
+1. **`public_http` is the only Yandex mode that can use `PROXY_POOL`.** `public` and
+   `operator_auth` drive Chromium, which cannot authenticate against a SOCKS5 proxy
+   (`Browser does not support socks5 proxy authentication`). Unproxied, Yandex
+   rate-limits with HTTP 429 and the run ends `needs_manual_action`. `--all-reviews`
+   is therefore rejected for those scroll-based modes rather than silently ignored.
+2. **Yandex serves at most ~600 reviews per org over `?page=N`** (12 pages; page 13
+   returns HTTP 200 with no review blocks). An org displaying 1110 reviews yields 600
+   even with `--all-reviews` — a platform ceiling, not a bug. The rest sit behind the
+   SPA's infinite scroll, reachable only by the modes that cannot be proxied.
+
+### Refreshing metrics only
+
+```bash
+cd apps/api
+python -m scripts.scrape_metrics --platform both --dry-run   # preview
+python -m scripts.scrape_metrics --platform yandex --limit 10
+```
+
+Follows each org's platform link and writes back **only** rating/review count — no
+individual reviews, no `ScrapeRun`. Use `scrape_reviews` when you want the reviews.
+
+### Google Sheets export
+
 ```bash
 cd apps/api
 python -m scripts.sync_ratings_to_sheet --dry-run   # preview the match/write plan

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from app.core.config import settings
 from app.scraper.yandex_http import YandexHttpScraper
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -55,3 +56,55 @@ def test_first_page_fetch_failure_is_error(monkeypatch):
     result = scraper.scrape(URL)
     assert result.error_code == "fetch_error"
     assert result.needs_manual_action is False
+
+
+def test_fetch_routes_through_proxy_pool_when_configured(monkeypatch):
+    monkeypatch.setattr(settings, "proxy_pool", "user:pass@pool.example:10000-10001")
+    scraper = YandexHttpScraper()
+    assert scraper._pool.enabled is True
+
+    calls = []
+
+    class _FakeResponse:
+        text = PAGE_HTML
+
+        def raise_for_status(self):
+            pass
+
+    def fake_get(self, url, proxies=None, timeout=None):
+        calls.append(proxies)
+        return _FakeResponse()
+
+    monkeypatch.setattr(scraper.session, "get", fake_get.__get__(scraper.session))
+
+    html = scraper._fetch(URL)
+    assert html == PAGE_HTML
+    assert calls[0]["http"].startswith("http://user:pass@pool.example:10000")
+
+
+def test_fetch_via_pool_retries_next_proxy_on_failure(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(settings, "proxy_pool", "user:pass@pool.example:10000-10001")
+    scraper = YandexHttpScraper()
+
+    calls = []
+
+    class _FakeResponse:
+        text = PAGE_HTML
+
+        def raise_for_status(self):
+            pass
+
+    def fake_get(self, url, proxies=None, timeout=None):
+        calls.append(proxies["http"])
+        if len(calls) == 1:
+            raise requests.RequestException("first proxy blocked")
+        return _FakeResponse()
+
+    monkeypatch.setattr(scraper.session, "get", fake_get.__get__(scraper.session))
+
+    html = scraper._fetch(URL)
+    assert html == PAGE_HTML
+    assert len(calls) == 2
+    assert calls[0] != calls[1]

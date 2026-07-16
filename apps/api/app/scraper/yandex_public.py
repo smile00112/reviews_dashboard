@@ -4,11 +4,13 @@ import re
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
+from app.core.config import settings
 from app.scraper.debug_artifacts import save_debug_artifacts
 # Shared definition (feature 010, see scraper/markers.py for the no-bare-"captcha"
 # rationale); re-exported under the historical name for importers (yandex_auth, tests).
 from app.scraper.markers import BOT_MARKERS as CAPTCHA_MARKERS
 from app.scraper.parser import parse_reviews_from_html
+from app.scraper.proxy_pool import ProxyPool
 from app.scraper.types import ScrapeResult
 
 
@@ -25,13 +27,32 @@ class YandexPublicScraper:
     LOCALE = "ru-RU"
     EXTRA_HTTP_HEADERS = {"Accept-Language": "ru-RU,ru;q=0.9"}
 
+    def __init__(self) -> None:
+        self._pool = ProxyPool(settings.proxy_pool)
+
     def scrape(self, url: str) -> ScrapeResult:
+        """Retry through the rotating proxy pool while a proxy keeps getting
+        blocked (``needs_manual_action``, e.g. a 429 rate-limit). Other error
+        types are not retried — they're not IP-block symptoms a new proxy fixes.
+        """
+        tries = (min(settings.proxy_pool_max_tries, len(self._pool)) or 1) if self._pool.enabled else 1
+        result = ScrapeResult()
+        for _ in range(tries):
+            proxy = self._pool.next_playwright_proxy() if self._pool.enabled else None
+            result = self._attempt(url, proxy)
+            if not result.needs_manual_action:
+                return result
+        return result
+
+    def _attempt(self, url: str, proxy: dict | None) -> ScrapeResult:
         result = ScrapeResult()
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True)
                 context = browser.new_context(
-                    locale=self.LOCALE, extra_http_headers=self.EXTRA_HTTP_HEADERS
+                    locale=self.LOCALE,
+                    extra_http_headers=self.EXTRA_HTTP_HEADERS,
+                    proxy=proxy,
                 )
                 page = context.new_page()
                 try:
@@ -39,30 +60,30 @@ class YandexPublicScraper:
                     # resolve via redirect to their real org URL. Appending
                     # /reviews/ to an unresolved short link 404s — the reviews
                     # path must be built from the resolved page.url below.
-                    page.goto(url, wait_until="domcontentloaded", timeout=self.PAGE_LOAD_TIMEOUT_MS)
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=self.PAGE_LOAD_TIMEOUT_MS)
                     page.wait_for_timeout(2000)
                     html = page.content()
 
-                    if self._is_access_challenge(html):
+                    if self._is_blocked_status(response) or self._is_access_challenge(html):
                         result.needs_manual_action = True
                         result.error_code = "access_challenge"
-                        result.error_message = "Captcha or access challenge detected"
-                        save_debug_artifacts(page, "challenge")
+                        result.error_message = self._challenge_message(response)
+                        result.debug_screenshot, result.debug_html = save_debug_artifacts(page, "challenge")
                         return result
 
                     if "/reviews" not in page.url:
-                        page.goto(
+                        response = page.goto(
                             self._reviews_url(page.url),
                             wait_until="domcontentloaded",
                             timeout=self.PAGE_LOAD_TIMEOUT_MS,
                         )
                         page.wait_for_timeout(2000)
                         html = page.content()
-                        if self._is_access_challenge(html):
+                        if self._is_blocked_status(response) or self._is_access_challenge(html):
                             result.needs_manual_action = True
                             result.error_code = "access_challenge"
-                            result.error_message = "Captcha or access challenge detected"
-                            save_debug_artifacts(page, "challenge")
+                            result.error_message = self._challenge_message(response)
+                            result.debug_screenshot, result.debug_html = save_debug_artifacts(page, "challenge")
                             return result
 
                     self._open_reviews_tab(page)
@@ -74,7 +95,7 @@ class YandexPublicScraper:
                         result.needs_manual_action = True
                         result.error_code = "access_challenge"
                         result.error_message = "Captcha or access challenge detected during scroll"
-                        save_debug_artifacts(page, "challenge-scroll")
+                        result.debug_screenshot, result.debug_html = save_debug_artifacts(page, "challenge-scroll")
                         return result
 
                     org, reviews = parse_reviews_from_html(html)
@@ -119,6 +140,24 @@ class YandexPublicScraper:
     def _is_access_challenge(self, html: str) -> bool:
         lower = html.lower()
         return any(marker.lower() in lower for marker in CAPTCHA_MARKERS)
+
+    @staticmethod
+    def _is_blocked_status(response) -> bool:
+        """True when navigation resolved to an HTTP error status.
+
+        Yandex rate-limits (HTTP 429) render as a bare ``<pre>limited</pre>``
+        body — no captcha wording, so ``_is_access_challenge`` never catches
+        it and the scrape silently "succeeds" with zero reviews. A non-2xx/3xx
+        status means the response isn't a real content page regardless of
+        what its body says.
+        """
+        return response is not None and response.status >= 400
+
+    @staticmethod
+    def _challenge_message(response) -> str:
+        if response is not None and response.status >= 400:
+            return f"Blocked with HTTP {response.status} from Yandex"
+        return "Captcha or access challenge detected"
 
     def _open_reviews_tab(self, page) -> None:
         selectors = [

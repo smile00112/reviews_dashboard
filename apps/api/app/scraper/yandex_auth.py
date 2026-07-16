@@ -135,15 +135,16 @@ class YandexAuthScraper:
             return SessionStatus.expired
 
     @staticmethod
-    def _challenge_result(public: YandexPublicScraper, page) -> ScrapeResult | None:
+    def _challenge_result(public: YandexPublicScraper, page, response=None) -> ScrapeResult | None:
         """needs_manual_action result with debug artifacts when the page is a
-        captcha/bot wall (same contract as the public scraper); else None."""
-        if not public._is_access_challenge(page.content()):
+        captcha/bot wall or an HTTP error status (same contract as the public
+        scraper); else None."""
+        if not (public._is_blocked_status(response) or public._is_access_challenge(page.content())):
             return None
         result = ScrapeResult()
         result.needs_manual_action = True
         result.error_code = "access_challenge"
-        result.error_message = "Captcha or access challenge detected"
+        result.error_message = public._challenge_message(response)
         result.debug_screenshot, result.debug_html = save_debug_artifacts(page, "auth-challenge")
         return result
 
@@ -169,17 +170,17 @@ class YandexAuthScraper:
                 try:
                     # Raw goto first so short links (/maps/-/CODE) resolve via
                     # redirect; the reviews path is built from the resolved URL.
-                    page.goto(url, wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
+                    response = page.goto(url, wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
                     page.wait_for_timeout(2000)
-                    challenge = self._challenge_result(public, page)
+                    challenge = self._challenge_result(public, page, response)
                     if challenge is not None:
                         return challenge
                     if "/reviews" not in page.url:
-                        page.goto(public._reviews_url(page.url), wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
+                        response = page.goto(public._reviews_url(page.url), wait_until="domcontentloaded", timeout=public.PAGE_LOAD_TIMEOUT_MS)
                         page.wait_for_timeout(2000)
                         # A challenge can appear only on the reviews navigation
                         # (same checkpoint the public scraper re-checks).
-                        challenge = self._challenge_result(public, page)
+                        challenge = self._challenge_result(public, page, response)
                         if challenge is not None:
                             return challenge
                     public._open_reviews_tab(page)
