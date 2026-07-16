@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.core.database import SessionLocal, get_db
 from app.models.enums import ScrapeMode, ScrapeRunStatus
 from app.models.organization import Organization
@@ -36,6 +37,7 @@ def scrape_organization(
     payload: ScrapeRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
 ) -> ScrapeStartResponse:
     org = OrganizationService(db).get(organization_id)
     if not org:
@@ -53,6 +55,7 @@ def scrape_all(
     payload: ScrapeRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
 ) -> ScrapeStartResponse:
     mode = payload.mode or ScrapeMode.public
     org_count = db.query(Organization).count()

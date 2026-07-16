@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.core.database import SessionLocal, get_db
 from app.models.enums import SessionStatus
 from app.schemas.scraper_session import LoginResponse, SessionStatusResponse
@@ -35,7 +36,11 @@ def _to_status_response(session) -> SessionStatusResponse:
 
 
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_202_ACCEPTED)
-def yandex_login(background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> LoginResponse:
+def yandex_login(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+) -> LoginResponse:
     """Schedule the Playwright login in the background (feature 010): the 202 is
     truthful now — poll GET /session for the outcome."""
     service = ScrapeService(db)
@@ -53,7 +58,11 @@ def get_session(db: Session = Depends(get_db)) -> SessionStatusResponse:
 
 
 @router.post("/session/check", response_model=SessionStatusResponse, status_code=status.HTTP_202_ACCEPTED)
-def check_session(background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> SessionStatusResponse:
+def check_session(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+) -> SessionStatusResponse:
     """Schedule the session check in the background; poll GET /session for the result."""
     service = ScrapeService(db)
     session = service.get_session_record()

@@ -38,7 +38,7 @@ def test_scrape_run_creation_and_execution(client, db_session):
     assert detail_resp.json()["status"] == "success"
 
 
-def test_scrape_endpoint_accepts_request(client, db_session):
+def test_scrape_endpoint_accepts_request(admin_client, db_session):
     org = Organization(
         yandex_url="https://yandex.ru/maps/org/test/456/",
         normalized_url="https://yandex.ru/maps/org/test/456",
@@ -51,7 +51,7 @@ def test_scrape_endpoint_accepts_request(client, db_session):
     mock_scraper.scrape.return_value = ScrapeResult(reviews=[])
 
     with patch("app.api.scrape_runs._run_scrape_background") as background:
-        resp = client.post(f"/api/organizations/{org.id}/scrape", json={"mode": "public"})
+        resp = admin_client.post(f"/api/organizations/{org.id}/scrape", json={"mode": "public"})
         assert resp.status_code == 202
         assert resp.json()["status"] == "queued"
         background.assert_called_once()

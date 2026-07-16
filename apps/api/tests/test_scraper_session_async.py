@@ -41,8 +41,8 @@ class _StubAuth:
         return SessionStatus.valid
 
 
-def test_login_returns_pending_immediately_then_terminal(client, _no_real_background, db_session):
-    resp = client.post("/api/scraper/yandex/login")
+def test_login_returns_pending_immediately_then_terminal(admin_client, _no_real_background, db_session):
+    resp = admin_client.post("/api/scraper/yandex/login")
     assert resp.status_code == 202
     assert resp.json()["status"] == "pending"
 
@@ -54,7 +54,7 @@ def test_login_returns_pending_immediately_then_terminal(client, _no_real_backgr
     assert session.status == SessionStatus.valid
 
 
-def test_second_login_while_pending_does_not_reschedule(client, _no_real_background, db_session, monkeypatch):
+def test_second_login_while_pending_does_not_reschedule(admin_client, _no_real_background, db_session, monkeypatch):
     # Freeze the background fn to a no-op so the session STAYS pending.
     from app.api import scraper_sessions as module
 
@@ -65,19 +65,19 @@ def test_second_login_while_pending_does_not_reschedule(client, _no_real_backgro
 
     monkeypatch.setattr(module, "_run_login_background", noop)
 
-    first = client.post("/api/scraper/yandex/login")
+    first = admin_client.post("/api/scraper/yandex/login")
     assert first.json()["status"] == "pending"
     assert noop_calls["n"] == 1
 
-    second = client.post("/api/scraper/yandex/login")
+    second = admin_client.post("/api/scraper/yandex/login")
     assert second.status_code == 202
     assert second.json()["status"] == "pending"
     assert "already in progress" in second.json()["message"]
     assert noop_calls["n"] == 1  # not scheduled again
 
 
-def test_check_session_is_async_and_pending(client, _no_real_background, db_session):
-    resp = client.post("/api/scraper/yandex/session/check")
+def test_check_session_is_async_and_pending(admin_client, _no_real_background, db_session):
+    resp = admin_client.post("/api/scraper/yandex/session/check")
     assert resp.status_code == 202
     assert resp.json()["status"] == "pending"
     assert _no_real_background["check"] == 1
