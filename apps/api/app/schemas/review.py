@@ -45,3 +45,14 @@ class ReviewListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class ReviewSummaryResponse(BaseModel):
+    total: int
+    new_count: int
+    unanswered: int
+    in_progress: int
+    escalated: int
+    answered: int
+    overdue_24h: int
+    negative: int

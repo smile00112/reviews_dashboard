@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.enums import ReviewPlatform
-from app.schemas.review import ReviewListResponse, ReviewResponse
+from app.schemas.review import ReviewListResponse, ReviewResponse, ReviewSummaryResponse
 from app.services.organization_service import OrganizationService
 from app.services.review_service import ReviewService
 
@@ -85,3 +85,30 @@ def list_organization_reviews(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/api/reviews/summary", response_model=ReviewSummaryResponse)
+def reviews_summary(
+    organization_id: UUID | None = None,
+    rating: int | None = Query(default=None, ge=1, le=5),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    platform: ReviewPlatform | None = None,
+    tone: str | None = Query(default=None, pattern="^(neg|pos)$"),
+    period: str | None = Query(default=None, pattern="^(24h|7d|30d|year)$"),
+    is_paid: bool | None = None,
+    aspect: str | None = None,
+    db: Session = Depends(get_db),
+) -> ReviewSummaryResponse:
+    data = ReviewService(db).summary(
+        organization_id=organization_id,
+        rating=rating,
+        date_from=date_from,
+        date_to=date_to,
+        platform=platform,
+        tone=tone,
+        period=period,
+        is_paid=is_paid,
+        aspect=aspect,
+    )
+    return ReviewSummaryResponse(**data)

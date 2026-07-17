@@ -28,6 +28,11 @@ def has_aspect(review: Review, aspect: str) -> bool:
     return any(p.get("category") == aspect for p in (review.problems or []))
 
 
+def _aware(dt: datetime) -> datetime:
+    """SQLite returns naive datetimes; Postgres returns aware. Normalize to UTC."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 class ReviewService:
     def __init__(self, db: Session):
         self.db = db
@@ -268,3 +273,43 @@ class ReviewService:
                 desc(Review.first_seen_at),
             )
         return query.order_by(desc(Review.review_date).nullslast(), desc(Review.first_seen_at))
+
+    def summary(
+        self,
+        *,
+        organization_id: UUID | None = None,
+        rating: int | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        platform: ReviewPlatform | None = None,
+        tone: str | None = None,
+        period: str | None = None,
+        is_paid: bool | None = None,
+        aspect: str | None = None,
+    ) -> dict:
+        """Tab counters over the secondary-filtered set. Python aggregation keeps
+        the aspect filter consistent with list_global (same in-memory matching)."""
+        query = self.db.query(Review)
+        if organization_id:
+            query = query.filter(Review.organization_id == organization_id)
+        query = self._apply_filters(query, rating, date_from, date_to, new_only=False)
+        query = self._apply_feed_filters(
+            query, status_tab=None, platform=platform, tone=tone, period=period, is_paid=is_paid
+        )
+        rows = [r for r in query.all() if not aspect or has_aspect(r, aspect)]
+
+        now = datetime.now(timezone.utc)
+        week_ago = now - timedelta(days=7)
+        day_ago = now - timedelta(hours=24)
+        return {
+            "total": len(rows),
+            "new_count": sum(1 for r in rows if _aware(r.first_seen_at) >= week_ago),
+            "unanswered": sum(1 for r in rows if r.response_text is None),
+            "in_progress": sum(1 for r in rows if r.status == ReviewStatus.in_progress),
+            "escalated": sum(1 for r in rows if r.status == ReviewStatus.escalated),
+            "answered": sum(1 for r in rows if r.response_text is not None),
+            "overdue_24h": sum(
+                1 for r in rows if r.response_text is None and _aware(r.first_seen_at) < day_ago
+            ),
+            "negative": sum(1 for r in rows if r.rating <= 3),
+        }
