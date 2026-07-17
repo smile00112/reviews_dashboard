@@ -98,6 +98,50 @@ def _business_comments_from_state(soup: BeautifulSoup) -> list[dict]:
     return entries
 
 
+def _find_business_address(obj: object, depth: int = 0) -> str | None:
+    """Depth-first search for the page's own business-search-item entry
+    (``{"type": "business", "address": "...", ...}``) in the embedded state
+    JSON. Present on both the org overview and reviews-tab pages, unlike the
+    ``itemprop='address'`` meta tag which only renders on the overview page."""
+    if depth > 12:
+        return None
+    if isinstance(obj, dict):
+        address = obj.get("address")
+        if obj.get("type") == "business" and isinstance(address, str) and address.strip():
+            return address.strip()
+        for value in obj.values():
+            found = _find_business_address(value, depth + 1)
+            if found:
+                return found
+    elif isinstance(obj, list):
+        for value in obj:
+            found = _find_business_address(value, depth + 1)
+            if found:
+                return found
+    return None
+
+
+def _address_from_state(soup: BeautifulSoup) -> str | None:
+    for script in soup.find_all("script", attrs={"type": "application/json"}):
+        content = script.string or ""
+        if '"address"' not in content:
+            continue
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        found = _find_business_address(data)
+        if found:
+            return found
+    return None
+
+
+def _address_from_meta(soup: BeautifulSoup) -> str | None:
+    el = soup.select_one("meta[itemprop='address']")
+    content = (el.get("content") if el else None) or ""
+    return content.strip() or None
+
+
 def _find_nested_key(obj, key: str, depth: int = 0):
     """Depth-first search for ``key`` in nested dicts/lists (state JSON layout
     shifts between page versions, so the path is not hardcoded)."""
@@ -182,6 +226,8 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
             org.review_count = int(count_match.group(1))
 
     org.rating_count = _microdata_number(agg, "ratingCount", as_int=True)
+
+    org.address = _address_from_state(soup) or _address_from_meta(soup)
 
     state_comments = _business_comments_from_state(soup)
 

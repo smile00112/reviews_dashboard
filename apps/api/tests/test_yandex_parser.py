@@ -19,6 +19,7 @@ def test_organization_metadata(parsed):
     assert org.name == "Кафе Пример"
     assert org.rating == 4.3
     assert org.review_count == 128
+    assert org.address == "Москва, Тверская улица, 1"
 
 
 def test_owner_responses_excluded_from_guest_reviews(parsed):
@@ -58,6 +59,17 @@ def test_empty_html_safe():
     org, reviews = parse_reviews_from_html("")
     assert reviews == []
     assert org.name is None
+
+
+def test_address_falls_back_to_meta_itemprop():
+    html = "<meta itemprop='address' content='Санкт-Петербург, Невский пр., 1'/>"
+    org, _ = parse_reviews_from_html(html)
+    assert org.address == "Санкт-Петербург, Невский пр., 1"
+
+
+def test_address_none_when_absent():
+    org, _ = parse_reviews_from_html("<h1>No address here</h1>")
+    assert org.address is None
 
 
 STATEVIEW_FIXTURE = Path(__file__).parent / "fixtures" / "yandex_reviews_stateview.html"

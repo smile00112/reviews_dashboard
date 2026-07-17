@@ -19,6 +19,9 @@ Thumbs.db
 # Ad-hoc CSV exports (export_reviews_csv.py)
 apps/api/reports/
 
+# Cross-server data sync exports (export_data.py) - contains reviewer PII
+apps/api/data_export/
+
 # Python
 __pycache__/
 *.py[cod]
