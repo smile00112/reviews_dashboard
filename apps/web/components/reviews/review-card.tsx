@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { Review, ReviewStatus } from "@/lib/types";
+import { useEffect, useState } from "react";
+import type { Review } from "@/lib/types";
 import { patchReview } from "@/lib/api";
 
 const PLATFORM_TAG: Record<string, { label: string; cls: string }> = {
@@ -53,6 +53,10 @@ export function ReviewCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cost, setCost] = useState<string>(review.paid_cost?.toString() ?? "");
+
+  useEffect(() => {
+    setCost(review.paid_cost?.toString() ?? "");
+  }, [review.paid_cost]);
 
   async function patch(payload: Parameters<typeof patchReview>[1]) {
     setBusy(true);
@@ -184,6 +188,7 @@ export function ReviewCard({
               onChange={(e) => setCost(e.target.value)}
               onBlur={() => {
                 const parsed = cost === "" ? null : Number(cost);
+                if (Number.isNaN(parsed as number)) return;
                 if (parsed !== review.paid_cost) patch({ paid_cost: parsed });
               }}
               className="w-20 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[12px]"
