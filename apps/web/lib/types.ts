@@ -28,8 +28,8 @@ export type SessionStatus =
 export interface Organization {
   id: string;
   name: string | null;
-  yandex_url: string;
-  normalized_url: string;
+  yandex_url: string | null; // null for 2GIS-only orgs
+  normalized_url: string | null;
   external_id: string | null;
   address: string | null;
   rating: number | null; // Yandex оценка

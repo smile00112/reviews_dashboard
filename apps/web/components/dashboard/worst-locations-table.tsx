@@ -57,6 +57,8 @@ export function WorstLocationsTable({ rows }: { rows: WorstLocation[] }) {
                   <td className="border-b border-border px-3 py-3.5 font-mono text-[11px]">
                     {r.rating_delta === null ? (
                       <span className="text-text-faint">—</span>
+                    ) : r.rating_delta === 0 ? (
+                      <span className="text-text-faint">• 0</span>
                     ) : (
                       <span className={r.rating_delta < 0 ? "text-bad" : "text-good"}>
                         {r.rating_delta < 0 ? "▼ " : "▲ +"}

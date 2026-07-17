@@ -128,9 +128,11 @@ export default function CompanyDetailPage() {
                       <tr key={b.id} className="border-t border-border">
                         <td className="px-4 py-3">
                           <div className="font-medium">{b.name ?? "—"}</div>
-                          <a href={b.yandex_url} target="_blank" rel="noreferrer" className="text-[11px] text-text-faint hover:text-accent">
-                            {b.yandex_url}
-                          </a>
+                          {b.yandex_url && (
+                            <a href={b.yandex_url} target="_blank" rel="noreferrer" className="text-[11px] text-text-faint hover:text-accent">
+                              {b.yandex_url}
+                            </a>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-text-dim">{b.address ?? "—"}</td>
                         <td className="px-4 py-3 font-mono text-[12px] text-text-dim">{b.preferred_scrape_mode}</td>

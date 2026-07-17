@@ -112,8 +112,8 @@ export function OrganizationsTable({ items, onRefresh }: OrganizationsTableProps
                   {org.name ?? "—"}
                 </Link>
               </td>
-              <td className="max-w-xs truncate px-3 py-2" title={org.yandex_url}>
-                {org.yandex_url}
+              <td className="max-w-xs truncate px-3 py-2" title={org.yandex_url ?? undefined}>
+                {org.yandex_url ?? "—"}
               </td>
               <td className="px-3 py-2">
                 <PlatformCell

@@ -1,18 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { listOrganizations, listReviews } from "@/lib/api";
 import type { Organization, Review } from "@/lib/types";
 import { ReviewsTable } from "@/components/reviews-table";
 
-export default function ReviewsPage() {
+function ReviewsContent() {
+  const params = useSearchParams();
+
+  // Seed filters from the URL so dashboard deep-links (e.g. /reviews?rating=1
+  // from the "Требуют внимания" feed) open pre-filtered instead of unfiltered.
+  const initialRating = params.get("rating") ?? "";
+  const initialOrg = params.get("organization_id") ?? "";
+  const initialNewOnly = params.get("new_only") === "true";
+
   const [reviews, setReviews] = useState<Review[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [organizationId, setOrganizationId] = useState("");
-  const [rating, setRating] = useState("");
-  const [newOnly, setNewOnly] = useState(false);
+  const [organizationId, setOrganizationId] = useState(initialOrg);
+  const [rating, setRating] = useState(initialRating);
+  const [newOnly, setNewOnly] = useState(initialNewOnly);
 
-  async function load() {
+  const load = useCallback(async () => {
     const [orgs, data] = await Promise.all([
       listOrganizations(),
       listReviews({
@@ -23,7 +32,7 @@ export default function ReviewsPage() {
     ]);
     setOrganizations(orgs);
     setReviews(data.items);
-  }
+  }, [organizationId, rating, newOnly]);
 
   useEffect(() => {
     load().catch(console.error);
@@ -44,7 +53,7 @@ export default function ReviewsPage() {
             <option value="">Все</option>
             {organizations.map((org) => (
               <option key={org.id} value={org.id}>
-                {org.name ?? org.yandex_url}
+                {org.name ?? org.yandex_url ?? org.gis2_url ?? org.id}
               </option>
             ))}
           </select>
@@ -74,5 +83,13 @@ export default function ReviewsPage() {
       </div>
       <ReviewsTable items={reviews} />
     </div>
+  );
+}
+
+export default function ReviewsPage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-text-faint">Загрузка…</div>}>
+      <ReviewsContent />
+    </Suspense>
   );
 }
