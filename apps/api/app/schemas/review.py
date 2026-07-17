@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import ScrapeMode
+from app.models.enums import ReviewPlatform, ReviewStatus, ScrapeMode
 
 
 class ReviewResponse(BaseModel):
@@ -22,6 +22,11 @@ class ReviewResponse(BaseModel):
     review_date_text: str | None
     review_date: date | None
     response_text: str | None
+    # Internal triage (feature 004): DB-only workflow, nothing is published anywhere.
+    status: ReviewStatus | None = None
+    is_paid: bool = False
+    paid_cost: int | None = None
+    platform: ReviewPlatform | None = None
     # Time we first observed a response on this review (feature 007); null when none seen.
     response_first_seen_at: datetime | None = None
     first_seen_at: datetime

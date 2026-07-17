@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.enums import ReviewPlatform
 from app.schemas.review import ReviewListResponse, ReviewResponse
 from app.services.organization_service import OrganizationService
 from app.services.review_service import ReviewService
@@ -25,6 +26,13 @@ def list_reviews(
     date_from: date | None = None,
     date_to: date | None = None,
     new_only: bool = False,
+    status: str | None = Query(default=None, pattern="^(all|unanswered|in_progress|escalated|answered)$"),
+    platform: ReviewPlatform | None = None,
+    tone: str | None = Query(default=None, pattern="^(neg|pos)$"),
+    period: str | None = Query(default=None, pattern="^(24h|7d|30d|year)$"),
+    is_paid: bool | None = None,
+    aspect: str | None = None,
+    sort: str = Query(default="new", pattern="^(new|criticality)$"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -37,6 +45,13 @@ def list_reviews(
         date_from=date_from,
         date_to=date_to,
         new_only=new_only,
+        status_tab=None if status in (None, "all") else status,
+        platform=platform,
+        tone=tone,
+        period=period,
+        is_paid=is_paid,
+        aspect=aspect,
+        sort=sort,
     )
     items = [_to_review_response(review, org_name) for review, org_name in rows]
     return ReviewListResponse(items=items, total=total, limit=limit, offset=offset)
