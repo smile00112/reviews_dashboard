@@ -22,6 +22,7 @@ from app.models.review import Review
 
 COLUMNS = [
     "organization",
+    "address",
     "author_name",
     "rating",
     "review_date",
@@ -38,6 +39,7 @@ def export_reviews(start: date, end: date, platform: ReviewPlatform, out_path: P
     stmt = (
         select(
             Organization.name,
+            Organization.address,
             Review.author_name,
             Review.rating,
             Review.review_date,
