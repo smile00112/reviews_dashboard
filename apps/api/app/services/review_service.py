@@ -313,3 +313,77 @@ class ReviewService:
             ),
             "negative": sum(1 for r in rows if r.rating <= 3),
         }
+
+    def aspects(
+        self,
+        *,
+        period: str = "30d",
+        organization_id: UUID | None = None,
+        platform: ReviewPlatform | None = None,
+        aspect: str | None = None,
+    ) -> dict:
+        """Aggregate problems JSONB per category for the aspects panel.
+
+        Python aggregation over the loaded window (dashboard precedent) — no
+        JSONB SQL, so SQLite tests keep working. Trend is always 90 days."""
+        days = PERIOD_DAYS.get(period, 30)
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        cur_start = today - timedelta(days=days)
+        prev_start = today - timedelta(days=days * 2)
+        trend_start = today - timedelta(days=90)
+        load_start = min(prev_start, trend_start)
+
+        query = self.db.query(Review).filter(Review.problems.isnot(None))
+        if organization_id:
+            query = query.filter(Review.organization_id == organization_id)
+        if platform is not None:
+            query = query.filter(Review.platform == platform)
+
+        def effective_date(r: Review) -> date:
+            return r.review_date or _aware(r.first_seen_at).date()
+
+        rows = [(r, effective_date(r)) for r in query.all()]
+        rows = [(r, d) for r, d in rows if d >= load_start]
+
+        current: dict[str, dict[str, int]] = {}
+        previous: dict[str, int] = {}
+        daily: dict[date, int] = {}
+        for r, d in rows:
+            categories = {p.get("category") for p in (r.problems or []) if p.get("category")}
+            for cat in categories:
+                if d >= cur_start:
+                    bucket = current.setdefault(cat, {"mentions": 0, "pos": 0, "neu": 0, "neg": 0})
+                    bucket["mentions"] += 1
+                    key = {"positive": "pos", "negative": "neg"}.get(r.sentiment or "", "neu")
+                    bucket[key] += 1
+                elif d >= prev_start:
+                    previous[cat] = previous.get(cat, 0) + 1
+                if aspect and cat == aspect and d >= trend_start:
+                    daily[d] = daily.get(d, 0) + 1
+
+        aspects = []
+        for cat, b in sorted(current.items(), key=lambda kv: -kv[1]["mentions"]):
+            prev = previous.get(cat, 0)
+            total = b["mentions"]
+            aspects.append(
+                {
+                    "category": cat,
+                    "label": cat.replace("_", " ").capitalize(),
+                    "mentions": total,
+                    "delta_pct": round((total - prev) / prev * 100) if prev else None,
+                    "pos": round(b["pos"] / total * 100),
+                    "neu": round(b["neu"] / total * 100),
+                    "neg": round(b["neg"] / total * 100),
+                }
+            )
+
+        trend = None
+        if aspect:
+            series = [
+                {"date": (trend_start + timedelta(days=i)).isoformat(),
+                 "count": daily.get(trend_start + timedelta(days=i), 0)}
+                for i in range(91)
+            ]
+            trend = {"category": aspect, "days": 90, "series": series}
+        return {"aspects": aspects, "trend": trend}

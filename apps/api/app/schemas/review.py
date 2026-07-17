@@ -56,3 +56,29 @@ class ReviewSummaryResponse(BaseModel):
     answered: int
     overdue_24h: int
     negative: int
+
+
+class AspectStat(BaseModel):
+    category: str
+    label: str
+    mentions: int
+    delta_pct: int | None
+    pos: int
+    neu: int
+    neg: int
+
+
+class AspectTrendPoint(BaseModel):
+    date: date
+    count: int
+
+
+class AspectTrend(BaseModel):
+    category: str
+    days: int
+    series: list[AspectTrendPoint]
+
+
+class AspectsResponse(BaseModel):
+    aspects: list[AspectStat]
+    trend: AspectTrend | None = None
