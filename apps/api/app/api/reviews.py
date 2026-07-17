@@ -4,9 +4,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.core.database import get_db
 from app.models.enums import ReviewPlatform
-from app.schemas.review import AspectsResponse, ReviewListResponse, ReviewResponse, ReviewSummaryResponse
+from app.models.user import User
+from app.schemas.review import (
+    AspectsResponse,
+    ReviewListResponse,
+    ReviewPatchRequest,
+    ReviewResponse,
+    ReviewSummaryResponse,
+)
 from app.services.organization_service import OrganizationService
 from app.services.review_service import ReviewService
 
@@ -126,3 +134,17 @@ def reviews_aspects(
         period=period, organization_id=organization_id, platform=platform, aspect=aspect
     )
     return AspectsResponse(**data)
+
+
+@router.patch("/api/reviews/{review_id}", response_model=ReviewResponse)
+def patch_review(
+    review_id: UUID,
+    payload: ReviewPatchRequest,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> ReviewResponse:
+    review = ReviewService(db).update_triage(review_id, payload.model_dump(exclude_unset=True))
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    org = OrganizationService(db).get(review.organization_id)
+    return _to_review_response(review, org.name if org else None)

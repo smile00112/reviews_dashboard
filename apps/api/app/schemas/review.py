@@ -82,3 +82,9 @@ class AspectTrend(BaseModel):
 class AspectsResponse(BaseModel):
     aspects: list[AspectStat]
     trend: AspectTrend | None = None
+
+
+class ReviewPatchRequest(BaseModel):
+    status: ReviewStatus | None = None
+    is_paid: bool | None = None
+    paid_cost: int | None = Field(default=None, ge=0)

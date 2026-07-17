@@ -387,3 +387,18 @@ class ReviewService:
             ]
             trend = {"category": aspect, "days": 90, "series": series}
         return {"aspects": aspects, "trend": trend}
+
+    def update_triage(self, review_id: UUID, data: dict) -> Review | None:
+        """Apply internal triage fields (status / is_paid / paid_cost) only.
+
+        `data` must come from model_dump(exclude_unset=True) so an absent field
+        is distinguishable from an explicit null (paid_cost reset)."""
+        review = self.db.query(Review).filter(Review.id == review_id).first()
+        if review is None:
+            return None
+        for field in ("status", "is_paid", "paid_cost"):
+            if field in data:
+                setattr(review, field, data[field])
+        self.db.commit()
+        self.db.refresh(review)
+        return review
