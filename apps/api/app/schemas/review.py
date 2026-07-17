@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import ReviewPlatform, ReviewStatus, ScrapeMode
 
@@ -88,3 +88,10 @@ class ReviewPatchRequest(BaseModel):
     status: ReviewStatus | None = None
     is_paid: bool | None = None
     paid_cost: int | None = Field(default=None, ge=0)
+
+    @field_validator("is_paid")
+    @classmethod
+    def _is_paid_not_null(cls, value: bool | None) -> bool:
+        if value is None:
+            raise ValueError("is_paid cannot be null")
+        return value

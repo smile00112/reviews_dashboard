@@ -83,3 +83,9 @@ def test_patch_invalid_status_422(admin_client, db_session):
     r = _seed_review(db_session)
     resp = admin_client.patch(f"/api/reviews/{r.id}", json={"status": "published"})
     assert resp.status_code == 422
+
+
+def test_patch_is_paid_explicit_null_422(admin_client, db_session):
+    r = _seed_review(db_session)
+    resp = admin_client.patch(f"/api/reviews/{r.id}", json={"is_paid": None})
+    assert resp.status_code == 422
