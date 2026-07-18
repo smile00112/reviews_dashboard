@@ -27,6 +27,9 @@ export default function JobRunDetailPage({ params }: { params: Promise<{ id: str
   const [run, setRun] = useState<JobRunDetail | null>(null);
   const [items, setItems] = useState<JobRunItem[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  // У упавшего посреди прогона запуска orgs_total больше числа реально
+  // записанных items — сервер отдаст пустую страницу, и кнопка зациклилась бы.
+  const [exhausted, setExhausted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,12 +66,13 @@ export default function JobRunDetailPage({ params }: { params: Promise<{ id: str
   if (error) return <p className="text-sm text-red-700">{error}</p>;
   if (!run) return <p className="text-sm text-text-dim">Загрузка…</p>;
 
-  const hasMore = items.length < run.orgs_total;
+  const hasMore = !exhausted && items.length < run.orgs_total;
 
   async function loadMore() {
     setLoadingMore(true);
     try {
       const next = await getJobRun(id, { limit: ITEMS_PAGE_SIZE, offset: items.length });
+      if (next.items.length === 0) setExhausted(true);
       setItems((prev) => [...prev, ...next.items]);
     } catch (err) {
       console.error(err);
