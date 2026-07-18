@@ -1,5 +1,8 @@
 import type {
   AspectsResponse,
+  AttentionRule,
+  AttentionRuleCreatePayload,
+  AttentionRuleUpdatePayload,
   Company,
   CompanyBranches,
   CurrentUser,
@@ -305,4 +308,31 @@ export async function getJobRun(
   if (params.offset !== undefined) query.set("offset", String(params.offset));
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return request<JobRunDetail>(`/api/job-runs/${id}${suffix}`);
+}
+
+// --- Правила внимания ---
+export async function listAttentionRules(): Promise<AttentionRule[]> {
+  const data = await request<{ items: AttentionRule[] }>("/api/attention-rules");
+  return data.items;
+}
+
+export async function createAttentionRule(payload: AttentionRuleCreatePayload): Promise<AttentionRule> {
+  return request<AttentionRule>("/api/attention-rules", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAttentionRule(
+  id: string,
+  payload: AttentionRuleUpdatePayload,
+): Promise<AttentionRule> {
+  return request<AttentionRule>(`/api/attention-rules/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAttentionRule(id: string): Promise<void> {
+  await request<void>(`/api/attention-rules/${id}`, { method: "DELETE" });
 }
