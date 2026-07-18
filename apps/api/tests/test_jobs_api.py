@@ -58,6 +58,24 @@ def test_admin_can_update_schedule(admin_client, db_session):
     assert resp.json()["is_enabled"] is True
 
 
+def test_admin_update_persists_next_run_at_to_db(admin_client, db_session):
+    """Regression: reschedule_job used to be handed a `db=None` scheduler
+    session, so `job.next_run_at` was assigned on the ORM object but never
+    committed — it looked correct in the response but was stale on the next
+    GET /api/jobs. Read the row back through a fresh SELECT (not the
+    in-memory `job` object) to prove the PATCH path actually persisted it."""
+    job = _seed_job(db_session)
+    resp = admin_client.patch(
+        f"/api/jobs/{job.id}", json={"is_enabled": True, "schedule_cron": "*/15 * * * *"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["next_run_at"] is not None
+
+    db_session.expire_all()
+    reloaded = db_session.query(Job).filter(Job.id == job.id).first()
+    assert reloaded.next_run_at is not None
+
+
 def test_invalid_cron_is_rejected(admin_client, db_session):
     job = _seed_job(db_session)
     resp = admin_client.patch(f"/api/jobs/{job.id}", json={"schedule_cron": "не крон"})

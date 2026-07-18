@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,11 +14,20 @@ from app.services.job_scheduler import scheduler as job_scheduler
 
 setup_logging()
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     if settings.jobs_scheduler_enabled:
-        job_scheduler.start()
+        try:
+            job_scheduler.start()
+        except Exception:
+            # A bad Job row (cron that bypassed validation) or a briefly
+            # unreachable DB must not take the whole API down with it — the
+            # read-only dashboard has nothing to do with the scheduler.
+            # Leave it off; surface loudly so this doesn't go unnoticed.
+            logger.error("job scheduler failed to start; continuing without it", exc_info=True)
     try:
         yield
     finally:

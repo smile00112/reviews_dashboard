@@ -68,7 +68,7 @@ def update_job(
 
     from app.services.job_scheduler import scheduler
 
-    scheduler.reschedule_job(job)
+    scheduler.reschedule_job(job, db)
     return _job_response(service, job)
 
 

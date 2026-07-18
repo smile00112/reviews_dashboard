@@ -40,7 +40,7 @@ def test_reschedule_removes_trigger_when_job_disabled(db_session):
 
     job.is_enabled = False
     db_session.commit()
-    scheduler.reschedule_job(job)
+    scheduler.reschedule_job(job, db_session)
 
     assert scheduler._scheduler.get_job(str(job.id)) is None
 
@@ -51,6 +51,49 @@ def test_next_run_at_is_written_back(db_session):
     scheduler.sync_all(db_session)
     db_session.refresh(job)
     assert job.next_run_at is not None
+
+
+def test_reschedule_reenable_restores_trigger_and_next_run_at(db_session):
+    job = _job(db_session, cron="0 4 * * *", enabled=True)
+    scheduler = JobScheduler()
+    scheduler.sync_all(db_session)
+    assert scheduler._scheduler.get_job(str(job.id)) is not None
+
+    job.is_enabled = False
+    db_session.commit()
+    scheduler.reschedule_job(job, db_session)
+    assert scheduler._scheduler.get_job(str(job.id)) is None
+    db_session.expire_all()
+    disabled = db_session.query(Job).filter(Job.id == job.id).first()
+    assert disabled.next_run_at is None
+
+    disabled.is_enabled = True
+    db_session.commit()
+    scheduler.reschedule_job(disabled, db_session)
+
+    assert scheduler._scheduler.get_job(str(job.id)) is not None
+    db_session.expire_all()
+    reenabled = db_session.query(Job).filter(Job.id == job.id).first()
+    assert reenabled.next_run_at is not None
+
+
+def test_reschedule_clears_next_run_at_when_cron_removed(db_session):
+    """Job stays enabled but its cron is cleared: the trigger must be removed
+    and next_run_at must go back to NULL rather than keeping a stale value."""
+    job = _job(db_session, cron="0 4 * * *", enabled=True)
+    scheduler = JobScheduler()
+    scheduler.sync_all(db_session)
+    assert scheduler._scheduler.get_job(str(job.id)) is not None
+
+    job.schedule_cron = None
+    db_session.commit()
+    scheduler.reschedule_job(job, db_session)
+
+    assert scheduler._scheduler.get_job(str(job.id)) is None
+    db_session.expire_all()
+    reloaded = db_session.query(Job).filter(Job.id == job.id).first()
+    assert reloaded.is_enabled is True
+    assert reloaded.next_run_at is None
 
 
 def test_trigger_skips_when_job_already_running(db_session):

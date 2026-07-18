@@ -72,18 +72,24 @@ class JobScheduler:
         for job in JobService(db).list_jobs():
             self._register(job, db)
 
-    def reschedule_job(self, job: Job) -> None:
-        self._register(job, None)
+    def reschedule_job(self, job: Job, db: Session) -> None:
+        """Re-register one job's trigger after an edit.
 
-    def _register(self, job: Job, db: Session | None) -> None:
+        Takes the caller's session (the PATCH handler's request session) so
+        `_register` commits `job.next_run_at` on the same session that holds
+        the row, rather than an ORM-only assignment that a request-scoped
+        session silently drops when it closes.
+        """
+        self._register(job, db)
+
+    def _register(self, job: Job, db: Session) -> None:
         job_id = str(job.id)
         existing = self._scheduler.get_job(job_id)
         if not job.is_enabled or not job.schedule_cron:
             if existing:
                 self._scheduler.remove_job(job_id)
             job.next_run_at = None
-            if db is not None:
-                db.commit()
+            db.commit()
             return
 
         trigger = CronTrigger.from_crontab(job.schedule_cron, timezone=job.timezone)
@@ -100,8 +106,7 @@ class JobScheduler:
         if next_run_time is None:
             next_run_time = trigger.get_next_fire_time(None, datetime.now(timezone.utc))
         job.next_run_at = next_run_time
-        if db is not None:
-            db.commit()
+        db.commit()
 
     # --- исполнение ---
 
