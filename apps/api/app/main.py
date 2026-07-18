@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.admin import setup_admin
-from app.api import auth, companies, dashboard, organizations, reviews, scrape_runs, scraper_sessions
+from app.api import auth, companies, dashboard, jobs, organizations, reviews, scrape_runs, scraper_sessions
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import setup_logging
@@ -52,3 +52,4 @@ app.include_router(reviews.router)
 app.include_router(scrape_runs.router)
 app.include_router(scraper_sessions.router)
 app.include_router(dashboard.router)
+app.include_router(jobs.router)
