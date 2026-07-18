@@ -23,13 +23,18 @@ export default function JobsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const filters = useRef({ jobFilter, statusFilter });
   filters.current = { jobFilter, statusFilter };
+  const requestSeq = useRef(0);
 
   const refresh = useCallback(async () => {
+    // Ordering guard: if a newer refresh() started while this one was in
+    // flight, drop this response instead of letting it overwrite fresher data.
+    const seq = ++requestSeq.current;
     const { jobFilter: job_id, statusFilter: status } = filters.current;
     const [nextJobs, nextRuns] = await Promise.all([
       listJobs(),
       listJobRuns({ job_id: job_id || undefined, status: status || undefined }),
     ]);
+    if (seq !== requestSeq.current) return;
     setJobs(nextJobs);
     setRuns(nextRuns);
   }, []);
@@ -39,12 +44,14 @@ export default function JobsPage() {
   }, [refresh, jobFilter, statusFilter]);
 
   // Опрос только пока что-то выполняется: в покое страница не дёргает API.
+  // Depend on the derived boolean, not `runs` itself, so a new array
+  // reference each poll doesn't tear down and rebuild the interval.
+  const hasActiveRuns = runs.some((run) => run.status === "running" || run.status === "queued");
   useEffect(() => {
-    const active = runs.some((run) => run.status === "running" || run.status === "queued");
-    if (!active) return;
+    if (!hasActiveRuns) return;
     const timer = setInterval(() => refresh().catch(console.error), 5000);
     return () => clearInterval(timer);
-  }, [runs, refresh]);
+  }, [hasActiveRuns, refresh]);
 
   function setError(jobId: string, message: string | null) {
     setErrors((prev) => {
@@ -55,21 +62,25 @@ export default function JobsPage() {
     });
   }
 
-  async function act(job: Job, action: () => Promise<unknown>) {
+  async function act(job: Job, action: () => Promise<unknown>, options?: { rethrow?: boolean }) {
     setError(job.id, null);
     try {
       await action();
       await refresh();
     } catch (err) {
       const status = (err as { status?: number }).status;
-      setError(
-        job.id,
+      const message =
         status === 409
           ? "Задача уже выполняется"
           : status === 401 || status === 403
             ? "Нужны права администратора"
-            : (err as Error).message,
-      );
+            : (err as Error).message;
+      setError(job.id, message);
+      // Re-sync with the server even on failure (e.g. a 409 means a run is
+      // already in flight) so the UI doesn't keep offering an action that
+      // will just conflict again. This must not clear the message above.
+      await refresh().catch(console.error);
+      if (options?.rethrow) throw new Error(message);
     }
   }
 
@@ -83,13 +94,12 @@ export default function JobsPage() {
             key={job.id}
             job={job}
             error={errors[job.id] ?? null}
-            onChanged={refresh}
             onToggle={(target, enabled) =>
               act(target, () => updateJob(target.id, { is_enabled: enabled }))
             }
             onRun={(target) => act(target, () => runJobNow(target.id))}
             onSchedule={(target, cron) =>
-              act(target, () => updateJob(target.id, { schedule_cron: cron }))
+              act(target, () => updateJob(target.id, { schedule_cron: cron }), { rethrow: true })
             }
           />
         ))}

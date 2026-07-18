@@ -36,7 +36,6 @@ export function describeCron(cron: string | null): string {
 
 interface JobCardProps {
   job: Job;
-  onChanged: () => void;
   onToggle: (job: Job, enabled: boolean) => Promise<void>;
   onRun: (job: Job) => Promise<void>;
   onSchedule: (job: Job, cron: string) => Promise<void>;
@@ -116,10 +115,7 @@ export function JobCard({ job, onToggle, onRun, onSchedule, error }: JobCardProp
         <ScheduleModal
           job={job}
           onClose={() => setModalOpen(false)}
-          onSubmit={async (cron) => {
-            await guarded(() => onSchedule(job, cron));
-            setModalOpen(false);
-          }}
+          onSubmit={(cron) => guarded(() => onSchedule(job, cron))}
         />
       )}
     </div>

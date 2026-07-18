@@ -18,6 +18,23 @@ interface ScheduleModalProps {
 
 export function ScheduleModal({ job, onClose, onSubmit }: ScheduleModalProps) {
   const [cron, setCron] = useState(job.schedule_cron ?? "0 4 * * *");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSubmit(cron);
+      // Only close on success; a failed save keeps the modal open so the
+      // user actually sees why it failed instead of the modal just vanishing.
+      onClose();
+    } catch (err) {
+      setError((err as Error).message || "Не удалось сохранить расписание");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -46,14 +63,25 @@ export function ScheduleModal({ job, onClose, onSubmit }: ScheduleModalProps) {
             data-testid="cron-input"
           />
         </label>
+        {error && (
+          <div className="mt-2 text-xs text-red-700" data-testid="cron-error">
+            {error}
+          </div>
+        )}
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" className="rounded border border-border px-3 py-1.5 text-xs" onClick={onClose}>
+          <button
+            type="button"
+            className="rounded border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+            disabled={submitting}
+            onClick={onClose}
+          >
             Отмена
           </button>
           <button
             type="button"
-            className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-black"
-            onClick={() => onSubmit(cron)}
+            className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-bg disabled:opacity-50"
+            disabled={submitting}
+            onClick={handleSubmit}
             data-testid="cron-save"
           >
             Сохранить
