@@ -56,7 +56,9 @@ export function RuleForm({
   const [severity, setSeverity] = useState<AttentionSeverity>(initial?.severity ?? "warn");
   const [scopeType, setScopeType] = useState<AttentionScopeType>(initial?.scope_type ?? "global");
   const [companyId, setCompanyId] = useState(initial?.company_id ?? "");
-  const [orgIds, setOrgIds] = useState<string[]>(initial?.organization_ids ?? []);
+  const [orgIds, setOrgIds] = useState<string[]>(
+    (initial?.organization_ids ?? []).filter((id) => organizations.some((o) => o.id === id)),
+  );
   const [params, setParams] = useState<Record<string, number>>(
     initial?.params ?? PARAM_DEFAULTS[initial?.rule_type ?? "unanswered_overdue"],
   );

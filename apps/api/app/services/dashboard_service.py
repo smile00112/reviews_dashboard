@@ -420,7 +420,7 @@ class DashboardService:
         rules = (
             self.db.query(AttentionRule)
             .filter(AttentionRule.is_enabled.is_(True))
-            .order_by(AttentionRule.created_at)
+            .order_by(AttentionRule.created_at, AttentionRule.id)
             .all()
         )
         items: list[dict] = []
@@ -438,9 +438,11 @@ class DashboardService:
 
     @staticmethod
     def _rule_scope_ids(rule: AttentionRule, orgs) -> set[UUID]:
-        selected = {o.id for o in orgs}
         if rule.scope_type == AttentionScope.company:
+            if rule.company_id is None:
+                return set()
             return {o.id for o in orgs if o.company_id == rule.company_id}
+        selected = {o.id for o in orgs}
         if rule.scope_type == AttentionScope.organizations:
             wanted: set[UUID] = set()
             for raw in rule.organization_ids or []:

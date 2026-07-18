@@ -40,7 +40,7 @@ class AttentionRuleService:
 
     # --- чтение ---------------------------------------------------------- #
     def list_rules(self) -> list[AttentionRule]:
-        return self.db.query(AttentionRule).order_by(AttentionRule.created_at).all()
+        return self.db.query(AttentionRule).order_by(AttentionRule.created_at, AttentionRule.id).all()
 
     def get(self, rule_id: UUID) -> AttentionRule | None:
         return self.db.get(AttentionRule, rule_id)
@@ -107,15 +107,14 @@ class AttentionRuleService:
             return None
         data = payload.model_dump(exclude_unset=True)
 
+        # Compute + validate everything first; only assign to the ORM object once
+        # every check has passed, so a validation error never leaves a half-applied
+        # update sitting in the session.
+        new_params = None
         if "params" in data and data["params"] is not None:
-            rule.params = self._normalize_params(rule.rule_type, data["params"])
-        if "name" in data:
-            rule.name = data["name"]
-        if data.get("is_enabled") is not None:
-            rule.is_enabled = data["is_enabled"]
-        if data.get("severity") is not None:
-            rule.severity = data["severity"]
+            new_params = self._normalize_params(rule.rule_type, data["params"])
 
+        new_scope: tuple[AttentionScope, UUID | None, list[str]] | None = None
         # Скоуп ревалидируется целиком, если тронуто любое из трёх полей.
         if any(k in data for k in ("scope_type", "company_id", "organization_ids")):
             scope_type = data.get("scope_type") or rule.scope_type
@@ -124,10 +123,25 @@ class AttentionRuleService:
                 data["organization_ids"] if "organization_ids" in data
                 else [UUID(str(i)) for i in (rule.organization_ids or [])]
             )
-            rule.company_id, rule.organization_ids = self._validated_scope(
+            validated_company_id, validated_org_ids = self._validated_scope(
                 scope_type, company_id, raw_org_ids
             )
+            new_scope = (scope_type, validated_company_id, validated_org_ids)
+
+        # Everything validated — now assign.
+        if new_params is not None:
+            rule.params = new_params
+        if "name" in data:
+            rule.name = data["name"]
+        if data.get("is_enabled") is not None:
+            rule.is_enabled = data["is_enabled"]
+        if data.get("severity") is not None:
+            rule.severity = data["severity"]
+        if new_scope is not None:
+            scope_type, company_id, org_ids = new_scope
             rule.scope_type = scope_type
+            rule.company_id = company_id
+            rule.organization_ids = org_ids
 
         self.db.commit()
         self.db.refresh(rule)
