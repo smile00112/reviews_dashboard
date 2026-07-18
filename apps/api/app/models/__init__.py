@@ -1,3 +1,4 @@
+from app.models.attention_rule import AttentionRule
 from app.models.company import Company
 from app.models.job import Job
 from app.models.job_run import JobRun
@@ -10,6 +11,7 @@ from app.models.scraper_session import ScraperSession
 from app.models.user import User
 
 __all__ = [
+    "AttentionRule",
     "Company",
     "Job",
     "JobRun",
