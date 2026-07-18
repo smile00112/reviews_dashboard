@@ -44,22 +44,28 @@ test.describe("attention rules page", () => {
     await page.getByTestId("rule-submit").click();
 
     await expect(page.getByText("e2e-правило")).toBeVisible();
-    await expect(page.getByTestId("rule-row")).toHaveCount(before + 1);
 
-    const row = page.getByTestId("rule-row").filter({ hasText: "e2e-правило" });
-    // Plain click (not .uncheck()): the app's onChange handler calls setPageError(null)
-    // synchronously before awaiting the PATCH, which re-renders the controlled checkbox
-    // back to its old "checked" value for a tick — .uncheck()'s own post-click verification
-    // isn't retry-friendly and trips on that flicker. The auto-retrying expect below polls
-    // until the async update (and refresh()) actually lands.
-    await row.getByTestId("rule-toggle").click();
-    await expect(row.getByTestId("rule-toggle")).not.toBeChecked();
-
-    // Cleanup: удалить созданное правило, чтобы прогон был идемпотентным.
-    page.once("dialog", (dialog) => dialog.accept());
-    await row.getByRole("button", { name: "Удалить" }).click();
-    await expect(page.getByText("e2e-правило")).toHaveCount(0);
-    await expect(page.getByTestId("rule-row")).toHaveCount(before);
+    try {
+      await expect(page.getByTestId("rule-row")).toHaveCount(before + 1);
+      const row = page.getByTestId("rule-row").filter({ hasText: "e2e-правило" });
+      // Plain click (not .uncheck()): the app's onChange handler calls setPageError(null)
+      // synchronously before awaiting the PATCH, which re-renders the controlled checkbox
+      // back to its old "checked" value for a tick — .uncheck()'s own post-click verification
+      // isn't retry-friendly and trips on that flicker. The auto-retrying expect below polls
+      // until the async update (and refresh()) actually lands.
+      await row.getByTestId("rule-toggle").click();
+      await expect(row.getByTestId("rule-toggle")).not.toBeChecked();
+    } finally {
+      // Cleanup всегда, даже если ассерты выше упали — иначе мусор в БД.
+      page.once("dialog", (dialog) => dialog.accept());
+      await page
+        .getByTestId("rule-row")
+        .filter({ hasText: "e2e-правило" })
+        .getByRole("button", { name: "Удалить" })
+        .click();
+      await expect(page.getByText("e2e-правило")).toHaveCount(0);
+      await expect(page.getByTestId("rule-row")).toHaveCount(before);
+    }
   });
 
   test("gear link on overview leads here", async ({ page }) => {
