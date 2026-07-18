@@ -288,3 +288,65 @@ export interface DashboardOverview {
   worst_locations: WorstLocation[];
   trending_aspects: TrendingAspect[];
 }
+
+// --- Фоновые задачи ---
+export type JobKind = "org_metrics" | "reviews";
+
+export type JobTrigger = "schedule" | "manual";
+
+export type JobRunStatus =
+  | "queued"
+  | "running"
+  | "success"
+  | "partial"
+  | "failed"
+  | "needs_manual_action"
+  | "cancelled";
+
+export type JobItemStatus = "success" | "skipped" | "failed" | "needs_manual_action";
+
+export interface JobRun {
+  id: string;
+  job_id: string;
+  trigger: JobTrigger;
+  triggered_by_user_id: string | null;
+  status: JobRunStatus;
+  started_at: string;
+  finished_at: string | null;
+  orgs_total: number;
+  orgs_succeeded: number;
+  orgs_skipped: number;
+  orgs_failed: number;
+  error_message: string | null;
+}
+
+export interface Job {
+  id: string;
+  kind: JobKind;
+  platform: "yandex" | "google" | "gis2";
+  schedule_cron: string | null;
+  timezone: string;
+  is_enabled: boolean;
+  options: Record<string, unknown>;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_run: JobRun | null;
+}
+
+export interface JobRunItem {
+  id: string;
+  organization_id: string;
+  organization_name: string | null;
+  status: JobItemStatus;
+  reason: string | null;
+  payload: Record<string, number | string | null>;
+  scrape_run_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  duration_ms: number | null;
+}
+
+export interface JobRunDetail extends JobRun {
+  job: Job;
+  items: JobRunItem[];
+}
