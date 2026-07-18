@@ -168,6 +168,33 @@ def test_service_update_revalidates_params_and_scope(db_session):
     assert svc.update(uuid.uuid4(), AttentionRuleUpdate(is_enabled=True)) is None
 
 
+def test_service_update_revalidates_scope(db_session):
+    from app.services.attention_rule_service import AttentionRuleValidationError
+    svc = _make_service(db_session)
+    rule = svc.create(AttentionRuleCreate(
+        rule_type=AttentionRuleType.escalated,
+        severity=AttentionSeverity.warn,
+    ))
+
+    # Смена скоупа на company без company_id -> ошибка.
+    with pytest.raises(AttentionRuleValidationError):
+        svc.update(rule.id, AttentionRuleUpdate(scope_type=AttentionScope.company))
+
+    # Валидная смена скоупа: global -> organizations.
+    org = _make_org(db_session)
+    updated = svc.update(rule.id, AttentionRuleUpdate(
+        scope_type=AttentionScope.organizations, organization_ids=[org.id],
+    ))
+    assert updated.scope_type == AttentionScope.organizations
+    assert updated.organization_ids == [str(org.id)]
+
+    # Обратно в global: скоуп-поля обнуляются.
+    updated = svc.update(rule.id, AttentionRuleUpdate(scope_type=AttentionScope.global_))
+    assert updated.scope_type == AttentionScope.global_
+    assert updated.company_id is None
+    assert updated.organization_ids == []
+
+
 def test_service_delete(db_session):
     svc = _make_service(db_session)
     rule = svc.create(AttentionRuleCreate(
