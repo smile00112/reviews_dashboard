@@ -214,3 +214,75 @@ def test_seed_defaults_creates_five_rules_once(db_session):
     # Повторный вызов — no-op.
     assert svc.seed_defaults() == []
     assert len(svc.list_rules()) == 5
+
+
+# --- HTTP contract ------------------------------------------------------------
+
+def _payload(**over):
+    base = {
+        "rule_type": "unanswered_overdue",
+        "severity": "urgent",
+        "params": {"hours": 12},
+    }
+    base.update(over)
+    return base
+
+
+def test_list_requires_session(client):
+    assert client.get("/api/attention-rules").status_code == 401
+
+
+def test_post_requires_auth(client):
+    # 401 без сессии
+    assert client.post("/api/attention-rules", json=_payload()).status_code == 401
+
+
+def test_mutations_require_admin(operator_client):
+    # 403 под review_operator
+    assert operator_client.post("/api/attention-rules", json=_payload()).status_code == 403
+    fake_id = str(uuid.uuid4())
+    assert operator_client.patch(f"/api/attention-rules/{fake_id}", json={"is_enabled": False}).status_code == 403
+    assert operator_client.delete(f"/api/attention-rules/{fake_id}").status_code == 403
+
+
+def test_crud_flow(admin_client):
+    created = admin_client.post("/api/attention-rules", json=_payload())
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["rule_type"] == "unanswered_overdue"
+    assert body["params"] == {"hours": 12}
+    assert body["scope_type"] == "global"
+    rule_id = body["id"]
+
+    listed = admin_client.get("/api/attention-rules").json()["items"]
+    assert [r["id"] for r in listed] == [rule_id]
+
+    patched = admin_client.patch(
+        f"/api/attention-rules/{rule_id}", json={"is_enabled": False, "name": "Ночной SLA"}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["is_enabled"] is False
+    assert patched.json()["name"] == "Ночной SLA"
+
+    assert admin_client.delete(f"/api/attention-rules/{rule_id}").status_code == 204
+    assert admin_client.get("/api/attention-rules").json()["items"] == []
+
+
+def test_create_invalid_params_422(admin_client):
+    resp = admin_client.post("/api/attention-rules", json=_payload(params={"hours": 12, "bogus": 1}))
+    assert resp.status_code == 422
+
+
+def test_create_invalid_scope_422(admin_client):
+    resp = admin_client.post(
+        "/api/attention-rules",
+        json=_payload(scope_type="organizations", organization_ids=[str(uuid.uuid4())]),
+    )
+    assert resp.status_code == 422
+    assert "не найдены" in resp.json()["detail"]
+
+
+def test_patch_and_delete_missing_404(admin_client):
+    fake_id = str(uuid.uuid4())
+    assert admin_client.patch(f"/api/attention-rules/{fake_id}", json={"is_enabled": True}).status_code == 404
+    assert admin_client.delete(f"/api/attention-rules/{fake_id}").status_code == 404
