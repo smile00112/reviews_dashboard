@@ -82,6 +82,7 @@ class JobRunner:
         self.db.commit()
 
         statuses: list[JobItemStatus] = []
+        crashed = False
         try:
             for index, org in enumerate(orgs):
                 if index:
@@ -89,9 +90,14 @@ class JobRunner:
                 statuses.append(self._process_organization(run, job, org, platform))
         except Exception as exc:  # noqa: BLE001 — запуск не должен падать молча
             logger.exception("job run %s crashed", run_id)
+            crashed = True
+            # Откатываем незавершённую транзакцию первым делом: если этого не
+            # сделать, _finalize().commit() падает с PendingRollbackError и
+            # диагностика ниже никогда не долетает до БД.
+            self.db.rollback()
             run.error_message = f"{type(exc).__name__}: {exc}"
 
-        self._finalize(run, statuses)
+        self._finalize(run, statuses, crashed=crashed)
 
     # --- обход организаций ---
 
@@ -123,8 +129,19 @@ class JobRunner:
                 error_message=str(exc),
             )
         item.duration_ms = int((time.monotonic() - started) * 1000)
-        self.db.add(item)
-        self.db.commit()
+
+        try:
+            self.db.add(item)
+            self.db.commit()
+        except Exception as exc:  # noqa: BLE001 — сбой записи не должен ронять весь прогон
+            logger.exception(
+                "failed to persist job run item for organization %s in run %s", org.id, run.id
+            )
+            self.db.rollback()
+            # Строку JobRunItem записать не удалось — диагностика уходит в
+            # run.error_message, иначе она теряется безвозвратно.
+            run.error_message = f"organization {org.id}: {type(exc).__name__}: {exc}"
+            return JobItemStatus.failed
         return item.status
 
     def _run_metrics(self, run: JobRun, org: Organization, platform: str) -> JobRunItem:
@@ -142,10 +159,15 @@ class JobRunner:
 
     # --- финализация ---
 
-    def _finalize(self, run: JobRun, statuses: list[JobItemStatus]) -> None:
+    def _finalize(self, run: JobRun, statuses: list[JobItemStatus], *, crashed: bool = False) -> None:
         """Статус запуска по элементам: всё упало -> failed; ни одного успеха, но
         есть вызов оператора -> needs_manual_action; есть и успехи, и ошибки ->
-        partial; иначе success."""
+        partial; иначе success.
+
+        ``crashed`` переопределяет результат на failed: если сам прогон
+        аварийно прервался, успехи организаций, обработанных до падения, не
+        должны маскировать это как success/partial.
+        """
         run.orgs_succeeded = sum(1 for s in statuses if s is JobItemStatus.success)
         run.orgs_skipped = sum(1 for s in statuses if s is JobItemStatus.skipped)
         run.orgs_failed = sum(
@@ -164,6 +186,9 @@ class JobRunner:
             run.status = JobRunStatus.partial
         else:
             run.status = JobRunStatus.success
+
+        if crashed:
+            run.status = JobRunStatus.failed
 
         run.finished_at = datetime.now(timezone.utc)
         self.db.commit()
