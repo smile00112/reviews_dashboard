@@ -1,4 +1,6 @@
-from uuid import UUID
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+from uuid import UUID, uuid4
 
 from app.models.enums import JobKind, JobRunStatus, JobTrigger, ReviewPlatform
 from app.models.job import Job
@@ -26,6 +28,24 @@ def test_patch_requires_admin(client, db_session, seed_users):
     job = _seed_job(db_session)
     resp = client.patch(f"/api/jobs/{job.id}", json={"is_enabled": True})
     assert resp.status_code == 401
+
+
+def test_patch_rejects_review_operator(operator_client, db_session):
+    """A logged-in non-admin is authenticated (not 401) but still must not update jobs."""
+    job = _seed_job(db_session)
+    resp = operator_client.patch(f"/api/jobs/{job.id}", json={"is_enabled": True})
+    assert resp.status_code == 403
+    db_session.refresh(job)
+    assert job.is_enabled is False
+
+
+def test_run_now_rejects_review_operator(operator_client, db_session):
+    job = _seed_job(db_session)
+    with patch("app.api.jobs.run_job_background") as background:
+        resp = operator_client.post(f"/api/jobs/{job.id}/run")
+    assert resp.status_code == 403
+    background.assert_not_called()
+    assert db_session.query(JobRun).filter(JobRun.job_id == job.id).count() == 0
 
 
 def test_admin_can_update_schedule(admin_client, db_session):
@@ -78,3 +98,60 @@ def test_list_and_get_runs(client, db_session):
 
     missing = client.get(f"/api/job-runs/{job.id}")
     assert missing.status_code == 404
+
+
+def test_patch_unknown_job_returns_404(admin_client):
+    resp = admin_client.patch(f"/api/jobs/{uuid4()}", json={"is_enabled": True})
+    assert resp.status_code == 404
+
+
+def test_run_now_unknown_job_returns_404(admin_client):
+    with patch("app.api.jobs.run_job_background") as background:
+        resp = admin_client.post(f"/api/jobs/{uuid4()}/run")
+    assert resp.status_code == 404
+    background.assert_not_called()
+
+
+def test_list_job_runs_filters_by_since_until_and_paginates(client, db_session):
+    job = _seed_job(db_session)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    runs = []
+    for i in range(4):
+        run = JobRun(
+            job_id=job.id,
+            trigger=JobTrigger.manual,
+            status=JobRunStatus.success,
+            started_at=base + timedelta(hours=i),
+        )
+        db_session.add(run)
+        runs.append(run)
+    db_session.commit()
+    run1, run2, run3, run4 = runs
+
+    # since/until narrows to the inclusive middle window, newest first.
+    windowed = client.get(
+        "/api/job-runs",
+        params={
+            "job_id": str(job.id),
+            "since": (base + timedelta(hours=1)).isoformat(),
+            "until": (base + timedelta(hours=2)).isoformat(),
+        },
+    )
+    assert windowed.status_code == 200
+    assert [item["id"] for item in windowed.json()["items"]] == [str(run3.id), str(run2.id)]
+
+    # No filters: newest-first ordering across all four runs.
+    all_resp = client.get("/api/job-runs", params={"job_id": str(job.id)})
+    assert [item["id"] for item in all_resp.json()["items"]] == [
+        str(run4.id),
+        str(run3.id),
+        str(run2.id),
+        str(run1.id),
+    ]
+
+    # limit/offset paginate the same newest-first order.
+    page1 = client.get("/api/job-runs", params={"job_id": str(job.id), "limit": 2, "offset": 0})
+    assert [item["id"] for item in page1.json()["items"]] == [str(run4.id), str(run3.id)]
+
+    page2 = client.get("/api/job-runs", params={"job_id": str(job.id), "limit": 2, "offset": 2})
+    assert [item["id"] for item in page2.json()["items"]] == [str(run2.id), str(run1.id)]

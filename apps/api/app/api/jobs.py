@@ -13,6 +13,7 @@ from app.schemas.job import (
     JobRunDetailResponse,
     JobRunItemResponse,
     JobRunListResponse,
+    JobRunResponse,
     JobRunStartResponse,
     JobUpdateRequest,
 )
@@ -128,7 +129,13 @@ def get_job_run(
         payload.organization_name = item.organization.name if item.organization else None
         items.append(payload)
 
-    detail = JobRunDetailResponse.model_validate(run)
-    detail.job = _job_response(service, run.job)
-    detail.items = items
-    return detail
+    # Build from the scalar-only JobRunResponse rather than
+    # JobRunDetailResponse.model_validate(run): the latter would eagerly
+    # lazy-load the full unpaginated run.items (and run.job) only to have
+    # both overwritten below by the paginated/enriched values.
+    base = JobRunResponse.model_validate(run)
+    return JobRunDetailResponse(
+        **base.model_dump(),
+        job=_job_response(service, run.job),
+        items=items,
+    )

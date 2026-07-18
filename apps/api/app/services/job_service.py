@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.enums import JobRunStatus, JobTrigger
 from app.models.job import Job
@@ -130,6 +130,7 @@ class JobService:
     def list_run_items(self, run_id: UUID, *, limit: int = 200, offset: int = 0) -> list[JobRunItem]:
         return (
             self.db.query(JobRunItem)
+            .options(joinedload(JobRunItem.organization))
             .filter(JobRunItem.job_run_id == run_id)
             .order_by(JobRunItem.id)
             .offset(offset)
