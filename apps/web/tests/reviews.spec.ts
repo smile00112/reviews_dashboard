@@ -18,6 +18,10 @@ test.describe("reviews page", () => {
     await page.getByPlaceholder("admin@example.com").fill(adminEmail!);
     await page.getByPlaceholder("••••••••").fill(adminPassword!);
     await page.getByRole("button", { name: "Войти" }).click();
+    // The login form does a client-side fetch + router.replace("/companies");
+    // a goto() right after click() races the in-flight POST and cancels it
+    // before the session cookie is set. Wait for the redirect to land first.
+    await page.waitForURL(/\/companies$/);
   }
 
   test("renders tabs, filters and aspects panel", async ({ page }) => {

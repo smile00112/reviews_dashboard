@@ -7,6 +7,9 @@ from sqlalchemy.pool import StaticPool
 
 # Must be set before any app.* imports so pydantic-settings can instantiate Settings.
 os.environ.setdefault("ADMIN_SECRET_KEY", "test-secret-key-not-for-production")
+# TestClient проходит через lifespan; без флага прогон тестов поднял бы
+# планировщик и начал ходить на площадки.
+os.environ.setdefault("JOBS_SCHEDULER_ENABLED", "false")
 
 from app.core.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402

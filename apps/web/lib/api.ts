@@ -4,6 +4,10 @@ import type {
   CompanyBranches,
   CurrentUser,
   DashboardOverview,
+  Job,
+  JobRun,
+  JobRunDetail,
+  JobRunStatus,
   Organization,
   OverviewPeriod,
   OverviewPlatform,
@@ -253,4 +257,52 @@ export async function loginYandex(): Promise<{ status: string; message: string }
 
 export async function checkSession(): Promise<SessionInfo> {
   return request<SessionInfo>("/api/scraper/yandex/session/check", { method: "POST" });
+}
+
+// --- Фоновые задачи ---
+export async function listJobs(): Promise<Job[]> {
+  const data = await request<{ items: Job[] }>("/api/jobs");
+  return data.items;
+}
+
+export async function updateJob(
+  id: string,
+  payload: { is_enabled?: boolean; schedule_cron?: string | null; options?: Record<string, unknown> },
+): Promise<Job> {
+  return request<Job>(`/api/jobs/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function runJobNow(id: string): Promise<{ job_run_id: string; status: JobRunStatus }> {
+  return request<{ job_run_id: string; status: JobRunStatus }>(`/api/jobs/${id}/run`, {
+    method: "POST",
+  });
+}
+
+export async function listJobRuns(params: {
+  job_id?: string;
+  status?: JobRunStatus;
+  since?: string;
+  limit?: number;
+} = {}): Promise<JobRun[]> {
+  const query = new URLSearchParams();
+  if (params.job_id) query.set("job_id", params.job_id);
+  if (params.status) query.set("status", params.status);
+  if (params.since) query.set("since", params.since);
+  query.set("limit", String(params.limit ?? 50));
+  const data = await request<{ items: JobRun[] }>(`/api/job-runs?${query.toString()}`);
+  return data.items;
+}
+
+export async function getJobRun(
+  id: string,
+  params: { limit?: number; offset?: number } = {},
+): Promise<JobRunDetail> {
+  const query = new URLSearchParams();
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<JobRunDetail>(`/api/job-runs/${id}${suffix}`);
 }

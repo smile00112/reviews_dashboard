@@ -23,24 +23,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.models.enums import OrganizationScrapeStatus
 from app.models.organization import Organization
-from app.scraper.twogis_api import TwogisApiScraper
-from app.scraper.types import ScrapeResult
-from app.scraper.yandex_http import YandexHttpScraper
-from app.scraper.yandex_scrapeops import YandexScrapeOpsScraper
-
-# platform -> (url attr, rating col, review_count col, rating_count col, status col, success-ts col)
-PLATFORMS = {
-    "yandex": (
-        "yandex_url", "rating", "review_count", "yandex_rating_count",
-        "yandex_scrape_status", "yandex_last_successful_scrape_at",
-    ),
-    "2gis": (
-        "gis2_url", "gis2_rating", "gis2_review_count", "gis2_rating_count",
-        "gis2_scrape_status", "gis2_last_successful_scrape_at",
-    ),
-}
+from app.services.metrics_service import (
+    PLATFORM_COLUMNS as PLATFORMS,
+    MetricsOutcome,
+    MetricsService,
+    Scrapers,
+)
 
 
 class RunLogger:
@@ -86,27 +75,6 @@ class RunSummary:
         return self.per_platform.setdefault(platform, PlatformSummary())
 
 
-class Scrapers:
-    """Lazily-constructed scraper instances shared across the run."""
-
-    def __init__(self) -> None:
-        self.yandex_http = YandexHttpScraper()
-        self.yandex_proxy = YandexScrapeOpsScraper()
-        self.twogis = TwogisApiScraper()
-
-    def scrape(self, platform: str, url: str) -> ScrapeResult:
-        if platform == "2gis":
-            return self.twogis.scrape(url, metrics_only=True)
-        # yandex: browserless first, ScrapeOps proxy fallback on failure/challenge
-        # or when the page yielded no rating.
-        result = self.yandex_http.scrape(url, metrics_only=True)
-        if result.needs_manual_action or result.error_code or result.organization.rating is None:
-            fallback = self.yandex_proxy.scrape(url)
-            if not (fallback.needs_manual_action or fallback.error_code) and fallback.organization.rating is not None:
-                return fallback
-        return result
-
-
 def select_orgs(session, limit: int | None, offset: int = 0) -> list[Organization]:
     # created_at ties on bulk-imported rows; id breaks them so "first N" is stable.
     query = session.query(Organization).order_by(Organization.created_at, Organization.id)
@@ -115,38 +83,6 @@ def select_orgs(session, limit: int | None, offset: int = 0) -> list[Organizatio
     if limit is not None:
         query = query.limit(limit)
     return query.all()
-
-
-def apply_result(
-    org: Organization,
-    platform: str,
-    result: ScrapeResult,
-    summary: PlatformSummary,
-) -> str:
-    """Write scraped metrics onto the org for one platform. Returns an outcome label.
-
-    Never overwrites an existing value with null: a scrape that yields no rating is a
-    failure, not a reason to wipe a known figure.
-    """
-    _, rating_col, count_col, rating_count_col, status_col, ts_col = PLATFORMS[platform]
-    if result.needs_manual_action:
-        setattr(org, status_col, OrganizationScrapeStatus.needs_manual_action)
-        summary.manual_action += 1
-        return "manual_action"
-    if result.error_code or result.organization.rating is None:
-        setattr(org, status_col, OrganizationScrapeStatus.failed)
-        summary.failed += 1
-        return "failed"
-
-    setattr(org, rating_col, result.organization.rating)
-    if result.organization.review_count is not None:
-        setattr(org, count_col, result.organization.review_count)
-    if result.organization.rating_count is not None:
-        setattr(org, rating_count_col, result.organization.rating_count)
-    setattr(org, status_col, OrganizationScrapeStatus.success)
-    setattr(org, ts_col, datetime.now(timezone.utc))
-    summary.updated += 1
-    return "updated"
 
 
 def run(
@@ -161,6 +97,7 @@ def run(
 ) -> RunSummary:
     logger = logger or RunLogger(None)
     summary = RunSummary()
+    service = MetricsService(session, scrapers=scrapers)
     orgs = select_orgs(session, limit, offset)
     logger.log(f"start platforms={','.join(platforms)} orgs={len(orgs)} offset={offset} dry_run={dry_run}")
     for idx, org in enumerate(orgs, start=1):
@@ -177,16 +114,20 @@ def run(
                 psummary.skipped += 1
                 logger.log(f"  [{idx}/{len(orgs)}] [{platform}] {label}: skip (already has value)")
                 continue
-            result = scrapers.scrape(platform, url)
-            outcome = apply_result(org, platform, result, psummary)
-            detail = ""
-            if outcome == "updated":
+            result = service.refresh_organization(org, platform)
+            outcome = result.outcome.value if result.outcome is not MetricsOutcome.manual_action else "manual_action"
+            if result.outcome is MetricsOutcome.updated:
+                psummary.updated += 1
                 detail = (
-                    f" rating={result.organization.rating}"
-                    f" rating_count={result.organization.rating_count}"
-                    f" review_count={result.organization.review_count}"
+                    f" rating={result.payload['rating_after']}"
+                    f" rating_count={result.payload['rating_count_after']}"
+                    f" review_count={result.payload['review_count_after']}"
                 )
-            elif outcome in ("failed", "manual_action"):
+            elif result.outcome is MetricsOutcome.manual_action:
+                psummary.manual_action += 1
+                detail = f" ({result.error_code or 'no rating'})"
+            else:
+                psummary.failed += 1
                 detail = f" ({result.error_code or 'no rating'})"
             logger.log(f"  [{idx}/{len(orgs)}] [{platform}] {label}: {outcome}{detail}")
         if not dry_run:

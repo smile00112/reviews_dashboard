@@ -20,6 +20,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: string }
     items: [
       { href: "/reviews", label: "Отзывы", icon: "💬" },
       { href: "/scrape-runs", label: "История сборов", icon: "🗂" },
+      { href: "/jobs", label: "Фоновые задачи", icon: "⏱" },
       { href: "/http-scraper", label: "HTTP-парсер", icon: "🔧" },
     ],
   },
