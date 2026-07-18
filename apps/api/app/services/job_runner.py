@@ -208,10 +208,19 @@ class JobRunner:
                 reason="счётчик площадки неизвестен — сначала нужен сбор метрик",
                 payload=payload,
             )
-        if platform_total <= scraped_before:
+        if platform_total == scraped_before:
             return JobRunItem(
                 job_run_id=run.id, organization_id=org.id, status=JobItemStatus.skipped,
                 reason=f"счётчики совпадают: {platform_total} = {scraped_before}",
+                payload=payload,
+            )
+        if platform_total < scraped_before:
+            return JobRunItem(
+                job_run_id=run.id, organization_id=org.id, status=JobItemStatus.skipped,
+                reason=(
+                    f"площадка показывает меньше отзывов, чем уже собрано: "
+                    f"{platform_total} < {scraped_before} (отзывы удалены на площадке)"
+                ),
                 payload=payload,
             )
 

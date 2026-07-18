@@ -63,14 +63,23 @@ def _org(db_session, *, review_count):
     return org
 
 
-def _seed_reviews(db_session, org, count):
+def _gis2_org(db_session, *, gis2_review_count):
+    org = Organization(
+        name="Org", gis2_url="https://2gis.ru/org/1", gis2_review_count=gis2_review_count
+    )
+    db_session.add(org)
+    db_session.commit()
+    return org
+
+
+def _seed_reviews(db_session, org, count, *, platform=ReviewPlatform.yandex, scrape_mode=ScrapeMode.public_http, prefix=""):
     for i in range(count):
         db_session.add(
             Review(
                 organization_id=org.id,
-                platform=ReviewPlatform.yandex,
-                scrape_mode=ScrapeMode.public_http,
-                content_hash=f"hash-{i}",
+                platform=platform,
+                scrape_mode=scrape_mode,
+                content_hash=f"hash-{prefix}{i}",
                 author_name="A",
                 rating=5,
                 review_text="text",
@@ -141,3 +150,68 @@ def test_failed_scrape_run_marks_item_failed(db_session, reviews_job):
     assert item.status is JobItemStatus.failed
     db_session.refresh(run)
     assert run.status is JobRunStatus.failed
+
+
+def test_skips_when_platform_count_lower_than_collected(db_session, reviews_job):
+    # Отзывы могли быть удалены на площадке: счётчик площадки ниже уже
+    # собранного — это не "совпадают", и скрапер запускаться не должен.
+    org = _org(db_session, review_count=3)
+    _seed_reviews(db_session, org, 5)
+    scrape = FakeScrapeService(db_session)
+    run = JobService(db_session).create_run(reviews_job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.skipped
+    assert "3" in item.reason and "5" in item.reason
+    assert "совпадают" not in item.reason
+    assert item.scrape_run_id is None
+    assert scrape.executed == []
+    db_session.refresh(run)
+    assert run.status is JobRunStatus.success
+    assert run.orgs_skipped == 1
+
+
+def test_needs_manual_action_scrape_run_maps_to_item_status(db_session, reviews_job):
+    org = _org(db_session, review_count=5)
+    _seed_reviews(db_session, org, 2)
+    scrape = FakeScrapeService(db_session, inserted=0, status=ScrapeRunStatus.needs_manual_action)
+    run = JobService(db_session).create_run(reviews_job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.needs_manual_action
+    db_session.refresh(run)
+    assert run.status is JobRunStatus.needs_manual_action
+
+
+@pytest.fixture()
+def gis2_reviews_job(db_session):
+    job = Job(kind=JobKind.reviews, platform=ReviewPlatform.gis2, options={"delay_seconds": 0})
+    db_session.add(job)
+    db_session.commit()
+    return job
+
+
+def test_scrapes_gis2_org_and_counts_only_gis2_reviews(db_session, gis2_reviews_job):
+    org = _gis2_org(db_session, gis2_review_count=5)
+    # Собранные ранее отзывы по обеим площадкам: должны учитываться только
+    # gis2 — иначе перепутанный _PLATFORM_ENUM_BY_KEY останется незамеченным.
+    _seed_reviews(db_session, org, 2, platform=ReviewPlatform.gis2, scrape_mode=ScrapeMode.twogis_api, prefix="gis2-")
+    _seed_reviews(db_session, org, 10, platform=ReviewPlatform.yandex, scrape_mode=ScrapeMode.public_http, prefix="yandex-")
+    scrape = FakeScrapeService(db_session, inserted=3)
+    run = JobService(db_session).create_run(gis2_reviews_job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.success
+    assert item.payload["platform_total"] == 5
+    # Only the 2 gis2 reviews count, not the 10 yandex ones for the same org.
+    assert item.payload["scraped_before"] == 2
+    assert len(scrape.executed) == 1
+
+    linked = db_session.query(ScrapeRun).filter(ScrapeRun.id == item.scrape_run_id).one()
+    assert linked.mode is ScrapeMode.twogis_api
