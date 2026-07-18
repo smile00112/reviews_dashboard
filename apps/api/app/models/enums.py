@@ -50,3 +50,31 @@ class SessionStatus(str, enum.Enum):
     needs_manual_action = "needs_manual_action"
     # Background login/check scheduled but not finished (feature 010).
     pending = "pending"
+
+
+class JobKind(str, enum.Enum):
+    org_metrics = "org_metrics"
+    reviews = "reviews"
+
+
+class JobTrigger(str, enum.Enum):
+    schedule = "schedule"
+    manual = "manual"
+
+
+class JobRunStatus(str, enum.Enum):
+    queued = "queued"
+    running = "running"
+    success = "success"
+    # Часть организаций отработала, часть упала — не failed и не success.
+    partial = "partial"
+    failed = "failed"
+    needs_manual_action = "needs_manual_action"
+    cancelled = "cancelled"
+
+
+class JobItemStatus(str, enum.Enum):
+    success = "success"
+    skipped = "skipped"
+    failed = "failed"
+    needs_manual_action = "needs_manual_action"
