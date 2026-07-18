@@ -19,11 +19,15 @@ from app.models.enums import (
     JobKind,
     JobRunStatus,
     ReviewPlatform,
+    ScrapeMode,
+    ScrapeRunStatus,
 )
 from app.models.job_run import JobRun
 from app.models.job_run_item import JobRunItem
 from app.models.organization import Organization
+from app.models.review import Review
 from app.services.metrics_service import PLATFORM_COLUMNS, MetricsOutcome, MetricsService
+from app.services.scrape_service import ScrapeService
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +37,28 @@ PLATFORM_BY_ENUM: dict[ReviewPlatform, str] = {
     ReviewPlatform.gis2: "2gis",
 }
 
+_PLATFORM_ENUM_BY_KEY: dict[str, ReviewPlatform] = {v: k for k, v in PLATFORM_BY_ENUM.items()}
+
 DEFAULT_DELAY_SECONDS = 2.0
 
 _METRICS_ITEM_STATUS = {
     MetricsOutcome.updated: JobItemStatus.success,
     MetricsOutcome.failed: JobItemStatus.failed,
     MetricsOutcome.manual_action: JobItemStatus.needs_manual_action,
+}
+
+# Режим сбора отзывов по площадке. yandex -> public_http: единственный режим,
+# который умеет ходить через пул прокси (Chromium не аутентифицируется в SOCKS5),
+# а Yandex отдаёт 429 датацентровому IP задолго до конца полного сбора.
+PLATFORM_SCRAPE_MODE: dict[str, ScrapeMode] = {
+    "yandex": ScrapeMode.public_http,
+    "2gis": ScrapeMode.twogis_api,
+}
+
+_SCRAPE_ITEM_STATUS = {
+    ScrapeRunStatus.success: JobItemStatus.success,
+    ScrapeRunStatus.failed: JobItemStatus.failed,
+    ScrapeRunStatus.needs_manual_action: JobItemStatus.needs_manual_action,
 }
 
 
@@ -62,6 +82,12 @@ class JobRunner:
         if self._metrics_service is None:
             self._metrics_service = MetricsService(self.db)
         return self._metrics_service
+
+    @property
+    def scrape_service(self):
+        if self._scrape_service is None:
+            self._scrape_service = ScrapeService(self.db)
+        return self._scrape_service
 
     # --- публичный вход ---
 
@@ -161,7 +187,54 @@ class JobRunner:
         )
 
     def _run_reviews(self, run: JobRun, org: Organization, platform: str) -> JobRunItem:
-        raise NotImplementedError  # Task 5
+        """Собрать отзывы, только если счётчик площадки разошёлся с собранным.
+
+        Расхождение -> полный проход по страницам: дедуп по content_hash сам
+        отбросит уже известные отзывы, а счётчики ScrapeRun покажут прирост.
+        """
+        platform_enum = _PLATFORM_ENUM_BY_KEY[platform]
+        count_col = PLATFORM_COLUMNS[platform][2]
+        platform_total = getattr(org, count_col)
+        scraped_before = (
+            self.db.query(Review)
+            .filter(Review.organization_id == org.id, Review.platform == platform_enum)
+            .count()
+        )
+        payload = {"platform_total": platform_total, "scraped_before": scraped_before}
+
+        if platform_total is None:
+            return JobRunItem(
+                job_run_id=run.id, organization_id=org.id, status=JobItemStatus.skipped,
+                reason="счётчик площадки неизвестен — сначала нужен сбор метрик",
+                payload=payload,
+            )
+        if platform_total <= scraped_before:
+            return JobRunItem(
+                job_run_id=run.id, organization_id=org.id, status=JobItemStatus.skipped,
+                reason=f"счётчики совпадают: {platform_total} = {scraped_before}",
+                payload=payload,
+            )
+
+        scrape_run = self.scrape_service.create_run(org.id, PLATFORM_SCRAPE_MODE[platform])
+        self.scrape_service.execute_run(scrape_run.id)
+        self.db.refresh(scrape_run)
+
+        payload.update(
+            {
+                "reviews_seen": scrape_run.reviews_seen,
+                "inserted": scrape_run.reviews_inserted,
+                "updated": scrape_run.reviews_updated,
+            }
+        )
+        return JobRunItem(
+            job_run_id=run.id,
+            organization_id=org.id,
+            status=_SCRAPE_ITEM_STATUS.get(scrape_run.status, JobItemStatus.failed),
+            payload=payload,
+            scrape_run_id=scrape_run.id,
+            error_code=scrape_run.error_code,
+            error_message=scrape_run.error_message,
+        )
 
     # --- финализация ---
 
