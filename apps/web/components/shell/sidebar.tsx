@@ -21,6 +21,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: string }
       { href: "/reviews", label: "Отзывы", icon: "💬" },
       { href: "/scrape-runs", label: "История сборов", icon: "🗂" },
       { href: "/jobs", label: "Фоновые задачи", icon: "⏱" },
+      { href: "/attention-rules", label: "Правила внимания", icon: "⚡" },
       { href: "/http-scraper", label: "HTTP-парсер", icon: "🔧" },
     ],
   },
