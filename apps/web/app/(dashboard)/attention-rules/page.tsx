@@ -104,6 +104,7 @@ export default function AttentionRulesPage() {
 
       {formOpen && (
         <RuleForm
+          key={editing?.id ?? "new"}
           companies={companies}
           organizations={organizations}
           initial={editing}
