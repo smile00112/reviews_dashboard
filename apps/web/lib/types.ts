@@ -323,7 +323,7 @@ export interface JobRun {
 export interface Job {
   id: string;
   kind: JobKind;
-  platform: "yandex" | "google" | "gis2";
+  platform: "yandex" | "gis2"; // Google out of scope
   schedule_cron: string | null;
   timezone: string;
   is_enabled: boolean;
