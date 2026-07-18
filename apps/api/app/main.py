@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -7,10 +9,22 @@ from app.api import auth, companies, dashboard, jobs, organizations, reviews, sc
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import setup_logging
+from app.services.job_scheduler import scheduler as job_scheduler
 
 setup_logging()
 
-app = FastAPI(title="Yandex Reviews API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if settings.jobs_scheduler_enabled:
+        job_scheduler.start()
+    try:
+        yield
+    finally:
+        job_scheduler.shutdown()
+
+
+app = FastAPI(title="Yandex Reviews API", version="0.1.0", lifespan=lifespan)
 
 
 def _cors_origins(raw: str) -> list[str]:

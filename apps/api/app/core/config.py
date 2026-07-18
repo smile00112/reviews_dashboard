@@ -67,5 +67,10 @@ class Settings(BaseSettings):
     google_sheets_spreadsheet_id: str = "1T4IS8-P5YoGAfkFicSu43iLT0-qPtRtTPBpw0VoSKQI"
     google_sheets_worksheet_gid: int = 1208334728
 
+    # Фоновые задачи (feature: background jobs). Планировщик живёт внутри
+    # API-процесса — никаких очередей. В тестах и CLI выключен, иначе прогон
+    # pytest начал бы ходить на площадки.
+    jobs_scheduler_enabled: bool = True
+
 
 settings = Settings()
