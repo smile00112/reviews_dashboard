@@ -25,6 +25,8 @@ test.describe("attention rules page", () => {
     await login(page);
     await page.goto("/attention-rules");
     await expect(page.getByRole("heading", { name: "Правила внимания" })).toBeVisible();
+    // Page fetches rules async on mount — wait for the first row before counting.
+    await expect(page.getByTestId("rule-row").first()).toBeVisible();
     // 5 сид-правил из миграции 0015 (или больше, если оператор создавал свои).
     expect(await page.getByTestId("rule-row").count()).toBeGreaterThanOrEqual(5);
   });
@@ -32,6 +34,8 @@ test.describe("attention rules page", () => {
   test("creates a rule and toggles it", async ({ page }) => {
     await login(page);
     await page.goto("/attention-rules");
+    // Page fetches rules async on mount — wait for the first row before counting.
+    await expect(page.getByTestId("rule-row").first()).toBeVisible();
     const before = await page.getByTestId("rule-row").count();
 
     await page.getByTestId("rule-create").click();
@@ -40,16 +44,22 @@ test.describe("attention rules page", () => {
     await page.getByTestId("rule-submit").click();
 
     await expect(page.getByText("e2e-правило")).toBeVisible();
-    expect(await page.getByTestId("rule-row").count()).toBe(before + 1);
+    await expect(page.getByTestId("rule-row")).toHaveCount(before + 1);
 
     const row = page.getByTestId("rule-row").filter({ hasText: "e2e-правило" });
-    await row.getByTestId("rule-toggle").uncheck();
+    // Plain click (not .uncheck()): the app's onChange handler calls setPageError(null)
+    // synchronously before awaiting the PATCH, which re-renders the controlled checkbox
+    // back to its old "checked" value for a tick — .uncheck()'s own post-click verification
+    // isn't retry-friendly and trips on that flicker. The auto-retrying expect below polls
+    // until the async update (and refresh()) actually lands.
+    await row.getByTestId("rule-toggle").click();
     await expect(row.getByTestId("rule-toggle")).not.toBeChecked();
 
     // Cleanup: удалить созданное правило, чтобы прогон был идемпотентным.
     page.once("dialog", (dialog) => dialog.accept());
     await row.getByRole("button", { name: "Удалить" }).click();
     await expect(page.getByText("e2e-правило")).toHaveCount(0);
+    await expect(page.getByTestId("rule-row")).toHaveCount(before);
   });
 
   test("gear link on overview leads here", async ({ page }) => {
