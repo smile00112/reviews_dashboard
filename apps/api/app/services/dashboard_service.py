@@ -41,6 +41,16 @@ _PLATFORM_COLS: dict[ReviewPlatform, tuple[str, str]] = {
 }
 
 
+def _ru_plural(n: int, one: str, few: str, many: str) -> str:
+    """Russian plural agreement: pick(one, few, many) by count."""
+    mod10, mod100 = n % 10, n % 100
+    if mod10 == 1 and mod100 != 11:
+        return one
+    if 2 <= mod10 <= 4 and not 10 <= mod100 < 20:
+        return few
+    return many
+
+
 def _aware(dt: datetime | None) -> datetime | None:
     """Treat naive timestamps (SQLite test backend) as UTC; Postgres is already aware."""
     if dt is None:
@@ -414,7 +424,7 @@ class DashboardService:
         if overdue:
             items.append({
                 "type": "unanswered_overdue",
-                "title": f"{overdue} отзывов без ответа > 24ч",
+                "title": f"{overdue} {_ru_plural(overdue, 'отзыв', 'отзыва', 'отзывов')} без ответа > 24ч",
                 "subtitle": "SLA нарушен · риск эскалации",
                 "value": overdue,
                 "severity": "urgent",
@@ -425,7 +435,9 @@ class DashboardService:
         if fresh_neg:
             items.append({
                 "type": "fresh_negative",
-                "title": f"{fresh_neg} новых негативных отзыва (1–2★)",
+                "title": f"{fresh_neg} "
+                + _ru_plural(fresh_neg, "новый негативный отзыв", "новых негативных отзыва", "новых негативных отзывов")
+                + " (1–2★)",
                 "subtitle": "Поступили за последние 2 часа",
                 "value": fresh_neg,
                 "severity": "urgent",
@@ -436,7 +448,9 @@ class DashboardService:
         if escalated:
             items.append({
                 "type": "escalated",
-                "title": f"{escalated} эскалированных отзыва ждут реакции",
+                "title": f"{escalated} "
+                + _ru_plural(escalated, "эскалированный отзыв ждёт", "эскалированных отзыва ждут", "эскалированных отзывов ждут")
+                + " реакции",
                 "subtitle": "Назначены маркетологу головного офиса",
                 "value": escalated,
                 "severity": "warn",
@@ -479,7 +493,7 @@ class DashboardService:
             {
                 "type": "aspect_spike",
                 "title": f"Рост упоминаний аспекта «{cat}»",
-                "subtitle": f"+{change}% за 7 дней · {rc} упоминаний",
+                "subtitle": f"+{change}% за 7 дней · {rc} {_ru_plural(rc, 'упоминание', 'упоминания', 'упоминаний')}",
                 "value": change,
                 "severity": "warn",
                 "link": "/reviews",

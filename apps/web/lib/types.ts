@@ -28,8 +28,8 @@ export type SessionStatus =
 export interface Organization {
   id: string;
   name: string | null;
-  yandex_url: string;
-  normalized_url: string;
+  yandex_url: string | null; // null for 2GIS-only orgs
+  normalized_url: string | null;
   external_id: string | null;
   address: string | null;
   rating: number | null; // Yandex оценка
@@ -98,6 +98,61 @@ export interface Review {
   response_text: string | null;
   first_seen_at: string;
   last_seen_at: string;
+  response_first_seen_at: string | null;
+  status: ReviewStatus | null;
+  is_paid: boolean;
+  paid_cost: number | null;
+  platform: ReviewPlatform | null;
+  sentiment: string | null;
+  sentiment_score: number | null;
+  problems: ReviewProblem[] | null;
+}
+
+export type ReviewStatus = "new" | "in_progress" | "answered" | "escalated";
+export type ReviewPlatform = "yandex" | "google" | "gis2";
+export type StatusTab = "all" | "unanswered" | "in_progress" | "escalated" | "answered";
+export type ReviewTone = "neg" | "pos";
+export type ReviewPeriod = "24h" | "7d" | "30d" | "year";
+export type ReviewSort = "new" | "criticality";
+
+export interface ReviewProblem {
+  category: string;
+  description: string;
+  keywords_found: string[];
+  severity: string;
+  context: string;
+}
+
+export interface ReviewsSummary {
+  total: number;
+  new_count: number;
+  unanswered: number;
+  in_progress: number;
+  escalated: number;
+  answered: number;
+  overdue_24h: number;
+  negative: number;
+}
+
+export interface AspectStat {
+  category: string;
+  label: string;
+  mentions: number;
+  delta_pct: number | null;
+  pos: number;
+  neu: number;
+  neg: number;
+}
+
+export interface AspectTrend {
+  category: string;
+  days: number;
+  series: { date: string; count: number }[];
+}
+
+export interface AspectsResponse {
+  aspects: AspectStat[];
+  trend: AspectTrend | null;
 }
 
 export interface ScrapeRun {

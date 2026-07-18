@@ -46,8 +46,9 @@ class OrganizationResponse(BaseModel):
 
     id: UUID
     name: str | None
-    yandex_url: str
-    normalized_url: str
+    # Nullable in the ORM/DB: 2GIS-only orgs have no Yandex presence.
+    yandex_url: str | None
+    normalized_url: str | None
     external_id: str | None
     address: str | None
     rating: float | None

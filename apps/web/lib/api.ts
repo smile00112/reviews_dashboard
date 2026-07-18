@@ -1,4 +1,5 @@
 import type {
+  AspectsResponse,
   Company,
   CompanyBranches,
   CurrentUser,
@@ -7,6 +8,8 @@ import type {
   OverviewPeriod,
   OverviewPlatform,
   Review,
+  ReviewStatus,
+  ReviewsSummary,
   ScrapeMode,
   ScrapeRun,
   SessionInfo,
@@ -178,6 +181,38 @@ export async function listReviews(params: Record<string, string | number | boole
   return request<{ items: Review[]; total: number; limit: number; offset: number }>(
     `/api/reviews${suffix}`,
   );
+}
+
+export async function getReviewsSummary(
+  params: Record<string, string | number | boolean | undefined> = {},
+): Promise<ReviewsSummary> {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  });
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<ReviewsSummary>(`/api/reviews/summary${suffix}`);
+}
+
+export async function getReviewAspects(
+  params: Record<string, string | undefined> = {},
+): Promise<AspectsResponse> {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  });
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<AspectsResponse>(`/api/reviews/aspects${suffix}`);
+}
+
+export async function patchReview(
+  id: string,
+  payload: { status?: ReviewStatus; is_paid?: boolean; paid_cost?: number | null },
+): Promise<Review> {
+  return request<Review>(`/api/reviews/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function listOrganizationReviews(organizationId: string) {

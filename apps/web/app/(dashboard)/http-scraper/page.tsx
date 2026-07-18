@@ -29,7 +29,8 @@ export default function HttpScraperPage() {
 
   useEffect(() => {
     listOrganizations()
-      .then(setOrgs)
+      // HTTP scraper is Yandex-only; 2GIS-only orgs have nothing to scrape here.
+      .then((all) => setOrgs(all.filter((o) => o.yandex_url)))
       .catch((e) => setError(String(e)));
   }, []);
 

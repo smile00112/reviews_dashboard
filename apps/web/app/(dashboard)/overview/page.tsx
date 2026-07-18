@@ -23,6 +23,15 @@ import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 const PERIODS = new Set<OverviewPeriod>(["day", "week", "30d", "90d", "year", "all"]);
 const PLATFORMS = new Set<OverviewPlatform>(["all", "yandex", "google", "gis2"]);
 
+/** Russian plural agreement: pick(one, few, many) by count. */
+function plural(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
 function OverviewContent() {
   const router = useRouter();
   const params = useSearchParams();
@@ -86,8 +95,10 @@ function OverviewContent() {
           <h1 className="font-display text-4xl font-medium tracking-tight">Обзор сети</h1>
           {data && (
             <p className="mt-1.5 text-sm text-text-dim">
-              {data.header.new_in_period} новых отзыва · {data.header.unanswered_over_24h} без ответа
-              &gt; 24ч · {data.header.fresh_negatives_2h} негатива за 2ч
+              {data.header.new_in_period}{" "}
+              {plural(data.header.new_in_period, "новый отзыв", "новых отзыва", "новых отзывов")} ·{" "}
+              {data.header.unanswered_over_24h} без ответа &gt; 24ч · {data.header.fresh_negatives_2h}{" "}
+              {plural(data.header.fresh_negatives_2h, "негатив", "негатива", "негативов")} за 2ч
             </p>
           )}
         </div>

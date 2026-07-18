@@ -2,18 +2,35 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.analysis.analyzer import ReviewAnalyzer
-from app.models.enums import ReviewPlatform, ScrapeMode
+from app.models.enums import ReviewPlatform, ReviewStatus, ScrapeMode
 from app.models.organization import Organization
 from app.models.review import Review
 from app.scraper.normalize import build_review_hash
 from app.scraper.types import ParsedReview
 
 logger = logging.getLogger(__name__)
+
+# Feed period presets (days back from now). "24h" is 1 day because review
+# dates have day precision.
+PERIOD_DAYS: dict[str, int] = {"24h": 1, "7d": 7, "30d": 30, "year": 365}
+
+
+def has_aspect(review: Review, aspect: str) -> bool:
+    """True when the review's problems JSONB contains the category.
+
+    Python-side on purpose: the SQLite test backend has no JSONB operators.
+    """
+    return any(p.get("category") == aspect for p in (review.problems or []))
+
+
+def _aware(dt: datetime) -> datetime:
+    """SQLite returns naive datetimes; Postgres returns aware. Normalize to UTC."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 class ReviewService:
@@ -175,18 +192,30 @@ class ReviewService:
         date_from: date | None = None,
         date_to: date | None = None,
         new_only: bool = False,
+        status_tab: str | None = None,
+        platform: ReviewPlatform | None = None,
+        tone: str | None = None,
+        period: str | None = None,
+        is_paid: bool | None = None,
+        aspect: str | None = None,
+        sort: str = "new",
     ) -> tuple[list[tuple[Review, str | None]], int]:
         query = self.db.query(Review, Organization.name).join(Organization)
         if organization_id:
             query = query.filter(Review.organization_id == organization_id)
         query = self._apply_filters(query, rating, date_from, date_to, new_only=new_only)
-        total = query.count()
-        rows = (
-            query.order_by(desc(Review.review_date).nullslast(), desc(Review.first_seen_at))
-            .offset(offset)
-            .limit(limit)
-            .all()
+        query = self._apply_feed_filters(
+            query, status_tab=status_tab, platform=platform, tone=tone, period=period, is_paid=is_paid
         )
+        ordered = self._apply_sort(query, sort)
+        if aspect:
+            # Python-side aspect match (no JSONB operators on SQLite): fetch the
+            # filtered feed, then filter + paginate in memory. Volumes are the
+            # same order as the dashboard aggregates, which already do this.
+            rows = [row for row in ordered.all() if has_aspect(row[0], aspect)]
+            return rows[offset : offset + limit], len(rows)
+        total = query.count()
+        rows = ordered.offset(offset).limit(limit).all()
         return rows, total
 
     def _apply_filters(self, query, rating, date_from, date_to, new_only: bool):
@@ -200,3 +229,178 @@ class ReviewService:
             cutoff = datetime.now(timezone.utc) - timedelta(days=7)
             query = query.filter(Review.first_seen_at >= cutoff)
         return query
+
+    def _apply_feed_filters(
+        self,
+        query,
+        *,
+        status_tab: str | None,
+        platform: ReviewPlatform | None,
+        tone: str | None,
+        period: str | None,
+        is_paid: bool | None,
+    ):
+        if status_tab == "unanswered":
+            query = query.filter(Review.response_text.is_(None))
+        elif status_tab == "answered":
+            query = query.filter(Review.response_text.isnot(None))
+        elif status_tab == "in_progress":
+            query = query.filter(Review.status == ReviewStatus.in_progress)
+        elif status_tab == "escalated":
+            query = query.filter(Review.status == ReviewStatus.escalated)
+        if platform is not None:
+            query = query.filter(Review.platform == platform)
+        if tone == "neg":
+            query = query.filter(Review.rating <= 3)
+        elif tone == "pos":
+            query = query.filter(Review.rating >= 4)
+        if period:
+            days = PERIOD_DAYS.get(period)
+            if days is not None:
+                cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).date()
+                effective = func.coalesce(Review.review_date, func.date(Review.first_seen_at))
+                query = query.filter(effective >= cutoff)
+        if is_paid is not None:
+            query = query.filter(Review.is_paid == is_paid)
+        return query
+
+    def _apply_sort(self, query, sort: str):
+        if sort == "criticality":
+            # Unanswered first (False sorts before True on both backends),
+            # then worst rating, then newest.
+            return query.order_by(
+                Review.response_text.isnot(None),
+                Review.rating.asc(),
+                desc(Review.review_date).nullslast(),
+                desc(Review.first_seen_at),
+            )
+        return query.order_by(desc(Review.review_date).nullslast(), desc(Review.first_seen_at))
+
+    def summary(
+        self,
+        *,
+        organization_id: UUID | None = None,
+        rating: int | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        platform: ReviewPlatform | None = None,
+        tone: str | None = None,
+        period: str | None = None,
+        is_paid: bool | None = None,
+        aspect: str | None = None,
+    ) -> dict:
+        """Tab counters over the secondary-filtered set. Python aggregation keeps
+        the aspect filter consistent with list_global (same in-memory matching)."""
+        query = self.db.query(Review)
+        if organization_id:
+            query = query.filter(Review.organization_id == organization_id)
+        query = self._apply_filters(query, rating, date_from, date_to, new_only=False)
+        query = self._apply_feed_filters(
+            query, status_tab=None, platform=platform, tone=tone, period=period, is_paid=is_paid
+        )
+        rows = [r for r in query.all() if not aspect or has_aspect(r, aspect)]
+
+        now = datetime.now(timezone.utc)
+        week_ago = now - timedelta(days=7)
+        day_ago = now - timedelta(hours=24)
+        return {
+            "total": len(rows),
+            "new_count": sum(1 for r in rows if _aware(r.first_seen_at) >= week_ago),
+            "unanswered": sum(1 for r in rows if r.response_text is None),
+            "in_progress": sum(1 for r in rows if r.status == ReviewStatus.in_progress),
+            "escalated": sum(1 for r in rows if r.status == ReviewStatus.escalated),
+            "answered": sum(1 for r in rows if r.response_text is not None),
+            "overdue_24h": sum(
+                1 for r in rows if r.response_text is None and _aware(r.first_seen_at) < day_ago
+            ),
+            "negative": sum(1 for r in rows if r.rating <= 3),
+        }
+
+    def aspects(
+        self,
+        *,
+        period: str = "30d",
+        organization_id: UUID | None = None,
+        platform: ReviewPlatform | None = None,
+        aspect: str | None = None,
+    ) -> dict:
+        """Aggregate problems JSONB per category for the aspects panel.
+
+        Python aggregation over the loaded window (dashboard precedent) — no
+        JSONB SQL, so SQLite tests keep working. Trend is always 90 days."""
+        days = PERIOD_DAYS.get(period, 30)
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        cur_start = today - timedelta(days=days)
+        prev_start = today - timedelta(days=days * 2)
+        trend_start = today - timedelta(days=90)
+        load_start = min(prev_start, trend_start)
+
+        query = self.db.query(Review).filter(Review.problems.isnot(None))
+        if organization_id:
+            query = query.filter(Review.organization_id == organization_id)
+        if platform is not None:
+            query = query.filter(Review.platform == platform)
+
+        def effective_date(r: Review) -> date:
+            return r.review_date or _aware(r.first_seen_at).date()
+
+        rows = [(r, effective_date(r)) for r in query.all()]
+        rows = [(r, d) for r, d in rows if d >= load_start]
+
+        current: dict[str, dict[str, int]] = {}
+        previous: dict[str, int] = {}
+        daily: dict[date, int] = {}
+        for r, d in rows:
+            categories = {p.get("category") for p in (r.problems or []) if p.get("category")}
+            for cat in categories:
+                if d >= cur_start:
+                    bucket = current.setdefault(cat, {"mentions": 0, "pos": 0, "neu": 0, "neg": 0})
+                    bucket["mentions"] += 1
+                    key = {"positive": "pos", "negative": "neg"}.get(r.sentiment or "", "neu")
+                    bucket[key] += 1
+                elif d >= prev_start:
+                    previous[cat] = previous.get(cat, 0) + 1
+                if aspect and cat == aspect and d >= trend_start:
+                    daily[d] = daily.get(d, 0) + 1
+
+        aspects = []
+        for cat, b in sorted(current.items(), key=lambda kv: -kv[1]["mentions"]):
+            prev = previous.get(cat, 0)
+            total = b["mentions"]
+            aspects.append(
+                {
+                    "category": cat,
+                    "label": cat.replace("_", " ").capitalize(),
+                    "mentions": total,
+                    "delta_pct": round((total - prev) / prev * 100) if prev else None,
+                    "pos": round(b["pos"] / total * 100),
+                    "neu": round(b["neu"] / total * 100),
+                    "neg": round(b["neg"] / total * 100),
+                }
+            )
+
+        trend = None
+        if aspect:
+            series = [
+                {"date": (trend_start + timedelta(days=i)).isoformat(),
+                 "count": daily.get(trend_start + timedelta(days=i), 0)}
+                for i in range(91)
+            ]
+            trend = {"category": aspect, "days": 90, "series": series}
+        return {"aspects": aspects, "trend": trend}
+
+    def update_triage(self, review_id: UUID, data: dict) -> Review | None:
+        """Apply internal triage fields (status / is_paid / paid_cost) only.
+
+        `data` must come from model_dump(exclude_unset=True) so an absent field
+        is distinguishable from an explicit null (paid_cost reset)."""
+        review = self.db.query(Review).filter(Review.id == review_id).first()
+        if review is None:
+            return None
+        for field in ("status", "is_paid", "paid_cost"):
+            if field in data:
+                setattr(review, field, data[field])
+        self.db.commit()
+        self.db.refresh(review)
+        return review

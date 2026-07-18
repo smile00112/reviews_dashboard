@@ -32,6 +32,22 @@ def test_create_list_update_delete_organization(admin_client):
     assert len(list_after.json()["items"]) == 0
 
 
+def test_list_organizations_includes_gis2_only_org(client, db_session):
+    """2GIS-only orgs have no yandex_url/normalized_url; the list endpoint
+    must serialize them instead of failing with 500 (regression)."""
+    from app.models.organization import Organization
+
+    db_session.add(Organization(name="2GIS only", gis2_url="https://2gis.ru/firm/123"))
+    db_session.commit()
+
+    resp = client.get("/api/organizations")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) == 1
+    assert items[0]["yandex_url"] is None
+    assert items[0]["normalized_url"] is None
+
+
 def test_create_organization_invalid_url(admin_client):
     resp = admin_client.post(
         "/api/organizations",
