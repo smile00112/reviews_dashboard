@@ -255,9 +255,11 @@ class ReviewService:
         elif tone == "pos":
             query = query.filter(Review.rating >= 4)
         if period:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=PERIOD_DAYS[period])).date()
-            effective = func.coalesce(Review.review_date, func.date(Review.first_seen_at))
-            query = query.filter(effective >= cutoff)
+            days = PERIOD_DAYS.get(period)
+            if days is not None:
+                cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).date()
+                effective = func.coalesce(Review.review_date, func.date(Review.first_seen_at))
+                query = query.filter(effective >= cutoff)
         if is_paid is not None:
             query = query.filter(Review.is_paid == is_paid)
         return query

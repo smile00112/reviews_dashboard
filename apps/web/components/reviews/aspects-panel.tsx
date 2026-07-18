@@ -37,7 +37,7 @@ function TrendChart({ series }: { series: { date: string; count: number }[] }) {
     .join(" ");
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-[90px] w-full" preserveAspectRatio="none" role="img">
-      <polyline points={points} fill="none" stroke="var(--color-accent, #d4ff3a)" strokeWidth="1.5" />
+      <polyline points={points} fill="none" stroke="#d4ff3a" strokeWidth="1.5" />
     </svg>
   );
 }

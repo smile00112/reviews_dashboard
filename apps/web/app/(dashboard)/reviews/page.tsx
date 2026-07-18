@@ -26,21 +26,34 @@ import { AspectsPanel } from "@/components/reviews/aspects-panel";
 
 const PAGE_SIZE = 50;
 
+const STATUS_TABS: readonly StatusTab[] = ["all", "unanswered", "in_progress", "escalated", "answered"];
+const TONES: readonly ReviewTone[] = ["neg", "pos"];
+const PERIODS: readonly ReviewPeriod[] = ["24h", "7d", "30d", "year"];
+const PLATFORMS: readonly ReviewPlatform[] = ["yandex", "google", "gis2"];
+const SORTS: readonly ReviewSort[] = ["new", "criticality"];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function pick<T extends string>(value: string | null, allowed: readonly T[]): T | undefined {
+  return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : undefined;
+}
+
 function ReviewsContent() {
   const router = useRouter();
   const params = useSearchParams();
 
   // URL is the single source of filter state (deep links from the overview
   // attention feed arrive as /reviews?rating=1, /reviews?status=escalated).
-  const tab = (params.get("status") as StatusTab) || "all";
-  const tone = (params.get("tone") as ReviewTone) || undefined;
-  const period = (params.get("period") as ReviewPeriod) || undefined;
-  const platform = (params.get("platform") as ReviewPlatform) || undefined;
-  const organizationId = params.get("organization_id") ?? undefined;
+  const tab = pick(params.get("status"), STATUS_TABS) ?? "all";
+  const tone = pick(params.get("tone"), TONES);
+  const period = pick(params.get("period"), PERIODS);
+  const platform = pick(params.get("platform"), PLATFORMS);
+  const rawOrg = params.get("organization_id");
+  const organizationId = rawOrg && UUID_RE.test(rawOrg) ? rawOrg : undefined;
   const paidOnly = params.get("is_paid") === "true" || undefined;
   const aspect = params.get("aspect") ?? undefined;
-  const sort = (params.get("sort") as ReviewSort) || "new";
-  const rating = params.get("rating") ?? undefined;
+  const sort = pick(params.get("sort"), SORTS) ?? "new";
+  const rawRating = params.get("rating");
+  const rating = rawRating && /^[1-5]$/.test(rawRating) ? rawRating : undefined;
   const newOnly = params.get("new_only") === "true" || undefined;
 
   const [reviews, setReviews] = useState<Review[]>([]);
