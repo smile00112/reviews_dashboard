@@ -1168,7 +1168,7 @@ Replace the whole attention block (`_SEVERITY_ORDER`, `_attention`, `_aspect_spi
             rule_orgs = [o for o in orgs if o.id in scope_ids]
             rule_reviews = [r for r in all_reviews if r.organization_id in scope_ids]
             items.extend(self._evaluate_rule(rule, rule_orgs, rule_reviews, platform, snaps, now))
-        items.sort(key=lambda i: (self._SEVERITY_ORDER.get(i["severity"], 9), -i["value"]))
+        items.sort(key=lambda i: (self._SEVERITY_ORDER.get(i["severity"], 9), -abs(i["value"])))
         return items
 
     @staticmethod

@@ -146,3 +146,26 @@ def test_rule_scope_intersects_page_filter(admin_client, db_session):
     other = _org(db_session, name="Other")
     items = _attention(admin_client, query=f"&org_ids={other.id}")
     assert items == []
+
+
+def test_same_severity_sorted_by_magnitude(admin_client, db_session):
+    from app.services.dashboard_service import DashboardService
+
+    org_small = _org(db_session, name="Small")
+    org_big = _org(db_session, name="Big")
+    # Два падения рейтинга разной глубины: -0.3 и -0.5.
+    old = NOW - timedelta(days=20)
+    for org, before, after in ((org_small, 4.5, 4.2), (org_big, 4.7, 4.2)):
+        org.rating = before
+        db_session.commit()
+        DashboardService(db_session).capture_snapshot(org.id, ReviewPlatform.yandex, now=old)
+        org.rating = after
+        db_session.commit()
+
+    _rule(db_session, rule_type=AttentionRuleType.rating_drop,
+          severity=AttentionSeverity.warn, params={"threshold": -0.2, "top": 3})
+
+    items = _attention(admin_client)
+    drops = [i for i in items if i["type"] == "rating_drop"]
+    assert len(drops) == 2
+    assert abs(drops[0]["value"]) >= abs(drops[1]["value"])  # худшее падение первым
