@@ -206,6 +206,89 @@ def test_commit_failure_for_one_organization_is_isolated_and_persists_error(
     assert run.finished_at is not None
 
 
+# --- Round 2 finding 2: a crash outside _process_organization must still fail the run --
+
+
+def test_crash_outside_process_organization_marks_run_failed_with_error(
+    db_session, metrics_job
+):
+    """Drive an exception out to execute()'s own try/except, not the inner
+    handlers in _process_organization. The injected ``sleep`` only runs
+    *between* organizations (see execute()'s ``if index: self.sleep(delay)``),
+    so raising from it on the second call escapes the loop entirely — unlike
+    the isolation tests above, whose exceptions are fully absorbed by
+    _process_organization and never reach this outer boundary.
+    """
+    _orgs(db_session, 3)
+    fake = FakeMetricsService([
+        MetricsResult(MetricsOutcome.updated, {"rating_after": 4.7}),
+        MetricsResult(MetricsOutcome.updated, {"rating_after": 4.8}),
+        MetricsResult(MetricsOutcome.updated, {"rating_after": 4.9}),
+    ])
+    run = JobService(db_session).create_run(metrics_job.id, JobTrigger.manual)
+
+    sleep_calls: list[float] = []
+
+    def crashing_sleep(seconds):
+        sleep_calls.append(seconds)
+        if len(sleep_calls) == 1:
+            raise RuntimeError("network blip between organizations")
+
+    JobRunner(db_session, metrics_service=fake, sleep=crashing_sleep).execute(run.id)
+
+    db_session.refresh(run)
+    items = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).all()
+
+    # First organization was processed before the crash; the remaining two
+    # never reached _process_organization.
+    assert len(items) == 1
+    assert items[0].status is JobItemStatus.success
+
+    # Even though the first organization succeeded, a crash outside
+    # _process_organization must not report success or partial.
+    assert run.status is JobRunStatus.failed
+    assert run.error_message is not None
+    assert "network blip between organizations" in run.error_message
+    assert run.finished_at is not None
+
+
+# --- Round 2 finding 3: finalization itself can fail and must still reach a terminal state --
+
+
+def test_finalize_commit_failure_still_reaches_terminal_status(
+    db_session, metrics_job, monkeypatch
+):
+    _orgs(db_session, 1)
+    fake = FakeMetricsService([MetricsResult(MetricsOutcome.updated, {"rating_after": 4.7})])
+    run = JobService(db_session).create_run(metrics_job.id, JobTrigger.manual)
+
+    real_commit = db_session.commit
+    calls = {"n": 0}
+
+    def flaky_commit():
+        calls["n"] += 1
+        # Commit order for a single, successful organization: 1) run.status =
+        # running, 2) orgs_total, 3) the JobRunItem persisted inside
+        # _process_organization, 4) _finalize's own commit — that's the one
+        # we want to fail here.
+        if calls["n"] == 4:
+            raise RuntimeError("disk full")
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", flaky_commit)
+
+    JobRunner(db_session, metrics_service=fake, sleep=lambda _s: None).execute(run.id)
+
+    db_session.refresh(run)
+
+    # The run must not be left stuck at `running`; the last-ditch commit in
+    # _finalize's except block must have recorded a terminal status.
+    assert run.status is JobRunStatus.failed
+    assert run.error_message is not None
+    assert "disk full" in run.error_message
+    assert run.finished_at is not None
+
+
 # --- Finding 3: sleep pacing and ordering --------------------------------------
 
 

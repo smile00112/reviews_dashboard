@@ -69,21 +69,27 @@ class JobRunner:
         run = self.db.query(JobRun).filter(JobRun.id == run_id).first()
         if run is None:
             return
-        job = run.job
-        platform = PLATFORM_BY_ENUM[job.platform]
-        delay = float(job.options.get("delay_seconds", DEFAULT_DELAY_SECONDS))
 
-        run.status = JobRunStatus.running
-        job.last_run_at = datetime.now(timezone.utc)
-        self.db.commit()
-
-        orgs = self._select_organizations(platform)
-        run.orgs_total = len(orgs)
-        self.db.commit()
-
+        # Всё, что может тронуть БД для этого прогона — преамбула, выборка
+        # организаций и сам обход — идёт под одним try/except: любое из этих
+        # мест уже роняло run в незавершённое состояние (см. Finding 1), а
+        # _finalize ниже гарантированно доводит run до терминального статуса
+        # независимо от того, где именно случился сбой.
         statuses: list[JobItemStatus] = []
         crashed = False
         try:
+            job = run.job
+            platform = PLATFORM_BY_ENUM[job.platform]
+            delay = float(job.options.get("delay_seconds", DEFAULT_DELAY_SECONDS))
+
+            run.status = JobRunStatus.running
+            job.last_run_at = datetime.now(timezone.utc)
+            self.db.commit()
+
+            orgs = self._select_organizations(platform)
+            run.orgs_total = len(orgs)
+            self.db.commit()
+
             for index, org in enumerate(orgs):
                 if index:
                     self.sleep(delay)
@@ -168,6 +174,13 @@ class JobRunner:
         аварийно прервался, успехи организаций, обработанных до падения, не
         должны маскировать это как success/partial.
         """
+        # statuses has one entry per organization that actually reached
+        # _process_organization. After a mid-run crash (crashed=True) the loop
+        # in execute() stops early, so orgs_total can exceed
+        # orgs_succeeded + orgs_skipped + orgs_failed — the un-attempted
+        # organizations never produced a status and are simply absent from
+        # all three counters. That gap is expected; read it as "the run did
+        # not reach every organization", not as a counting bug.
         run.orgs_succeeded = sum(1 for s in statuses if s is JobItemStatus.success)
         run.orgs_skipped = sum(1 for s in statuses if s is JobItemStatus.skipped)
         run.orgs_failed = sum(
@@ -191,4 +204,22 @@ class JobRunner:
             run.status = JobRunStatus.failed
 
         run.finished_at = datetime.now(timezone.utc)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception as exc:  # noqa: BLE001 — финализация не должна ронять фоновую задачу
+            logger.exception("failed to finalize job run %s", run.id)
+            # Последняя попытка зафиксировать хоть что-то: откатываем половинчатую
+            # транзакцию, ставим терминальный статус и ошибку, коммитим ещё раз.
+            # Если и это не удаётся — глотаем исключение и логируем: фоновой
+            # задаче бросать его дальше некуда.
+            try:
+                self.db.rollback()
+                run.status = JobRunStatus.failed
+                run.error_message = f"finalize failed: {type(exc).__name__}: {exc}"
+                run.finished_at = datetime.now(timezone.utc)
+                self.db.commit()
+            except Exception:  # noqa: BLE001 — фону больше некуда бросать исключение
+                logger.exception(
+                    "failed to record terminal status for job run %s after finalize failure",
+                    run.id,
+                )
