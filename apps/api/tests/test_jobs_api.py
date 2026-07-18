@@ -84,7 +84,8 @@ def test_invalid_cron_is_rejected(admin_client, db_session):
 
 def test_manual_run_returns_202_and_conflicts_while_active(admin_client, db_session):
     job = _seed_job(db_session)
-    resp = admin_client.post(f"/api/jobs/{job.id}/run")
+    with patch("app.api.jobs.run_job_background"):
+        resp = admin_client.post(f"/api/jobs/{job.id}/run")
     assert resp.status_code == 202, resp.text
     run_id = resp.json()["job_run_id"]
 

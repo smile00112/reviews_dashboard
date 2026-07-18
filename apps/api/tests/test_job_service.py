@@ -81,6 +81,30 @@ def test_purge_removes_runs_older_than_retention_with_items(db_session, job):
     assert db_session.query(JobRunItem).count() == 0
 
 
+def test_fail_interrupted_runs_marks_queued_and_running_only(db_session, job):
+    running = JobRun(job_id=job.id, trigger=JobTrigger.manual, status=JobRunStatus.running)
+    queued = JobRun(job_id=job.id, trigger=JobTrigger.schedule, status=JobRunStatus.queued)
+    success = JobRun(job_id=job.id, trigger=JobTrigger.manual, status=JobRunStatus.success)
+    db_session.add_all([running, queued, success])
+    db_session.commit()
+
+    count = JobService(db_session).fail_interrupted_runs()
+
+    assert count == 2
+    db_session.refresh(running)
+    db_session.refresh(queued)
+    db_session.refresh(success)
+
+    for run in (running, queued):
+        assert run.status == JobRunStatus.failed
+        assert run.error_message == "interrupted by API restart"
+        assert run.finished_at is not None
+
+    assert success.status == JobRunStatus.success
+    assert success.error_message is None
+    assert success.finished_at is None
+
+
 def test_list_runs_filters_by_job_and_status(db_session, job):
     other = Job(kind=JobKind.reviews, platform=ReviewPlatform.gis2)
     db_session.add(other)

@@ -296,6 +296,13 @@ export async function listJobRuns(params: {
   return data.items;
 }
 
-export async function getJobRun(id: string): Promise<JobRunDetail> {
-  return request<JobRunDetail>(`/api/job-runs/${id}`);
+export async function getJobRun(
+  id: string,
+  params: { limit?: number; offset?: number } = {},
+): Promise<JobRunDetail> {
+  const query = new URLSearchParams();
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<JobRunDetail>(`/api/job-runs/${id}${suffix}`);
 }

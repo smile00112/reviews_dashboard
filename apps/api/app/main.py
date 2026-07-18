@@ -8,9 +8,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.admin import setup_admin
 from app.api import auth, companies, dashboard, jobs, organizations, reviews, scrape_runs, scraper_sessions
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import SessionLocal, engine
 from app.core.logging import setup_logging
 from app.services.job_scheduler import scheduler as job_scheduler
+from app.services.job_service import JobService
 
 setup_logging()
 
@@ -19,6 +20,24 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    # Runs before job_scheduler.start() (and regardless of whether the
+    # scheduler flag is on): the in-process runner cannot survive a process
+    # restart, so a deploy mid-run leaves the row stuck in queued/running,
+    # which blocks both the next cron tick (has_active_run sees "busy") and
+    # any manual run (409) forever, until someone fixes it by hand. Prod
+    # deploys on every push, so this is routine, not exceptional — reconcile
+    # it on every boot.
+    try:
+        db = SessionLocal()
+        try:
+            failed_count = JobService(db).fail_interrupted_runs()
+            if failed_count:
+                logger.warning("marked %s interrupted job run(s) as failed on startup", failed_count)
+        finally:
+            db.close()
+    except Exception:
+        logger.error("failed to reconcile interrupted job runs on startup", exc_info=True)
+
     if settings.jobs_scheduler_enabled:
         try:
             job_scheduler.start()

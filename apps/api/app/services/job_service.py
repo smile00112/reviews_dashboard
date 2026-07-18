@@ -138,6 +138,33 @@ class JobService:
             .all()
         )
 
+    # --- восстановление после рестарта ---
+
+    def fail_interrupted_runs(self, now: datetime | None = None) -> int:
+        """Пометить как failed все запуски, застрявшие в queued/running.
+
+        Раннер живёт в процессе API (BackgroundTasks / APScheduler-поток), а не
+        в отдельном воркере, так что запуск не переживает рестарт процесса.
+        Прод деплоится на каждый push, так что зависший `running`/`queued`
+        ряд — рутинная ситуация, а не редкий сбой: без починки он вечно
+        блокирует и cron (has_active_run видит "занято"), и ручной запуск
+        (create_run бросает JobAlreadyRunning) — до ручного SQL. Вызывается из
+        lifespan ДО job_scheduler.start(), чтобы починка происходила независимо
+        от того, включён ли флаг планировщика.
+        """
+        finished_at = now or datetime.now(timezone.utc)
+        stale = (
+            self.db.query(JobRun)
+            .filter(JobRun.status.in_(ACTIVE_RUN_STATUSES))
+            .all()
+        )
+        for run in stale:
+            run.status = JobRunStatus.failed
+            run.error_message = "interrupted by API restart"
+            run.finished_at = finished_at
+        self.db.commit()
+        return len(stale)
+
     # --- retention ---
 
     def purge_old_runs(self, now: datetime | None = None) -> int:
