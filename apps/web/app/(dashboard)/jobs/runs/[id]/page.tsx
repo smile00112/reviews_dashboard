@@ -31,13 +31,17 @@ export default function JobRunDetailPage({ params }: { params: Promise<{ id: str
   }, [id]);
 
   // Пока запуск идёт — обновляем; закончился — перестаём опрашивать.
+  // Зависимость — производный boolean, а не сам run: каждый тик приносит
+  // новый объект, и зависимость от него пересоздавала бы интервал на каждом
+  // опросе (см. тот же паттерн hasActiveRuns на странице /jobs).
+  const isActive = run?.status === "running" || run?.status === "queued";
   useEffect(() => {
-    if (!run || (run.status !== "running" && run.status !== "queued")) return;
+    if (!isActive) return;
     const timer = setInterval(() => {
       getJobRun(id).then(setRun).catch(console.error);
     }, 5000);
     return () => clearInterval(timer);
-  }, [run, id]);
+  }, [isActive, id]);
 
   if (error) return <p className="text-sm text-red-700">{error}</p>;
   if (!run) return <p className="text-sm text-text-dim">Загрузка…</p>;
