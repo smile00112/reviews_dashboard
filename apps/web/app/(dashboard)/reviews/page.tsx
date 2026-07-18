@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   getReviewAspects,
@@ -50,6 +50,7 @@ function ReviewsContent() {
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const requestGen = useRef(0);
 
   const setParams = useCallback(
     (patch: Record<string, string | undefined>) => {
@@ -85,6 +86,7 @@ function ReviewsContent() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    requestGen.current += 1;
     Promise.all([
       listReviews(feedParams(0)),
       getReviewsSummary({
@@ -109,9 +111,11 @@ function ReviewsContent() {
   }, [feedParams, tone, period, platform, organizationId, paidOnly, aspect, rating]);
 
   async function loadMore() {
+    const gen = requestGen.current;
     setLoadingMore(true);
     try {
       const feed = await listReviews(feedParams(reviews.length));
+      if (gen !== requestGen.current) return;
       setReviews((prev) => [...prev, ...feed.items]);
       setTotal(feed.total);
     } catch (e) {
