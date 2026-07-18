@@ -46,6 +46,11 @@ def _review(db, org, *, rating, first_seen, response_at=None, sentiment=None, ha
     return r
 
 
+def _seed_rules(db):
+    from app.services.attention_rule_service import AttentionRuleService
+    AttentionRuleService(db).seed_defaults()
+
+
 # --- Auth / validation -------------------------------------------------------
 
 def test_unauthenticated_returns_401(client):
@@ -161,6 +166,7 @@ def test_platform_cards_google_has_no_per_review_data(admin_client, db_session):
 # --- US3 attention feed ------------------------------------------------------
 
 def test_attention_urgent_and_escalated(admin_client, db_session):
+    _seed_rules(db_session)
     org = _org(db_session)
     _review(db_session, org, rating=4, first_seen=NOW - timedelta(hours=48), hash_="over")  # overdue unanswered
     _review(db_session, org, rating=1, first_seen=NOW - timedelta(hours=1), hash_="neg")    # fresh negative
@@ -178,6 +184,7 @@ def test_attention_urgent_and_escalated(admin_client, db_session):
 
 
 def test_attention_aspect_spike(admin_client, db_session):
+    _seed_rules(db_session)
     org = _org(db_session)
     today = NOW.date()
     # 4 recent mentions of "опоздание", 1 in the prior window -> spike
@@ -196,6 +203,7 @@ def test_attention_rating_drop_needs_history(admin_client, db_session):
     from app.models.enums import ReviewPlatform
     from app.services.dashboard_service import DashboardService
 
+    _seed_rules(db_session)
     org = _org(db_session, rating=4.2)
     # No snapshot yet -> no rating_drop item.
     body = admin_client.get("/api/dashboard/overview?period=30d").json()

@@ -6,6 +6,7 @@ be computed (rendered as "—" / "нет данных" by the frontend).
 """
 
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -81,6 +82,8 @@ class AttentionItem(BaseModel):
     value: float
     severity: str
     link: str
+    rule_id: UUID | None = None
+    rule_name: str | None = None
 
 
 class WorstLocation(BaseModel):
