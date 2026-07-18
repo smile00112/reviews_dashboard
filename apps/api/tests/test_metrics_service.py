@@ -73,3 +73,54 @@ def test_refresh_marks_manual_action(db_session):
 
     assert result.outcome is MetricsOutcome.manual_action
     assert org.gis2_scrape_status == OrganizationScrapeStatus.needs_manual_action
+
+
+def test_refresh_writes_2gis_columns_without_touching_yandex(db_session):
+    org = Organization(
+        name="Org",
+        gis2_url="https://2gis.ru/firm/1",
+        rating=Decimal("4.9"),
+        review_count=164,
+        yandex_rating_count=230,
+    )
+    db_session.add(org)
+    db_session.commit()
+
+    service = MetricsService(db_session, scrapers=FakeScrapers(_result(4.2, 1179, 1500)))
+    result = service.refresh_organization(org, "2gis")
+    db_session.commit()
+
+    assert result.outcome is MetricsOutcome.updated
+    assert float(org.gis2_rating) == 4.2
+    assert org.gis2_review_count == 1179
+    assert org.gis2_rating_count == 1500
+    assert org.gis2_scrape_status == OrganizationScrapeStatus.success
+    assert org.gis2_last_successful_scrape_at is not None
+    # Yandex columns untouched by a 2GIS scrape.
+    assert float(org.rating) == 4.9
+    assert org.review_count == 164
+    assert org.yandex_rating_count == 230
+
+
+def test_refresh_missing_counts_keep_existing_values(db_session):
+    org = Organization(
+        name="Org",
+        yandex_url="https://yandex.ru/maps/org/1",
+        rating=Decimal("4.0"),
+        review_count=99,
+        yandex_rating_count=150,
+    )
+    db_session.add(org)
+    db_session.commit()
+
+    service = MetricsService(
+        db_session, scrapers=FakeScrapers(_result(rating=4.5, review_count=None, rating_count=None))
+    )
+    result = service.refresh_organization(org, "yandex")
+    db_session.commit()
+
+    assert result.outcome is MetricsOutcome.updated
+    assert float(org.rating) == 4.5
+    # Existing counts preserved: a scrape must never overwrite a known value with null.
+    assert org.review_count == 99
+    assert org.yandex_rating_count == 150

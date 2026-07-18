@@ -94,3 +94,16 @@ def test_no_url_is_skipped():
         session, scrapers, ["yandex"], limit=1, only_missing=False, dry_run=False
     )
     assert summary.get("yandex").skipped == 1
+
+
+def test_successful_scrape_increments_updated_counter():
+    org = _org(yandex_url="u")
+    session = _FakeSession([org])
+    scrapers = _FakeScrapers({"yandex": _result(rating=4.7, review_count=120, rating_count=340)})
+    summary = scrape_metrics.run(
+        session, scrapers, ["yandex"], limit=1, only_missing=False, dry_run=False
+    )
+    assert summary.get("yandex").updated == 1
+    assert summary.get("yandex").failed == 0
+    assert summary.get("yandex").manual_action == 0
+    assert org.rating == 4.7
