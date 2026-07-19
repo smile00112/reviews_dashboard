@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { Company, Organization, OverviewPeriod, OverviewPlatform } from "@/lib/types";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 
@@ -77,6 +78,39 @@ export function DashboardFilters({
   const selected = new Set(orgIds);
   // Picking a brand narrows the branch list to that brand's locations (FR-009).
   const visibleOrgs = companyId ? orgs.filter((o) => o.company_id === companyId) : orgs;
+
+  const companyRef = useRef<HTMLDetailsElement>(null);
+  const orgRef = useRef<HTMLDetailsElement>(null);
+  const [orgInput, setOrgInput] = useState("");
+  const [orgQuery, setOrgQuery] = useState("");
+
+  // Apply the branch search 700ms after the last keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setOrgQuery(orgInput), 700);
+    return () => clearTimeout(t);
+  }, [orgInput]);
+
+  // Close either dropdown on a click outside of it (native <details> doesn't).
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (companyRef.current && !companyRef.current.contains(target)) {
+        companyRef.current.open = false;
+      }
+      if (orgRef.current && !orgRef.current.contains(target)) {
+        orgRef.current.open = false;
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const q = orgQuery.trim().toLowerCase();
+  const filteredOrgs = q
+    ? visibleOrgs.filter((o) =>
+        `${o.name ?? ""} ${o.city ?? ""}`.toLowerCase().includes(q),
+      )
+    : visibleOrgs;
   const orgLabel =
     orgIds.length === 0 ? "Все филиалы" : `Филиалов: ${orgIds.length}`;
   const companyLabel = companies.find((c) => c.id === companyId)?.name ?? "Все бренды";
@@ -101,7 +135,7 @@ export function DashboardFilters({
         </Chip>
       ))}
       <span className="mx-1 w-px self-stretch bg-border" />
-      <details className="relative">
+      <details ref={companyRef} className="relative">
         <summary
           className={`inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] ${
             companyId
@@ -139,7 +173,7 @@ export function DashboardFilters({
           )}
         </div>
       </details>
-      <details className="relative">
+      <details ref={orgRef} className="relative">
         <summary
           className={`inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] ${
             orgIds.length > 0
@@ -149,7 +183,14 @@ export function DashboardFilters({
         >
           {orgLabel} ▾
         </summary>
-        <div className="absolute right-0 z-50 mt-1 max-h-80 w-64 overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-xl">
+        <div className="absolute right-0 z-50 mt-1 flex max-h-80 w-64 flex-col rounded-lg border border-border bg-surface p-2 shadow-xl">
+          <input
+            type="text"
+            value={orgInput}
+            onChange={(e) => setOrgInput(e.target.value)}
+            placeholder="Поиск по названию или городу…"
+            className="mb-1 w-full rounded border border-border bg-surface-2 px-2 py-1.5 text-[12.5px] text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+          />
           <button
             type="button"
             onClick={onClearOrgs}
@@ -157,7 +198,8 @@ export function DashboardFilters({
           >
             Сбросить · все филиалы
           </button>
-          {visibleOrgs.map((o) => (
+          <div className="-mx-2 overflow-y-auto px-2">
+          {filteredOrgs.map((o) => (
             <label
               key={o.id}
               className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12.5px] hover:bg-surface-2"
@@ -174,6 +216,10 @@ export function DashboardFilters({
               </span>
             </label>
           ))}
+          {filteredOrgs.length === 0 && (
+            <p className="px-2 py-1.5 text-[12px] text-text-faint">Ничего не найдено</p>
+          )}
+          </div>
         </div>
       </details>
     </div>

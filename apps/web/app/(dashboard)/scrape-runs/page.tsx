@@ -15,8 +15,11 @@ export default function ScrapeRunsPage() {
   }, []);
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">История сборов</h1>
+    <div className="space-y-5">
+      <div>
+        <h1 className="font-display text-4xl font-medium tracking-tight">История сборов</h1>
+        <p className="mt-1.5 text-sm text-text-dim">Результаты сборов отзывов по всем площадкам</p>
+      </div>
       <ScrapeRunStatusTable items={items} />
     </div>
   );
