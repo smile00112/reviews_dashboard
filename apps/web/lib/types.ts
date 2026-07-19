@@ -403,3 +403,7 @@ export interface JobRunDetail extends JobRun {
   job: Job;
   items: JobRunItem[];
 }
+
+export type Settings = {
+  overview_sla_threshold_minutes: number;
+};
