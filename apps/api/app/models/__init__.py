@@ -1,3 +1,4 @@
+from app.models.app_setting import AppSetting
 from app.models.attention_rule import AttentionRule
 from app.models.company import Company
 from app.models.job import Job
@@ -11,6 +12,7 @@ from app.models.scraper_session import ScraperSession
 from app.models.user import User
 
 __all__ = [
+    "AppSetting",
     "AttentionRule",
     "Company",
     "Job",
