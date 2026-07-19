@@ -59,5 +59,13 @@ services:
       - api
     restart: always
 
+  adminer:
+    image: adminer:latest
+    ports:
+      - "2028:8080"
+    depends_on:
+      - postgres
+    restart: always
+
 volumes:
   postgres_data:
