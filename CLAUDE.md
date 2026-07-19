@@ -72,6 +72,9 @@ Reviews are deduped per organization by `content_hash` = SHA-256 of normalized `
 ### Review analytics (feature 002, `analysis/` + `AnalysisService`)
 Deterministic, local, rule-based (constitution Principle VI — no LLM/external calls). `ReviewAnalyzer.analyze(text, rating)` returns sentiment (label/score/confidence), problem categories (8-category taxonomy with severity + context), and a rating↔sentiment mismatch flag. `ReviewService.upsert_reviews` runs analysis **after** `build_review_hash` (analysis fields are additive columns + `problems` JSONB; they never feed the dedup hash). Backfill via `POST /api/organizations/{id}/analyze`; per-org aggregate via `GET /api/organizations/{id}/analytics`. Analysis must degrade safely (empty/garbage text → neutral/empty, never raise) and stays idempotent. JSONB column uses `JSON().with_variant(JSONB, "postgresql")` so SQLite-backed tests work.
 
+### Dashboard overview aggregation (feature 012, `specs/012-dashboard-overview-perf/`)
+`DashboardService.overview` must never materialize review rows — it used to load every `Review` for the selected orgs as ORM objects and aggregate in Python (~5 s at 52k reviews / 604 orgs). Now nearly everything comes from **one** `GROUP BY (platform, rating, sentiment)` scan (`_review_cube`, ≤60 result rows): all-time and period counts, the 24h/2h/today windows, response `SUM(delay)`/count/within-SLA are all `CASE` conditionals in that single query, folded into blocks by `_counters_from_cube` / `_sentiment_counts_from_cube` / `_response_stats_from_cube`. Plus three small queries: `percentile_cont` for median/p95 (SQLite lacks it → falls back to loading delays), per-org unanswered counts, and the 14-day `problems` rows for aspects. Response delay is computed in SQL (`extract(epoch …)` / `julianday()`) — never ship timestamps per row. When no org/company filter is set the `organization_id IN (…)` clause is **omitted** (a 600-element bind list costs more than the scan). All rounding, percent math, sorting, and top-N stay in Python so the payload is value-identical — `test_dashboard_overview.py` / `test_dashboard_attention_rules.py` are the contract and must pass unmodified; `test_query_counts.py` guards that the SELECT count grows with neither org nor review volume. Indexes in migration 0017. HTTP now ~0.27 s.
+
 ### Status enums (`models/enums.py`)
 `ScrapeMode` (public | operator_auth | public_http), `ScrapeRunStatus`, `OrganizationScrapeStatus`, `SessionStatus`. `needs_manual_action` is a first-class outcome (captcha/2FA/expired session/bot-wall), distinct from `failed`. `SessionStatus.pending` (feature 010) marks an in-flight background login/check. Captcha/bot markers live in one shared module `scraper/markers.py` (`BOT_MARKERS`); `yandex_public` re-exports it as `CAPTCHA_MARKERS`, `twogis_api` extends it with 2GIS-specific phrases — add markers there, not per-scraper. Note: in the real DB (migration 0001) all three `scrape_mode` columns share one Postgres type `scrape_mode_enum` — the differing `name=` in the ORM models only matter for SQLite test backends. Adding a mode = `ALTER TYPE scrape_mode_enum ADD VALUE` (see migration 0003).
 
@@ -92,13 +95,13 @@ Hard rules — do not violate without a constitution amendment:
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/001-yandex-reviews-mvp/plan.md
+specs/012-dashboard-overview-perf/plan.md
 
 Also available:
-- Feature spec: specs/001-yandex-reviews-mvp/spec.md
-- Data model: specs/001-yandex-reviews-mvp/data-model.md
-- API contracts: specs/001-yandex-reviews-mvp/contracts/
-- Quickstart: specs/001-yandex-reviews-mvp/quickstart.md
-- Tasks: specs/001-yandex-reviews-mvp/tasks.md
-- Reference notes: docs/plans/2026-06-14-yandex-reviews-mvp.md
+- Feature spec: specs/012-dashboard-overview-perf/spec.md
+- Data model: specs/012-dashboard-overview-perf/data-model.md
+- API contracts: specs/012-dashboard-overview-perf/contracts/
+- Quickstart: specs/012-dashboard-overview-perf/quickstart.md
+- Tasks: specs/012-dashboard-overview-perf/tasks.md
+- Research notes: specs/012-dashboard-overview-perf/research.md
 <!-- SPECKIT END -->

@@ -1,10 +1,13 @@
 """Network-level overview aggregation (feature 009).
 
 Read-only. Aggregates already-collected reviews + organization metrics across a
-selectable set of organizations, filtered by period / platform. Reuses the
-deterministic local analytics (``analysis.analyzer.summarize``); introduces no
-external inference (constitution Principle VI). Also owns the daily
-``rating_snapshot`` capture/read used for period-over-period rating deltas.
+selectable set of organizations, filtered by period / platform. Counts and
+distributions are computed by the database (feature 012); only the small
+per-review slices that genuinely need row data (response delays, 14-day
+problem aspects) are loaded, and never ``review_text``. Sentiment percents
+reproduce ``analysis.analyzer.summarize`` semantics exactly; no external
+inference (constitution Principle VI). Also owns the daily ``rating_snapshot``
+capture/read used for period-over-period rating deltas.
 """
 
 from __future__ import annotations
@@ -13,10 +16,9 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import Float, and_, case, cast, func
 from sqlalchemy.orm import Session
 
-from app.analysis.analyzer import summarize
 from app.core.config import settings
 from app.models.attention_rule import AttentionRule
 from app.models.enums import AttentionRuleType, AttentionScope, ReviewPlatform, ReviewStatus
@@ -182,12 +184,189 @@ class DashboardService:
             query = query.filter(Organization.id.in_(org_ids))
         return query.all()
 
-    def _review_query(self, org_ids: list[UUID], platform: str, *, cutoff: datetime | None):
-        """Base filtered Review query (no period) restricted to selected orgs+platform."""
-        query = self.db.query(Review).filter(Review.organization_id.in_(org_ids))
+    def _dt_param(self, dt: datetime) -> datetime:
+        """Bind-safe cutoff: SQLite stores naive-UTC datetime strings, so strip
+        tzinfo after normalizing to UTC; PostgreSQL ``timestamptz`` keeps aware."""
+        if self.db.get_bind().dialect.name == "sqlite":
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+
+    @staticmethod
+    def _scoped_filters(org_ids: list[UUID] | None, platform: str) -> list:
+        """``org_ids=None`` means "every organization" — the IN clause is then
+        omitted (a 600-element UUID list costs more than the scan it guards)."""
+        filters = [] if org_ids is None else [Review.organization_id.in_(org_ids)]
         if platform != "all":
-            query = query.filter(Review.platform == ReviewPlatform(platform))
-        return query
+            filters.append(Review.platform == ReviewPlatform(platform))
+        return filters
+
+    # ------------------------------------------------------------------ #
+    # Aggregate queries (feature 012 — no full review materialization)   #
+    # ------------------------------------------------------------------ #
+    def _review_cube(self, org_ids: list[UUID] | None, cutoff: datetime | None, now: datetime) -> list:
+        """One scan of the scoped reviews, grouped by (platform, rating, sentiment).
+
+        Every counter, distribution and response-delay figure the overview needs is
+        folded out of this single result: period membership and the 24h/2h/today
+        windows are conditional aggregates rather than separate scans. Always
+        platform-agnostic (platform cards need every platform); consumers narrow to
+        the page platform in Python.
+        """
+        delay = self._response_delay_expr()
+        answered = Review.response_first_seen_at.isnot(None)
+        sla_seconds = settings.overview_sla_threshold_minutes * 60
+        fs = Review.first_seen_at
+        unanswered = Review.response_text.is_(None)
+        in_period = True if cutoff is None else fs >= self._dt_param(cutoff)
+        cutoff_24h = self._dt_param(now - timedelta(hours=24))
+        cutoff_2h = self._dt_param(now - timedelta(hours=2))
+        today_start = self._dt_param(datetime(now.year, now.month, now.day, tzinfo=timezone.utc))
+
+        def cnt(*conds):
+            return func.count(case((and_(*conds), 1)))
+
+        query = self.db.query(
+            Review.platform,
+            Review.rating,
+            Review.sentiment,
+            func.count().label("total"),
+            (func.count() if cutoff is None else cnt(in_period)).label("count"),
+            cnt(fs >= today_start).label("new_today"),
+            cnt(Review.rating <= 2, fs >= cutoff_2h).label("fresh_negatives_2h"),
+            cnt(unanswered).label("unanswered_total"),
+            cnt(unanswered, fs <= cutoff_24h).label("overdue_24h"),
+            cnt(unanswered, fs >= cutoff_24h).label("unanswered_delta_24h"),
+            func.min(fs).label("min_first_seen"),
+            cnt(in_period, answered).label("response_count"),
+            func.sum(case((and_(in_period, answered), delay))).label("response_sum_seconds"),
+            cnt(in_period, answered, delay <= sla_seconds).label("within_sla"),
+        ).filter(*self._scoped_filters(org_ids, "all"))
+        return query.group_by(Review.platform, Review.rating, Review.sentiment).all()
+
+    @staticmethod
+    def _counters_from_cube(cube, page_platforms) -> dict:
+        """Header/KPI counters folded out of the cube, narrowed to the page platform."""
+        keys = (
+            "total",
+            "count",
+            "new_today",
+            "fresh_negatives_2h",
+            "unanswered_total",
+            "overdue_24h",
+            "unanswered_delta_24h",
+        )
+        totals = {k: 0 for k in keys}
+        earliest = None
+        for row in cube:
+            if page_platforms is not None and row.platform not in page_platforms:
+                continue
+            for k in keys:
+                totals[k] += getattr(row, k)
+            if row.min_first_seen is not None and (earliest is None or row.min_first_seen < earliest):
+                earliest = row.min_first_seen
+        totals["new_in_period"] = totals.pop("count")
+        totals["min_first_seen"] = earliest
+        return totals
+
+    @staticmethod
+    def _sentiment_counts_from_cube(cube, page_platforms) -> dict:
+        counts: dict = {}
+        for row in cube:
+            if page_platforms is not None and row.platform not in page_platforms:
+                continue
+            counts[row.sentiment] = counts.get(row.sentiment, 0) + row.count
+        return counts
+
+    @staticmethod
+    def _response_stats_from_cube(cube) -> dict:
+        stats: dict = {}
+        for row in cube:
+            entry = stats.setdefault(row.platform, {"count": 0, "sum_seconds": 0.0, "within_sla": 0})
+            entry["count"] += row.response_count
+            entry["sum_seconds"] += float(row.response_sum_seconds or 0.0)
+            entry["within_sla"] += row.within_sla
+        return stats
+
+    def _unanswered_by_org(self, org_ids: list[UUID] | None, platform: str) -> dict[UUID, int]:
+        query = self.db.query(Review.organization_id, func.count()).filter(
+            *self._scoped_filters(org_ids, platform), Review.response_text.is_(None)
+        )
+        return dict(query.group_by(Review.organization_id).all())
+
+    def _response_delay_expr(self):
+        """Response delay in seconds, computed by the database (avoids shipping
+        two timestamps per row and parsing them in Python)."""
+        if self.db.get_bind().dialect.name == "sqlite":
+            return (
+                func.julianday(Review.response_first_seen_at) - func.julianday(Review.first_seen_at)
+            ) * 86400.0
+        # extract() yields NUMERIC on PostgreSQL — cast so consumers always get float
+        return cast(
+            func.extract("epoch", Review.response_first_seen_at - Review.first_seen_at), Float
+        )
+
+    def _response_base(self, org_ids: list[UUID] | None, cutoff: datetime | None):
+        """Filtered query base over period rows carrying a response (platform-agnostic)."""
+        filters = [Review.response_first_seen_at.isnot(None)]
+        if org_ids is not None:
+            filters.append(Review.organization_id.in_(org_ids))
+        if cutoff is not None:
+            filters.append(Review.first_seen_at >= self._dt_param(cutoff))
+        return filters
+
+    def _response_percentiles(
+        self, org_ids: list[UUID] | None, cutoff: datetime | None, platform: str
+    ) -> tuple[float | None, float | None]:
+        """(median, p95) response delay in seconds for the page's platform scope.
+
+        PostgreSQL computes them with ``percentile_cont`` (linear interpolation —
+        the same definition as ``statistics.median`` and ``_percentile``); SQLite,
+        which lacks it, falls back to loading the delays.
+        """
+        delay = self._response_delay_expr()
+        filters = list(self._response_base(org_ids, cutoff))
+        if platform != "all":
+            filters.append(Review.platform == ReviewPlatform(platform))
+
+        if self.db.get_bind().dialect.name == "sqlite":
+            values = [v for (v,) in self.db.query(delay).select_from(Review).filter(*filters)]
+            if not values:
+                return None, None
+            return median(values), self._percentile(values, 95)
+
+        row = (
+            self.db.query(
+                func.percentile_cont(0.5).within_group(delay.asc()).label("median"),
+                func.percentile_cont(0.95).within_group(delay.asc()).label("p95"),
+            )
+            .select_from(Review)
+            .filter(*filters)
+            .one()
+        )
+        if row.median is None:
+            return None, None
+        return float(row.median), float(row.p95)
+
+    def _aspect_rows(self, org_ids: list[UUID], platform: str, now: datetime) -> list:
+        """14-day rows with problems for trending aspects / aspect-spike rules."""
+        prev_start = (now - timedelta(days=14)).date()
+        return (
+            self.db.query(Review.organization_id, Review.review_date, Review.problems, Review.sentiment)
+            .filter(
+                *self._scoped_filters(org_ids, platform),
+                Review.review_date >= prev_start,
+                Review.problems.isnot(None),
+            )
+            .all()
+        )
+
+    def _scoped_count(self, org_ids: list[UUID], platform: str, *criteria) -> int:
+        query = (
+            self.db.query(func.count())
+            .select_from(Review)
+            .filter(*self._scoped_filters(org_ids, platform), *criteria)
+        )
+        return int(query.scalar() or 0)
 
     # ------------------------------------------------------------------ #
     # Overview                                                           #
@@ -213,23 +392,36 @@ class DashboardService:
         if not selected_ids:
             return empty
 
-        base = self._review_query(selected_ids, platform, cutoff=cutoff)
-        all_reviews = base.all()
-        period_reviews = [r for r in all_reviews if cutoff is None or _aware(r.first_seen_at) >= cutoff]
-
         # One grouped query for all period-start snapshot baselines (no per-org N+1).
         snaps = self._earliest_snapshot_ratings(selected_ids, period_start)
 
-        header = self._header(all_reviews, period_reviews, now)
-        kpi_hero = self._kpi_hero(orgs, all_reviews, period_reviews, platform, snaps, days, now)
-        kpi_strip = self._kpi_strip(period_reviews)
-        rating_distribution = self._rating_distribution(period_reviews)
-        sentiment = self._sentiment(period_reviews)
+        # No org/company filter -> every organization is selected, so the review
+        # queries can drop the (potentially 600-element) IN clause entirely.
+        scope = None if (not org_ids and company_id is None) else selected_ids
+
+        page_platforms = None if platform == "all" else {ReviewPlatform(platform)}
+
+        cube = self._review_cube(scope, cutoff, now)
+        counters = self._counters_from_cube(cube, page_platforms)
+        rating_counts = cube
+        sentiment_counts = self._sentiment_counts_from_cube(cube, page_platforms)
+        response_stats = self._response_stats_from_cube(cube)
+        unanswered_by_org = self._unanswered_by_org(scope, platform)
+        response_percentiles = self._response_percentiles(scope, cutoff, platform)
+        aspect_rows = self._aspect_rows(scope, platform, now)
+
+        header = self._header(counters)
+        kpi_hero = self._kpi_hero(orgs, counters, platform, snaps, days, now)
+        kpi_strip = self._kpi_strip(
+            response_stats, response_percentiles, rating_counts, sentiment_counts, page_platforms
+        )
+        rating_distribution = self._rating_distribution(rating_counts, page_platforms)
+        sentiment = self._sentiment(sentiment_counts)
         platform_breakdown = self._platform_breakdown(orgs)
-        platform_cards = self._platform_cards(orgs, selected_ids, cutoff, snaps, platform, all_reviews)
-        attention = self._attention(orgs, all_reviews, platform, snaps, now)
-        worst_locations = self._worst_locations(orgs, all_reviews, platform, snaps)
-        trending_aspects = self._trending_aspects(all_reviews, now)
+        platform_cards = self._platform_cards(orgs, snaps, rating_counts, response_stats)
+        attention = self._attention(orgs, platform, snaps, now, aspect_rows, scope)
+        worst_locations = self._worst_locations(orgs, platform, snaps, unanswered_by_org)
+        trending_aspects = self._trending_aspects(aspect_rows, now)
 
         return {
             **empty,
@@ -248,87 +440,85 @@ class DashboardService:
     # ------------------------------------------------------------------ #
     # Blocks                                                             #
     # ------------------------------------------------------------------ #
-    def _header(self, all_reviews, period_reviews, now: datetime) -> dict:
-        cutoff_24h = now - timedelta(hours=24)
-        cutoff_2h = now - timedelta(hours=2)
+    def _header(self, counters: dict) -> dict:
         return {
-            "new_in_period": len(period_reviews),
-            "unanswered_over_24h": sum(
-                1 for r in all_reviews if r.response_text is None and _aware(r.first_seen_at) <= cutoff_24h
-            ),
-            "fresh_negatives_2h": sum(
-                1 for r in all_reviews if r.rating <= 2 and _aware(r.first_seen_at) >= cutoff_2h
-            ),
+            "new_in_period": counters["new_in_period"],
+            "unanswered_over_24h": counters["overdue_24h"],
+            "fresh_negatives_2h": counters["fresh_negatives_2h"],
         }
 
-    def _kpi_hero(self, orgs, all_reviews, period_reviews, platform, snaps, days, now) -> dict:
+    def _kpi_hero(self, orgs, counters, platform, snaps, days, now) -> dict:
         # Weighted network average rating over the platform's org columns.
         avg_rating = self._weighted_avg_rating(orgs, platform)
         delta = self._network_rating_delta(orgs, platform, snaps)
 
-        today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-        new_today = sum(1 for r in all_reviews if _aware(r.first_seen_at) >= today_start)
-        cutoff_24h = now - timedelta(hours=24)
-        unanswered = [r for r in all_reviews if r.response_text is None]
-
-        span = days or max(1, self._span_days(all_reviews, now))
+        span = days or max(1, self._span_days(counters["min_first_seen"], now))
+        new_in_period = counters["new_in_period"]
         return {
             "network_avg_rating": avg_rating,
             "network_avg_rating_delta": delta,
-            "new_in_period": len(period_reviews),
-            "new_today": new_today,
-            "total_reviews": len(all_reviews),
-            "avg_per_day": round(len(period_reviews) / span, 1) if span else 0.0,
-            "unanswered_total": len(unanswered),
-            "unanswered_delta_24h": sum(1 for r in unanswered if _aware(r.first_seen_at) >= cutoff_24h),
-            "overdue_24h": sum(1 for r in unanswered if _aware(r.first_seen_at) <= cutoff_24h),
+            "new_in_period": new_in_period,
+            "new_today": counters["new_today"],
+            "total_reviews": counters["total"],
+            "avg_per_day": round(new_in_period / span, 1) if span else 0.0,
+            "unanswered_total": counters["unanswered_total"],
+            "unanswered_delta_24h": counters["unanswered_delta_24h"],
+            "overdue_24h": counters["overdue_24h"],
         }
 
-    def _kpi_strip(self, period_reviews) -> dict:
-        minutes = [
-            (_aware(r.response_first_seen_at) - _aware(r.first_seen_at)).total_seconds() / 60
-            for r in period_reviews
-            if r.response_first_seen_at is not None
-        ]
-        sla_threshold = settings.overview_sla_threshold_minutes
-        sla_percent = (
-            round(sum(1 for m in minutes if m <= sla_threshold) / len(minutes) * 100, 1)
-            if minutes
-            else None
-        )
+    def _kpi_strip(
+        self, response_stats, percentiles, rating_counts, sentiment_counts, page_platforms
+    ) -> dict:
+        count = sum_seconds = within_sla = 0
+        for p, stats in response_stats.items():
+            if page_platforms is not None and p not in page_platforms:
+                continue
+            count += stats["count"]
+            sum_seconds += stats["sum_seconds"]
+            within_sla += stats["within_sla"]
+        sla_percent = round(within_sla / count * 100, 1) if count else None
+        median_seconds, p95_seconds = percentiles
 
-        rated = [r for r in period_reviews if r.rating is not None]
-        n = len(rated)
+        n = share5_count = share13_count = 0
+        for row in rating_counts:
+            if page_platforms is not None and row.platform not in page_platforms:
+                continue
+            if row.rating is None:
+                continue
+            n += row.count
+            if row.rating == 5:
+                share5_count += row.count
+            if row.rating <= 3:
+                share13_count += row.count
         reputation = None
         if n:
-            share5 = sum(1 for r in rated if r.rating == 5) / n * 100
-            share13 = sum(1 for r in rated if r.rating <= 3) / n * 100
+            share5 = share5_count / n * 100
+            share13 = share13_count / n * 100
             reputation = round(share5 - share13, 1)
 
-        summary = summarize(
-            {
-                "sentiment": r.sentiment,
-                "sentiment_score": r.sentiment_score,
-                "problems": r.problems,
-                "rating_sentiment_mismatch": r.rating_sentiment_mismatch,
-            }
-            for r in period_reviews
-        )
+        _, sentiment_percent, _ = self._sentiment_summary(sentiment_counts)
 
         return {
-            "response_avg_min": round(sum(minutes) / len(minutes)) if minutes else None,
-            "response_median_min": round(median(minutes)) if minutes else None,
-            "response_p95_min": self._percentile(minutes, 95) if minutes else None,
+            "response_avg_min": round(sum_seconds / count / 60) if count else None,
+            "response_median_min": round(median_seconds / 60) if median_seconds is not None else None,
+            "response_p95_min": round(p95_seconds / 60) if p95_seconds is not None else None,
             "response_approximate": True,
             "sla_percent": sla_percent,
-            "positivity_percent": summary["sentiment_percent"]["positive"],
+            "positivity_percent": sentiment_percent["positive"],
             "reputation_index": reputation,
         }
 
-    def _rating_distribution(self, period_reviews) -> dict:
-        rated = [r for r in period_reviews if r.rating is not None]
-        total = len(rated)
-        counts = {star: sum(1 for r in rated if r.rating == star) for star in (5, 4, 3, 2, 1)}
+    def _rating_distribution(self, rating_counts, page_platforms) -> dict:
+        counts = {star: 0 for star in (5, 4, 3, 2, 1)}
+        total = 0
+        for row in rating_counts:
+            if page_platforms is not None and row.platform not in page_platforms:
+                continue
+            if row.rating is None:
+                continue
+            total += row.count
+            if row.rating in counts:
+                counts[row.rating] += row.count
 
         def pct(n: int) -> float:
             return round(n / total * 100, 1) if total else 0.0
@@ -338,18 +528,26 @@ class DashboardService:
         share_1_3 = pct(counts[3] + counts[2] + counts[1])
         return {"bars": bars, "share_4_5": share_4_5, "share_1_3": share_1_3, "total": total}
 
-    def _sentiment(self, period_reviews) -> dict:
-        summary = summarize(
-            {
-                "sentiment": r.sentiment,
-                "sentiment_score": r.sentiment_score,
-                "problems": r.problems,
-                "rating_sentiment_mismatch": r.rating_sentiment_mismatch,
-            }
-            for r in period_reviews
-        )
-        dist = summary["sentiment_distribution"]
-        pct = summary["sentiment_percent"]
+    @staticmethod
+    def _sentiment_summary(sentiment_counts: dict) -> tuple[dict, dict, int]:
+        """Distribution/percent/analyzed-count with the exact semantics of
+        ``analysis.analyzer.summarize``: falsy sentiment = unanalyzed; unknown
+        labels count toward ``analyzed`` but no bucket; pct = round(x/n*100, 1)."""
+        distribution = {"positive": 0, "negative": 0, "neutral": 0}
+        analyzed = 0
+        for label, count in sentiment_counts.items():
+            if not label:
+                continue
+            analyzed += count
+            if label in distribution:
+                distribution[label] += count
+        percent = {
+            k: (round(v / analyzed * 100, 1) if analyzed else 0.0) for k, v in distribution.items()
+        }
+        return distribution, percent, analyzed
+
+    def _sentiment(self, sentiment_counts) -> dict:
+        dist, pct, analyzed = self._sentiment_summary(sentiment_counts)
         return {
             "positive": dist["positive"],
             "neutral": dist["neutral"],
@@ -357,7 +555,7 @@ class DashboardService:
             "positive_percent": pct["positive"],
             "neutral_percent": pct["neutral"],
             "negative_percent": pct["negative"],
-            "analyzed_total": summary["analyzed_reviews"],
+            "analyzed_total": analyzed,
         }
 
     def _platform_breakdown(self, orgs) -> list[dict]:
@@ -369,37 +567,27 @@ class DashboardService:
             out.append({"platform": p.value, "review_count": total})
         return out
 
-    def _platform_cards(self, orgs, selected_ids, cutoff, snaps, platform, all_reviews) -> list[dict]:
+    def _platform_cards(self, orgs, snaps, rating_counts, response_stats) -> list[dict]:
         # Per-platform review-derived metrics (negativity, response speed) computed
-        # from actual review rows, ignoring the platform filter so every card is
+        # from period review data, ignoring the platform filter so every card is
         # comparable. Google has no review rows -> those fields stay None.
-        if platform == "all":
-            # already materialized platform-agnostic in overview(); no second scan
-            rows = all_reviews
-        else:
-            rows = self.db.query(Review).filter(Review.organization_id.in_(selected_ids)).all()
-        reviews = [r for r in rows if cutoff is None or _aware(r.first_seen_at) >= cutoff]
-        by_platform: dict[ReviewPlatform, list] = {p: [] for p in _PLATFORM_COLS}
-        for r in reviews:
-            if r.platform in by_platform:
-                by_platform[r.platform].append(r)
-
         cards = []
         for p in _PLATFORM_COLS:
-            prs = by_platform[p]
-            negativity = None
-            response_hours = None
-            if prs:
-                rated = [r for r in prs if r.rating is not None]
-                if rated:
-                    negativity = round(sum(1 for r in rated if r.rating <= 2) / len(rated) * 100, 1)
-                mins = [
-                    (_aware(r.response_first_seen_at) - _aware(r.first_seen_at)).total_seconds() / 3600
-                    for r in prs
-                    if r.response_first_seen_at is not None
-                ]
-                if mins:
-                    response_hours = round(sum(mins) / len(mins), 1)
+            rated = negative = 0
+            for row in rating_counts:
+                if row.platform != p or row.rating is None:
+                    continue
+                rated += row.count
+                if row.rating <= 2:
+                    negative += row.count
+            negativity = round(negative / rated * 100, 1) if rated else None
+
+            stats = response_stats.get(p)
+            response_hours = (
+                round(stats["sum_seconds"] / 3600 / stats["count"], 1)
+                if stats and stats["count"]
+                else None
+            )
             cards.append(
                 {
                     "platform": p.value,
@@ -416,7 +604,7 @@ class DashboardService:
     # ------------------------------------------------------------------ #
     _SEVERITY_ORDER = {"urgent": 0, "warn": 1, "info": 2}
 
-    def _attention(self, orgs, all_reviews, platform, snaps, now) -> list[dict]:
+    def _attention(self, orgs, platform, snaps, now, aspect_rows, scope) -> list[dict]:
         rules = (
             self.db.query(AttentionRule)
             .filter(AttentionRule.is_enabled.is_(True))
@@ -429,8 +617,14 @@ class DashboardService:
             if not scope_ids:
                 continue  # скоуп не пересекается с фильтрами страницы
             rule_orgs = [o for o in orgs if o.id in scope_ids]
-            rule_reviews = [r for r in all_reviews if r.organization_id in scope_ids]
-            items.extend(self._evaluate_rule(rule, rule_orgs, rule_reviews, platform, snaps, now))
+            # A rule covering the whole page selection inherits the page's scope,
+            # so an unfiltered page keeps issuing IN-clause-free counts.
+            rule_scope = scope if len(scope_ids) == len(orgs) else list(scope_ids)
+            items.extend(
+                self._evaluate_rule(
+                    rule, rule_orgs, scope_ids, rule_scope, platform, snaps, now, aspect_rows
+                )
+            )
         # Внутри severity — по модулю value: у rating_drop value отрицательный,
         # худшее падение должно стоять первым, как и самый большой счётчик.
         items.sort(key=lambda i: (self._SEVERITY_ORDER.get(i["severity"], 9), -abs(i["value"])))
@@ -453,18 +647,33 @@ class DashboardService:
             return selected & wanted
         return selected
 
-    def _evaluate_rule(self, rule, rule_orgs, rule_reviews, platform, snaps, now) -> list[dict]:
+    def _evaluate_rule(
+        self, rule, rule_orgs, scope_ids, rule_scope, platform, snaps, now, aspect_rows
+    ) -> list[dict]:
         params = rule.params or {}
+        scope_list = rule_scope
         if rule.rule_type == AttentionRuleType.unanswered_overdue:
-            found = self._eval_unanswered(rule_reviews, now, hours=int(params.get("hours", 24)))
-        elif rule.rule_type == AttentionRuleType.fresh_negative:
-            found = self._eval_fresh_negative(
-                rule_reviews, now,
-                window_hours=int(params.get("window_hours", 2)),
-                max_rating=int(params.get("max_rating", 2)),
+            hours = int(params.get("hours", 24))
+            overdue = self._scoped_count(
+                scope_list,
+                platform,
+                Review.response_text.is_(None),
+                Review.first_seen_at <= self._dt_param(now - timedelta(hours=hours)),
             )
+            found = self._eval_unanswered(overdue, hours=hours)
+        elif rule.rule_type == AttentionRuleType.fresh_negative:
+            window_hours = int(params.get("window_hours", 2))
+            max_rating = int(params.get("max_rating", 2))
+            fresh = self._scoped_count(
+                scope_list,
+                platform,
+                Review.rating <= max_rating,
+                Review.first_seen_at >= self._dt_param(now - timedelta(hours=window_hours)),
+            )
+            found = self._eval_fresh_negative(fresh, window_hours=window_hours, max_rating=max_rating)
         elif rule.rule_type == AttentionRuleType.escalated:
-            found = self._eval_escalated(rule_reviews)
+            escalated = self._scoped_count(scope_list, platform, Review.status == ReviewStatus.escalated)
+            found = self._eval_escalated(escalated)
         elif rule.rule_type == AttentionRuleType.rating_drop:
             found = self._rating_drops(
                 rule_orgs, platform, snaps,
@@ -473,7 +682,7 @@ class DashboardService:
             )
         else:  # aspect_spike
             found = self._aspect_spikes(
-                rule_reviews, now,
+                [r for r in aspect_rows if r.organization_id in scope_ids], now,
                 min_recent=int(params.get("min_recent", 3)),
                 top=int(params.get("top", 3)),
             )
@@ -488,9 +697,7 @@ class DashboardService:
         return found
 
     @staticmethod
-    def _eval_unanswered(reviews, now, *, hours: int) -> list[dict]:
-        cutoff = now - timedelta(hours=hours)
-        overdue = sum(1 for r in reviews if r.response_text is None and _aware(r.first_seen_at) <= cutoff)
+    def _eval_unanswered(overdue: int, *, hours: int) -> list[dict]:
         if not overdue:
             return []
         return [{
@@ -502,9 +709,7 @@ class DashboardService:
         }]
 
     @staticmethod
-    def _eval_fresh_negative(reviews, now, *, window_hours: int, max_rating: int) -> list[dict]:
-        cutoff = now - timedelta(hours=window_hours)
-        fresh = sum(1 for r in reviews if r.rating <= max_rating and _aware(r.first_seen_at) >= cutoff)
+    def _eval_fresh_negative(fresh: int, *, window_hours: int, max_rating: int) -> list[dict]:
         if not fresh:
             return []
         return [{
@@ -519,8 +724,7 @@ class DashboardService:
         }]
 
     @staticmethod
-    def _eval_escalated(reviews) -> list[dict]:
-        escalated = sum(1 for r in reviews if r.status == ReviewStatus.escalated)
+    def _eval_escalated(escalated: int) -> list[dict]:
         if not escalated:
             return []
         return [{
@@ -533,12 +737,12 @@ class DashboardService:
             "link": "/reviews?status=escalated",
         }]
 
-    def _aspect_spikes(self, all_reviews, now, *, min_recent: int = 3, top: int = 3) -> list[dict]:
+    def _aspect_spikes(self, aspect_rows, now, *, min_recent: int = 3, top: int = 3) -> list[dict]:
         recent_start = (now - timedelta(days=7)).date()
         prev_start = (now - timedelta(days=14)).date()
         recent: dict[str, int] = {}
         prev: dict[str, int] = {}
-        for r in all_reviews:
+        for r in aspect_rows:
             if not r.review_date or not r.problems:
                 continue
             if r.review_date >= recent_start:
@@ -593,14 +797,9 @@ class DashboardService:
     # ------------------------------------------------------------------ #
     # Worst locations + trending aspects                                 #
     # ------------------------------------------------------------------ #
-    def _worst_locations(self, orgs, all_reviews, platform, snaps, *, top: int = 10) -> list[dict]:
+    def _worst_locations(self, orgs, platform, snaps, unanswered_by_org, *, top: int = 10) -> list[dict]:
         p = ReviewPlatform(platform) if platform != "all" else ReviewPlatform.yandex
         rating_col, _ = _PLATFORM_COLS[p]
-
-        unanswered_by_org: dict = {}
-        for r in all_reviews:
-            if r.response_text is None:
-                unanswered_by_org[r.organization_id] = unanswered_by_org.get(r.organization_id, 0) + 1
 
         rows = []
         for org in orgs:
@@ -618,13 +817,13 @@ class DashboardService:
         rows.sort(key=lambda r: r["rating"])
         return rows[:top]
 
-    def _trending_aspects(self, all_reviews, now, *, top: int = 8) -> list[dict]:
+    def _trending_aspects(self, aspect_rows, now, *, top: int = 8) -> list[dict]:
         recent_start = (now - timedelta(days=7)).date()
         prev_start = (now - timedelta(days=14)).date()
         recent: dict[str, int] = {}
         prev: dict[str, int] = {}
         sentiment: dict[str, dict[str, int]] = {}
-        for r in all_reviews:
+        for r in aspect_rows:
             if not r.review_date or not r.problems:
                 continue
             if r.review_date >= recent_start:
@@ -659,7 +858,9 @@ class DashboardService:
                 "change_percent": change,
                 "sentiment": sentiment.get(cat, {"pos": 0, "neu": 0, "neg": 0}),
             })
-        aspects.sort(key=lambda a: a["mentions"], reverse=True)
+        # Category breaks mention-count ties: without it the order would follow
+        # whatever sequence the rows arrived in, which the database does not promise.
+        aspects.sort(key=lambda a: (-a["mentions"], a["category"]))
         return aspects[:top]
 
     # ------------------------------------------------------------------ #
@@ -688,12 +889,10 @@ class DashboardService:
         return round(sum(deltas) / len(deltas), 2) if deltas else None
 
     @staticmethod
-    def _span_days(reviews, now) -> int:
-        stamps = [_aware(r.first_seen_at) for r in reviews if r.first_seen_at]
-        if not stamps:
+    def _span_days(earliest: datetime | None, now: datetime) -> int:
+        if earliest is None:
             return 1
-        earliest = min(stamps)
-        return max(1, (now - earliest).days)
+        return max(1, (now - _aware(earliest)).days)
 
     @staticmethod
     def _percentile(values: list[float], pct: int) -> int:
