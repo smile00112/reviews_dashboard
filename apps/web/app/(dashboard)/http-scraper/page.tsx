@@ -62,8 +62,8 @@ export default function HttpScraperPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">HTTP-парсер (public_http)</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <h1 className="font-display text-4xl font-medium tracking-tight">HTTP-парсер</h1>
+        <p className="mt-1.5 max-w-3xl text-sm text-text-dim">
           Браузерless-сбор отзывов через HTTP (requests + пагинация). Отдельный интерфейс;
           Playwright-режимы не затрагиваются. Результаты пишутся в общую базу с дедупом и
           аналитикой.
@@ -71,30 +71,30 @@ export default function HttpScraperPage() {
       </div>
 
       {error && (
-        <p className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+        <p className="rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{error}</p>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-slate-700">Организации</h2>
+      <section className="space-y-2.5">
+        <h2 className="text-[11px] font-medium uppercase tracking-wider text-text-faint">Организации</h2>
         {orgs.length === 0 ? (
-          <p className="rounded-lg border bg-white p-6 text-sm text-slate-500">
+          <div className="rounded-2xl border border-border bg-surface py-12 text-center text-sm text-text-faint">
             Нет организаций. Добавьте их на странице «Организации».
-          </p>
+          </div>
         ) : (
-          <ul className="divide-y rounded-lg border bg-white">
+          <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {orgs.map((org) => (
               <li key={org.id} className="flex items-center justify-between gap-4 px-4 py-3">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-slate-900">
+                  <div className="truncate text-sm font-medium text-text">
                     {org.name ?? org.yandex_url}
                   </div>
-                  <div className="truncate text-xs text-slate-500">{org.yandex_url}</div>
+                  <div className="truncate font-mono text-xs text-text-faint">{org.yandex_url}</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => runHttpScrape(org)}
                   disabled={busy}
-                  className="shrink-0 rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                  className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-bg transition-colors hover:bg-accent-dim disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                 >
                   {busy && selectedId === org.id ? "Сбор…" : "Собрать (HTTP)"}
                 </button>
@@ -105,15 +105,15 @@ export default function HttpScraperPage() {
       </section>
 
       {run && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium text-slate-700">Текущий сбор</h2>
+        <section className="space-y-2.5">
+          <h2 className="text-[11px] font-medium uppercase tracking-wider text-text-faint">Текущий сбор</h2>
           <ScrapeRunStatusTable items={[run]} />
         </section>
       )}
 
       {selectedId && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium text-slate-700">Отзывы организации</h2>
+        <section className="space-y-2.5">
+          <h2 className="text-[11px] font-medium uppercase tracking-wider text-text-faint">Отзывы организации</h2>
           <ReviewsTable items={reviews} emptyMessage={busy ? "Сбор выполняется…" : "Отзывы не найдены."} />
         </section>
       )}
