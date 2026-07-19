@@ -22,6 +22,10 @@ class KpiHero(BaseModel):
     network_avg_rating_delta: float | None
     new_in_period: int
     new_today: int
+    # feature 014: period-over-period deltas (None when period has no predecessor)
+    new_in_period_delta: int | None = None
+    unanswered_delta_period: int | None = None
+    period_days: int | None = None
     total_reviews: int
     avg_per_day: float
     unanswered_total: int
@@ -37,6 +41,11 @@ class KpiStrip(BaseModel):
     sla_percent: float | None
     positivity_percent: float
     reputation_index: float | None
+    # feature 014: period-over-period deltas (None when period has no predecessor)
+    response_avg_min_delta: int | None = None
+    sla_percent_delta: float | None = None
+    positivity_percent_delta: float | None = None
+    reputation_index_delta: float | None = None
 
 
 class DistributionBar(BaseModel):

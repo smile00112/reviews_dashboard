@@ -14,7 +14,7 @@ export function ModeSelect({ value, onChange, id }: ModeSelectProps) {
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value as ScrapeMode)}
-      className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+      className="rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <option value="public">public</option>
       <option value="operator_auth">operator_auth</option>

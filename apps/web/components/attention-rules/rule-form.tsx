@@ -102,7 +102,7 @@ export function RuleForm({
         <label className="block text-xs">
           Тип правила
           <select
-            className="mt-1 w-full rounded border border-border bg-transparent px-2 py-1.5"
+            className="mt-1 w-full rounded border border-border bg-surface-2 text-text px-2 py-1.5"
             value={ruleType}
             onChange={(e) => switchType(e.target.value as AttentionRuleType)}
             disabled={initial !== null}
@@ -147,7 +147,7 @@ export function RuleForm({
         <label className="block text-xs">
           Серьёзность
           <select
-            className="mt-1 w-full rounded border border-border bg-transparent px-2 py-1.5"
+            className="mt-1 w-full rounded border border-border bg-surface-2 text-text px-2 py-1.5"
             value={severity}
             onChange={(e) => setSeverity(e.target.value as AttentionSeverity)}
             data-testid="rule-severity"
@@ -160,7 +160,7 @@ export function RuleForm({
         <label className="block text-xs">
           Скоуп
           <select
-            className="mt-1 w-full rounded border border-border bg-transparent px-2 py-1.5"
+            className="mt-1 w-full rounded border border-border bg-surface-2 text-text px-2 py-1.5"
             value={scopeType}
             onChange={(e) => setScopeType(e.target.value as AttentionScopeType)}
             data-testid="rule-scope"
@@ -176,7 +176,7 @@ export function RuleForm({
         <label className="block text-xs">
           Компания
           <select
-            className="mt-1 w-full rounded border border-border bg-transparent px-2 py-1.5"
+            className="mt-1 w-full rounded border border-border bg-surface-2 text-text px-2 py-1.5"
             value={companyId}
             onChange={(e) => setCompanyId(e.target.value)}
             data-testid="rule-company"
@@ -195,7 +195,7 @@ export function RuleForm({
           <select
             multiple
             size={Math.min(8, Math.max(3, organizations.length))}
-            className="mt-1 w-full rounded border border-border bg-transparent px-2 py-1.5"
+            className="mt-1 w-full rounded border border-border bg-surface-2 text-text px-2 py-1.5"
             value={orgIds}
             onChange={(e) => setOrgIds(Array.from(e.target.selectedOptions, (o) => o.value))}
             data-testid="rule-orgs"

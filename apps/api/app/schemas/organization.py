@@ -76,3 +76,4 @@ class OrganizationResponse(BaseModel):
 
 class OrganizationListResponse(BaseModel):
     items: list[OrganizationResponse]
+    total: int = 0

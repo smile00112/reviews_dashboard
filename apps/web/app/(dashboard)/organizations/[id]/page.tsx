@@ -21,33 +21,33 @@ function PlatformCard({
   ratingCount: number | null;
 }) {
   return (
-    <div className="rounded-lg border bg-white p-3">
-      <div className="text-sm font-medium text-slate-800">{title}</div>
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-text-faint">{title}</div>
       {url ? (
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-0.5 block truncate text-xs text-blue-600 hover:underline"
+          className="mt-1 block truncate text-xs text-text-dim hover:text-accent"
           title={url}
         >
           {url}
         </a>
       ) : (
-        <div className="mt-0.5 text-xs text-slate-400">Нет ссылки</div>
+        <div className="mt-1 text-xs text-text-faint">Нет ссылки</div>
       )}
-      <dl className="mt-2 space-y-0.5 text-sm text-slate-600">
+      <dl className="mt-3 space-y-1 text-sm text-text-dim">
         <div className="flex justify-between">
           <dt>Рейтинг</dt>
-          <dd>{rating ?? "—"}</dd>
+          <dd className="font-mono text-text">{rating ?? "—"}</dd>
         </div>
         <div className="flex justify-between">
           <dt>Отзывов</dt>
-          <dd>{reviewCount ?? "—"}</dd>
+          <dd className="font-mono text-text">{reviewCount ?? "—"}</dd>
         </div>
         <div className="flex justify-between">
           <dt>Оценок</dt>
-          <dd>{ratingCount ?? "—"}</dd>
+          <dd className="font-mono text-text">{ratingCount ?? "—"}</dd>
         </div>
       </dl>
     </div>
@@ -74,20 +74,20 @@ export default function OrganizationDetailPage() {
   }, [params.id, showRemoved]);
 
   if (!org) {
-    return <p className="text-sm text-slate-500">Загрузка...</p>;
+    return <p className="text-sm text-text-faint">Загрузка...</p>;
   }
 
   return (
-    <div className="space-y-4">
-      <Link href="/organizations" className="text-sm text-blue-600 hover:underline">
+    <div className="space-y-5">
+      <Link href="/organizations" className="text-sm text-text-dim hover:text-accent">
         ← Назад к списку
       </Link>
       <div>
-        <h1 className="text-2xl font-semibold">{org.name ?? "Организация"}</h1>
-        <p className="text-sm text-slate-600">
+        <h1 className="font-display text-4xl font-medium tracking-tight">{org.name ?? "Организация"}</h1>
+        <p className="mt-1.5 text-sm text-text-dim">
           Статус — Яндекс: {org.yandex_scrape_status} · 2ГИС: {org.gis2_scrape_status}
         </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <PlatformCard
             title="Яндекс"
             url={org.yandex_url}
@@ -111,11 +111,12 @@ export default function OrganizationDetailPage() {
           />
         </div>
       </div>
-      <label className="flex items-center gap-2 text-sm text-slate-600">
+      <label className="flex items-center gap-2 text-sm text-text-dim">
         <input
           type="checkbox"
           checked={showRemoved}
           onChange={(event) => setShowRemoved(event.target.checked)}
+          className="accent-accent"
         />
         Показать удалённые с площадки
       </label>

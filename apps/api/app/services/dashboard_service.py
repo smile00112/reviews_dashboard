@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from uuid import UUID
 
-from sqlalchemy import Date, Float, and_, case, cast, func
+from sqlalchemy import Date, Float, and_, case, cast, func, literal
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -133,15 +133,37 @@ class DashboardService:
     def _earliest_snapshot_ratings(
         self, org_ids: list[UUID], period_start: date
     ) -> dict[tuple[UUID, ReviewPlatform], float]:
-        """Earliest in-period snapshot rating per (org, platform) in ONE query
-        (window function; supported by PG16 and SQLite >= 3.25)."""
+        """Baseline snapshot rating per (org, platform) for the period.
+
+        Preferred baseline is the *latest* snapshot taken on or before
+        ``period_start`` — the rating as it stood when the period opened. Only
+        when no such snapshot exists (snapshot history younger than the period)
+        does it fall back to the earliest in-period snapshot, so a short period
+        on a fresh install still shows something instead of an em dash.
+
+        Two window-function queries, both O(1) in org count.
+        """
         if not org_ids:
             return {}
+        before = self._ranked_snapshot_ratings(
+            org_ids, RatingSnapshot.captured_on <= period_start, descending=True
+        )
+        after = self._ranked_snapshot_ratings(
+            org_ids, RatingSnapshot.captured_on > period_start, descending=False
+        )
+        return {**after, **before}
+
+    def _ranked_snapshot_ratings(
+        self, org_ids: list[UUID], window_filter, *, descending: bool
+    ) -> dict[tuple[UUID, ReviewPlatform], float]:
+        """First snapshot rating per (org, platform) inside ``window_filter``, in
+        ONE query (window function; supported by PG16 and SQLite >= 3.25)."""
+        order = RatingSnapshot.captured_on.desc() if descending else RatingSnapshot.captured_on.asc()
         rn = (
             func.row_number()
             .over(
                 partition_by=(RatingSnapshot.organization_id, RatingSnapshot.platform),
-                order_by=RatingSnapshot.captured_on.asc(),
+                order_by=order,
             )
             .label("rn")
         )
@@ -154,7 +176,7 @@ class DashboardService:
             )
             .filter(
                 RatingSnapshot.organization_id.in_(org_ids),
-                RatingSnapshot.captured_on >= period_start,
+                window_filter,
                 RatingSnapshot.rating.isnot(None),
             )
             .subquery()
@@ -231,6 +253,7 @@ class DashboardService:
         cutoff: datetime | None,
         now: datetime,
         until: date | None = None,
+        prev_window: tuple[date, date] | None = None,
     ) -> list:
         """One scan of the scoped reviews, grouped by (platform, rating, sentiment).
 
@@ -269,6 +292,26 @@ class DashboardService:
         def cnt(*conds):
             return func.count(case((and_(*conds), 1)))
 
+        # Feature 014: the equally long window right before the period, so the
+        # hero cards can show "vs прошлый период" instead of a fixed 24h delta.
+        # Absent for period=all (no cutoff -> no previous window to compare to).
+        if prev_window is None:
+            prev_count = literal(0)
+            prev_unanswered = literal(0)
+            prev_response_count = literal(0)
+            prev_response_sum_seconds = literal(0)
+            prev_within_sla = literal(0)
+        else:
+            in_prev = and_(published >= prev_window[0], published <= prev_window[1])
+            prev_count = cnt(in_prev)
+            prev_unanswered = cnt(in_prev, unanswered)
+            # Feature 014: prev-window response figures for the KPI-strip deltas.
+            # prev sentiment / rating shares fall out of prev_count (the cube is
+            # grouped by sentiment & rating), so only response stats need columns.
+            prev_response_count = cnt(in_prev, answered)
+            prev_response_sum_seconds = func.sum(case((and_(in_prev, answered), delay)))
+            prev_within_sla = cnt(in_prev, answered, delay <= sla_seconds)
+
         query = self.db.query(
             Review.platform,
             Review.rating,
@@ -280,6 +323,11 @@ class DashboardService:
             cnt(in_period, unanswered).label("unanswered_total"),
             cnt(in_period, unanswered, published <= yesterday).label("overdue_24h"),
             cnt(in_period, unanswered, published == today).label("unanswered_delta_24h"),
+            prev_count.label("prev_count"),
+            prev_unanswered.label("prev_unanswered"),
+            prev_response_count.label("prev_response_count"),
+            prev_response_sum_seconds.label("prev_response_sum_seconds"),
+            prev_within_sla.label("prev_within_sla"),
             func.min(published).label("min_published"),
             cnt(in_period, answered).label("response_count"),
             func.sum(case((and_(in_period, answered), delay))).label("response_sum_seconds"),
@@ -298,6 +346,8 @@ class DashboardService:
             "unanswered_total",
             "overdue_24h",
             "unanswered_delta_24h",
+            "prev_count",
+            "prev_unanswered",
         )
         totals = {k: 0 for k in keys}
         earliest = None
@@ -325,10 +375,19 @@ class DashboardService:
     def _response_stats_from_cube(cube) -> dict:
         stats: dict = {}
         for row in cube:
-            entry = stats.setdefault(row.platform, {"count": 0, "sum_seconds": 0.0, "within_sla": 0})
+            entry = stats.setdefault(
+                row.platform,
+                {
+                    "count": 0, "sum_seconds": 0.0, "within_sla": 0,
+                    "prev_count": 0, "prev_sum_seconds": 0.0, "prev_within_sla": 0,
+                },
+            )
             entry["count"] += row.response_count
             entry["sum_seconds"] += float(row.response_sum_seconds or 0.0)
             entry["within_sla"] += row.within_sla
+            entry["prev_count"] += row.prev_response_count
+            entry["prev_sum_seconds"] += float(row.prev_response_sum_seconds or 0.0)
+            entry["prev_within_sla"] += row.prev_within_sla
         return stats
 
     def _unanswered_by_org(
@@ -474,7 +533,14 @@ class DashboardService:
 
         page_platforms = None if platform == "all" else {ReviewPlatform(platform)}
 
-        cube = self._review_cube(scope, cutoff, now, until)
+        # Previous window of the same length, ending the day before the period
+        # starts. period=all has no cutoff, so no comparison base.
+        prev_window = None
+        if cutoff is not None and days:
+            prev_end = period_start - timedelta(days=1)
+            prev_window = (prev_end - timedelta(days=days - 1), prev_end)
+
+        cube = self._review_cube(scope, cutoff, now, until, prev_window)
         counters = self._counters_from_cube(cube, page_platforms)
         rating_counts = cube
         sentiment_counts = self._sentiment_counts_from_cube(cube, page_platforms)
@@ -484,9 +550,12 @@ class DashboardService:
         aspect_rows = self._aspect_rows(scope, platform, now)
 
         header = self._header(counters)
-        kpi_hero = self._kpi_hero(orgs, counters, platform, snaps, days, now)
+        kpi_hero = self._kpi_hero(
+            orgs, counters, platform, snaps, days, now, has_prev=prev_window is not None
+        )
         kpi_strip = self._kpi_strip(
-            response_stats, response_percentiles, rating_counts, sentiment_counts, page_platforms
+            response_stats, response_percentiles, rating_counts, sentiment_counts, page_platforms,
+            has_prev=prev_window is not None,
         )
         rating_distribution = self._rating_distribution(rating_counts, page_platforms)
         sentiment = self._sentiment(sentiment_counts)
@@ -520,7 +589,7 @@ class DashboardService:
             "fresh_negatives_2h": counters["fresh_negatives_2h"],
         }
 
-    def _kpi_hero(self, orgs, counters, platform, snaps, days, now) -> dict:
+    def _kpi_hero(self, orgs, counters, platform, snaps, days, now, *, has_prev=False) -> dict:
         # Weighted network average rating over the platform's org columns.
         avg_rating = self._weighted_avg_rating(orgs, platform)
         delta = self._network_rating_delta(orgs, platform, snaps)
@@ -532,6 +601,13 @@ class DashboardService:
             "network_avg_rating_delta": delta,
             "new_in_period": new_in_period,
             "new_today": counters["new_today"],
+            # Feature 014: period-over-period deltas. None when the period has no
+            # comparable predecessor (period=all).
+            "new_in_period_delta": (new_in_period - counters["prev_count"]) if has_prev else None,
+            "unanswered_delta_period": (
+                (counters["unanswered_total"] - counters["prev_unanswered"]) if has_prev else None
+            ),
+            "period_days": days,
             "total_reviews": counters["total"],
             "avg_per_day": round(new_in_period / span, 1) if span else 0.0,
             "unanswered_total": counters["unanswered_total"],
@@ -540,45 +616,89 @@ class DashboardService:
         }
 
     def _kpi_strip(
-        self, response_stats, percentiles, rating_counts, sentiment_counts, page_platforms
+        self, response_stats, percentiles, rating_counts, sentiment_counts, page_platforms,
+        *, has_prev: bool = False,
     ) -> dict:
+        # Current + previous-window response totals in one pass (feature 014).
         count = sum_seconds = within_sla = 0
+        prev_count_r = prev_sum = prev_within_sla = 0
         for p, stats in response_stats.items():
             if page_platforms is not None and p not in page_platforms:
                 continue
             count += stats["count"]
             sum_seconds += stats["sum_seconds"]
             within_sla += stats["within_sla"]
+            prev_count_r += stats["prev_count"]
+            prev_sum += stats["prev_sum_seconds"]
+            prev_within_sla += stats["prev_within_sla"]
         sla_percent = round(within_sla / count * 100, 1) if count else None
         median_seconds, p95_seconds = percentiles
 
+        # Current + previous rating shares (for reputation index) in one pass.
         n = share5_count = share13_count = 0
+        pn = pshare5 = pshare13 = 0
+        prev_sentiment_counts: dict = {}
         for row in rating_counts:
             if page_platforms is not None and row.platform not in page_platforms:
                 continue
+            prev_sentiment_counts[row.sentiment] = (
+                prev_sentiment_counts.get(row.sentiment, 0) + row.prev_count
+            )
             if row.rating is None:
                 continue
             n += row.count
+            pn += row.prev_count
             if row.rating == 5:
                 share5_count += row.count
+                pshare5 += row.prev_count
             if row.rating <= 3:
                 share13_count += row.count
-        reputation = None
-        if n:
-            share5 = share5_count / n * 100
-            share13 = share13_count / n * 100
-            reputation = round(share5 - share13, 1)
+                pshare13 += row.prev_count
+        reputation = round(share5_count / n * 100 - share13_count / n * 100, 1) if n else None
 
         _, sentiment_percent, _ = self._sentiment_summary(sentiment_counts)
 
+        response_avg_min = round(sum_seconds / count / 60) if count else None
+
+        # Deltas: current minus the equally long prior window. None when the period
+        # has no predecessor (period=all) or the prior window has no matching rows
+        # to compare against — a bare "+22 мин" off an empty base would mislead.
+        prev_avg_min = round(prev_sum / prev_count_r / 60) if prev_count_r else None
+        prev_sla = round(prev_within_sla / prev_count_r * 100, 1) if prev_count_r else None
+        prev_reputation = (
+            round(pshare5 / pn * 100 - pshare13 / pn * 100, 1) if pn else None
+        )
+        _, prev_sentiment_percent, prev_analyzed = self._sentiment_summary(prev_sentiment_counts)
+
         return {
-            "response_avg_min": round(sum_seconds / count / 60) if count else None,
+            "response_avg_min": response_avg_min,
             "response_median_min": round(median_seconds / 60) if median_seconds is not None else None,
             "response_p95_min": round(p95_seconds / 60) if p95_seconds is not None else None,
             "response_approximate": True,
             "sla_percent": sla_percent,
             "positivity_percent": sentiment_percent["positive"],
             "reputation_index": reputation,
+            # Lower response time is better; the frontend colours it accordingly.
+            "response_avg_min_delta": (
+                response_avg_min - prev_avg_min
+                if has_prev and response_avg_min is not None and prev_avg_min is not None
+                else None
+            ),
+            "sla_percent_delta": (
+                round(sla_percent - prev_sla, 1)
+                if has_prev and sla_percent is not None and prev_sla is not None
+                else None
+            ),
+            "positivity_percent_delta": (
+                round(sentiment_percent["positive"] - prev_sentiment_percent["positive"], 1)
+                if has_prev and prev_analyzed
+                else None
+            ),
+            "reputation_index_delta": (
+                round(reputation - prev_reputation, 1)
+                if has_prev and reputation is not None and prev_reputation is not None
+                else None
+            ),
         }
 
     def _rating_distribution(self, rating_counts, page_platforms) -> dict:
@@ -995,6 +1115,9 @@ class DashboardService:
                 "network_avg_rating_delta": None,
                 "new_in_period": 0,
                 "new_today": 0,
+                "new_in_period_delta": None,
+                "unanswered_delta_period": None,
+                "period_days": PERIOD_DAYS.get(period, 30),
                 "total_reviews": 0,
                 "avg_per_day": 0.0,
                 "unanswered_total": 0,
@@ -1009,6 +1132,10 @@ class DashboardService:
                 "sla_percent": None,
                 "positivity_percent": 0.0,
                 "reputation_index": None,
+                "response_avg_min_delta": None,
+                "sla_percent_delta": None,
+                "positivity_percent_delta": None,
+                "reputation_index_delta": None,
             },
             "rating_distribution": {"bars": [], "share_4_5": 0.0, "share_1_3": 0.0, "total": 0},
             "sentiment": {

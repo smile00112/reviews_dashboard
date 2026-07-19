@@ -156,6 +156,22 @@ export async function listOrganizations(companyId?: string): Promise<Organizatio
   return data.items;
 }
 
+/** One page of organizations plus the total count (server-side pagination). */
+export async function listOrganizationsPage(opts: {
+  limit: number;
+  offset: number;
+  companyId?: string;
+}): Promise<{ items: Organization[]; total: number }> {
+  const qs = new URLSearchParams({
+    limit: String(opts.limit),
+    offset: String(opts.offset),
+  });
+  if (opts.companyId) qs.set("company_id", opts.companyId);
+  return request<{ items: Organization[]; total: number }>(
+    `/api/organizations?${qs.toString()}`,
+  );
+}
+
 export async function createOrganization(payload: OrganizationCreatePayload): Promise<Organization> {
   return request<Organization>("/api/organizations", {
     method: "POST",

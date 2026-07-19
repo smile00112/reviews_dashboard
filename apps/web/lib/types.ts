@@ -198,6 +198,10 @@ export interface KpiHero {
   network_avg_rating_delta: number | null;
   new_in_period: number;
   new_today: number;
+  /** Feature 014: period-over-period deltas; null when the period has no predecessor. */
+  new_in_period_delta: number | null;
+  unanswered_delta_period: number | null;
+  period_days: number | null;
   total_reviews: number;
   avg_per_day: number;
   unanswered_total: number;
@@ -213,6 +217,11 @@ export interface KpiStrip {
   sla_percent: number | null;
   positivity_percent: number;
   reputation_index: number | null;
+  /** Feature 014: period-over-period deltas; null when the period has no predecessor. */
+  response_avg_min_delta: number | null;
+  sla_percent_delta: number | null;
+  positivity_percent_delta: number | null;
+  reputation_index_delta: number | null;
 }
 
 export interface DistributionBar {

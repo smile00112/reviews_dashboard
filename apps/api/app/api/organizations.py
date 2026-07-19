@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
@@ -21,10 +21,14 @@ router = APIRouter(prefix="/api/organizations", tags=["organizations"])
 @router.get("", response_model=OrganizationListResponse)
 def list_organizations(
     company_id: UUID | None = None,
+    limit: int | None = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> OrganizationListResponse:
-    items = OrganizationService(db).list_all(company_id=company_id)
-    return OrganizationListResponse(items=items)
+    service = OrganizationService(db)
+    items = service.list_all(company_id=company_id, limit=limit, offset=offset)
+    total = service.count(company_id=company_id) if limit is not None else len(items)
+    return OrganizationListResponse(items=items, total=total)
 
 
 @router.post("", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)

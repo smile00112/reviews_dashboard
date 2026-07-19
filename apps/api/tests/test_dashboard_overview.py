@@ -136,6 +136,97 @@ def test_period_counts_use_publication_date_not_first_seen(admin_client, db_sess
     assert hero["new_today"] == 2
 
 
+# --- Feature 014: period-over-period hero deltas -----------------------------
+
+def test_hero_deltas_compare_with_previous_equal_window(admin_client, db_session):
+    """"Новых за период" / "Без ответа" deltas must follow the selected period,
+    not a fixed 24h window: week vs the 7 days right before it."""
+    org = _org(db_session)
+    today = NOW.date()
+    # Current week: 3 reviews, 2 of them unanswered.
+    for i in range(2):
+        _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=2),
+                review_date=today - timedelta(days=2), hash_=f"cur{i}")
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=2),
+            response_at=NOW - timedelta(days=2), review_date=today - timedelta(days=2), hash_="cur_ans")
+    # Previous week (days 8..14 back): 1 review, unanswered.
+    _review(db_session, org, rating=4, first_seen=NOW - timedelta(days=10),
+            review_date=today - timedelta(days=10), hash_="prev1")
+
+    hero = admin_client.get("/api/dashboard/overview?period=week").json()["kpi_hero"]
+    assert hero["new_in_period"] == 3
+    assert hero["new_in_period_delta"] == 2        # 3 this week vs 1 the week before
+    assert hero["unanswered_total"] == 2
+    assert hero["unanswered_delta_period"] == 1    # 2 vs 1
+    assert hero["period_days"] == 7
+
+
+def test_hero_deltas_absent_for_all_time_period(admin_client, db_session):
+    org = _org(db_session)
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=2), hash_="a1")
+
+    hero = admin_client.get("/api/dashboard/overview?period=all").json()["kpi_hero"]
+    assert hero["new_in_period_delta"] is None
+    assert hero["unanswered_delta_period"] is None
+
+
+def test_rating_delta_uses_snapshot_taken_before_period_start(admin_client, db_session):
+    """Baseline is the last snapshot at/before the period start — a snapshot taken
+    inside the period must not become the base while an older one exists."""
+    from app.models.enums import ReviewPlatform as P
+    from app.services.dashboard_service import DashboardService
+
+    org = _org(db_session, rating=4.0)
+    dash = DashboardService(db_session)
+    org.rating = 3.8
+    dash.capture_snapshot(org.id, P.yandex, now=NOW - timedelta(days=20))  # before the week
+    org.rating = 4.0
+    dash.capture_snapshot(org.id, P.yandex, now=NOW - timedelta(days=2))   # inside the week
+    db_session.commit()
+
+    hero = admin_client.get("/api/dashboard/overview?period=week&platform=yandex").json()["kpi_hero"]
+    assert hero["network_avg_rating_delta"] == 0.2   # 4.0 now vs 3.8 at period start
+
+
+def test_strip_deltas_compare_with_previous_equal_window(admin_client, db_session):
+    """KPI-strip cards (ср. время ответа / SLA / позитивность / индекс репутации)
+    carry a period-over-period delta, same window logic as the hero cards."""
+    org = _org(db_session)
+    today = NOW.date()
+    cur = NOW - timedelta(days=2)
+    cur_day = today - timedelta(days=2)
+    # Current week: answered pos-5 (+10 min) and answered neg-1 (+30 min).
+    _review(db_session, org, rating=5, first_seen=cur, response_at=cur + timedelta(minutes=10),
+            sentiment="positive", review_date=cur_day, hash_="cA")
+    _review(db_session, org, rating=1, first_seen=cur, response_at=cur + timedelta(minutes=30),
+            sentiment="negative", review_date=cur_day, hash_="cB")
+    # Previous week: one answered pos-5 (+60 min).
+    prev = NOW - timedelta(days=10)
+    _review(db_session, org, rating=5, first_seen=prev, response_at=prev + timedelta(minutes=60),
+            sentiment="positive", review_date=today - timedelta(days=10), hash_="pA")
+
+    strip = admin_client.get("/api/dashboard/overview?period=week").json()["kpi_strip"]
+    assert strip["response_avg_min"] == 20            # (10+30)/2
+    assert strip["response_avg_min_delta"] == -40     # 20 now vs 60 before (faster = good)
+    assert strip["positivity_percent"] == 50.0        # 1 of 2 analyzed
+    assert strip["positivity_percent_delta"] == -50.0  # 50 vs 100 before
+    assert strip["reputation_index"] == 0.0           # 50% five-star − 50% ≤3-star
+    assert strip["reputation_index_delta"] == -100.0  # 0 vs 100 before
+
+
+def test_strip_deltas_absent_for_all_time_period(admin_client, db_session):
+    org = _org(db_session)
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=2),
+            response_at=NOW - timedelta(days=2) + timedelta(minutes=5),
+            sentiment="positive", hash_="s1")
+
+    strip = admin_client.get("/api/dashboard/overview?period=all").json()["kpi_strip"]
+    assert strip["response_avg_min_delta"] is None
+    assert strip["sla_percent_delta"] is None
+    assert strip["positivity_percent_delta"] is None
+    assert strip["reputation_index_delta"] is None
+
+
 # --- US2 distribution / sentiment / platform --------------------------------
 
 def test_rating_distribution(admin_client, db_session):

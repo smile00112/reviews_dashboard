@@ -45,11 +45,27 @@ class OrganizationService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_all(self, company_id: UUID | None = None) -> list[Organization]:
+    def list_all(
+        self,
+        company_id: UUID | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[Organization]:
         query = self.db.query(Organization)
         if company_id is not None:
             query = query.filter(Organization.company_id == company_id)
-        return query.order_by(Organization.created_at.desc()).all()
+        query = query.order_by(Organization.created_at.desc())
+        if offset:
+            query = query.offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
+
+    def count(self, company_id: UUID | None = None) -> int:
+        query = self.db.query(Organization)
+        if company_id is not None:
+            query = query.filter(Organization.company_id == company_id)
+        return query.count()
 
     def _validate_company(self, company_id: UUID | None) -> None:
         if company_id is None:

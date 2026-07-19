@@ -31,9 +31,12 @@ export function OrganizationForm({ onCreated }: OrganizationFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-lg border bg-white p-4">
-      <div className="flex min-w-[280px] flex-1 flex-col gap-1">
-        <label htmlFor="yandex-url" className="text-sm font-medium text-slate-700">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-[22px]"
+    >
+      <div className="flex min-w-[280px] flex-1 flex-col gap-1.5">
+        <label htmlFor="yandex-url" className="text-[11px] font-medium uppercase tracking-wider text-text-faint">
           URL организации Яндекс Карт
         </label>
         <input
@@ -43,21 +46,21 @@ export function OrganizationForm({ onCreated }: OrganizationFormProps) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://yandex.ru/maps/org/..."
-          className="rounded border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
       </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">Режим</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-text-faint">Режим</label>
         <ModeSelect value={mode} onChange={setMode} />
       </div>
       <button
         type="submit"
         disabled={loading}
-        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg transition-colors hover:bg-accent-dim disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
       >
         {loading ? "Добавление..." : "Добавить"}
       </button>
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
+      {error && <p className="w-full text-sm text-bad">{error}</p>}
     </form>
   );
 }

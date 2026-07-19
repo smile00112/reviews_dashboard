@@ -32,6 +32,37 @@ def test_create_list_update_delete_organization(admin_client):
     assert len(list_after.json()["items"]) == 0
 
 
+def test_list_organizations_pagination(client, db_session):
+    """limit/offset page the list; total is the full count, not the page size."""
+    from app.models.organization import Organization
+
+    for i in range(5):
+        db_session.add(Organization(name=f"Org {i}", gis2_url=f"https://2gis.ru/firm/{i}"))
+    db_session.commit()
+
+    # Unpaged: total == number of items returned (backward compatible).
+    full = client.get("/api/organizations").json()
+    assert len(full["items"]) == 5
+    assert full["total"] == 5
+
+    # First page.
+    page1 = client.get("/api/organizations?limit=2&offset=0").json()
+    assert len(page1["items"]) == 2
+    assert page1["total"] == 5
+
+    # Second page — disjoint from the first (stable created_at desc order).
+    page2 = client.get("/api/organizations?limit=2&offset=2").json()
+    assert len(page2["items"]) == 2
+    ids1 = {o["id"] for o in page1["items"]}
+    ids2 = {o["id"] for o in page2["items"]}
+    assert ids1.isdisjoint(ids2)
+
+    # Tail page — fewer than limit, total unchanged.
+    page3 = client.get("/api/organizations?limit=2&offset=4").json()
+    assert len(page3["items"]) == 1
+    assert page3["total"] == 5
+
+
 def test_list_organizations_includes_gis2_only_org(client, db_session):
     """2GIS-only orgs have no yandex_url/normalized_url; the list endpoint
     must serialize them instead of failing with 500 (regression)."""
