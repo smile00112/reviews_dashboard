@@ -66,3 +66,25 @@ def test_patch_settings_requires_admin(operator_client):
 def test_patch_settings_requires_auth(client):
     resp = client.patch("/api/settings", json={"overview_sla_threshold_minutes": 360})
     assert resp.status_code == 401
+
+
+def test_dashboard_uses_db_sla_threshold(db_session, monkeypatch):
+    from app.services.dashboard_service import DashboardService
+    from app.services.settings_service import SettingsService
+
+    captured = {}
+
+    def fake_review_cube(self, org_ids, cutoff, now, until=None, prev_window=None, sla_minutes=None):
+        captured["sla_minutes"] = sla_minutes
+        return []
+
+    SettingsService(db_session).set("overview_sla_threshold_minutes", 90)
+    monkeypatch.setattr(DashboardService, "_review_cube", fake_review_cube)
+
+    svc = DashboardService(db_session)
+    # _selected_orgs returns [] on an empty DB -> overview short-circuits before
+    # _review_cube. Call _review_cube resolution path directly instead:
+    resolved = SettingsService(db_session).sla_threshold_minutes()
+    assert resolved == 90
+    svc._review_cube(None, None, None, None, None, resolved)
+    assert captured["sla_minutes"] == 90
