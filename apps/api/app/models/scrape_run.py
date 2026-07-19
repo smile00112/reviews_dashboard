@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,10 @@ class ScrapeRun(Base):
     reviews_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reviews_inserted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reviews_updated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Feature 011: True only when the scraper proved end-of-list coverage
+    # (pagination exhausted; no limit/max_pages cap hit; no skipped page).
+    # Removal marking is allowed only for such runs.
+    full_pass: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     debug_screenshot_path: Mapped[str | None] = mapped_column(Text, nullable=True)

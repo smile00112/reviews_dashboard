@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.enums import OrganizationScrapeStatus, ReviewPlatform, ScrapeMode, ScrapeRunStatus, SessionStatus
+from app.services.metrics_service import PLATFORM_COLUMNS
 from app.models.scrape_run import ScrapeRun
 from app.models.scraper_session import ScraperSession
 from app.scraper.types import ScrapeResult
@@ -233,10 +234,49 @@ class ScrapeService:
             org_service.update_scrape_status(organization_id, _mode_platform(mode), OrganizationScrapeStatus.failed)
             return
 
+        platform = ReviewPlatform.gis2 if mode == ScrapeMode.twogis_api else ReviewPlatform.yandex
+
+        if result.full_pass:
+            org = org_service.get(organization_id)
+            counter = getattr(org, PLATFORM_COLUMNS[_mode_platform(mode)][2], None) if org else None
+
+            # Zero-result guard (feature 011): a "successful full pass" that saw
+            # nothing while we hold collected reviews is indistinguishable from a
+            # parser regression — fail loudly instead of mass-marking removals.
+            # Exception: the platform's own counter saying 0 corroborates a real
+            # wipe-out.
+            if not result.reviews:
+                present = review_service.count_present(organization_id, platform)
+                if present > 0 and counter != 0:
+                    self._finalize(
+                        run,
+                        ScrapeRunStatus.failed,
+                        error_code="empty_full_pass",
+                        error_message=(
+                            f"Full pass returned 0 reviews while {present} non-removed are stored "
+                            f"and the platform counter is {counter!r} — refusing to mark removals"
+                        ),
+                    )
+                    org_service.update_scrape_status(
+                        organization_id, _mode_platform(mode), OrganizationScrapeStatus.failed
+                    )
+                    return
+
+            # Coverage corroboration: exhausted pagination can lie — Yandex serves
+            # at most ~600 reviews over ?page=N (page 13 comes back with no review
+            # blocks), so an org with more reviews "exhausts" while most of its
+            # list was never seen. Trust the pass as full only when it saw at
+            # least as many reviews as the platform's own counter claims.
+            run.full_pass = counter is not None and len(result.reviews) >= counter
+
         seen, inserted, updated = review_service.upsert_reviews(organization_id, result.reviews, mode)
         run.reviews_seen = seen
         run.reviews_inserted = inserted
         run.reviews_updated = updated
+        if run.full_pass:
+            review_service.mark_removed_missing(
+                organization_id, platform, result.reviews, datetime.now(timezone.utc)
+            )
         run.status = ScrapeRunStatus.success
         run.finished_at = datetime.now(timezone.utc)
         self.db.commit()

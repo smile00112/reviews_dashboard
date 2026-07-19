@@ -22,6 +22,8 @@ class ScrapeRunResponse(BaseModel):
     reviews_seen: int
     reviews_inserted: int
     reviews_updated: int
+    # Feature 011: true = pagination provably exhausted; removal marking was allowed.
+    full_pass: bool = False
     error_code: str | None
     error_message: str | None
     debug_screenshot_path: str | None

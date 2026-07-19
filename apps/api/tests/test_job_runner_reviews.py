@@ -38,6 +38,7 @@ class FakeScrapeService:
 
     def execute_run(self, run_id, limit=None, max_pages=None):
         self.executed.append(run_id)
+        self.overrides = {"limit": limit, "max_pages": max_pages}
         run = self.db.query(ScrapeRun).filter(ScrapeRun.id == run_id).first()
         run.status = self.status
         run.reviews_seen = self.inserted
@@ -152,11 +153,37 @@ def test_failed_scrape_run_marks_item_failed(db_session, reviews_job):
     assert run.status is JobRunStatus.failed
 
 
-def test_skips_when_platform_count_lower_than_collected(db_session, reviews_job):
-    # Отзывы могли быть удалены на площадке: счётчик площадки ниже уже
-    # собранного — это не "совпадают", и скрапер запускаться не должен.
+def test_scrapes_when_platform_count_lower_than_collected(db_session, reviews_job):
+    # Feature 011: счётчик площадки ниже собранного (отзывы удалены/оспорены)
+    # — это расхождение, и оно запускает полный проход, который пометит
+    # исчезнувшие отзывы как removed.
     org = _org(db_session, review_count=3)
     _seed_reviews(db_session, org, 5)
+    scrape = FakeScrapeService(db_session, inserted=0)
+    run = JobService(db_session).create_run(reviews_job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.success
+    assert item.scrape_run_id is not None
+    assert item.payload["platform_total"] == 3
+    assert item.payload["scraped_before"] == 5
+    assert len(scrape.executed) == 1
+
+
+def test_removed_reviews_do_not_count_as_collected(db_session, reviews_job):
+    # 2 живых + 2 removed при счётчике площадки 2 => счётчики сходятся, skip.
+    from datetime import datetime, timezone
+
+    org = _org(db_session, review_count=2)
+    _seed_reviews(db_session, org, 2)
+    _seed_reviews(db_session, org, 2, prefix="removed-")
+    now = datetime.now(timezone.utc)
+    db_session.query(Review).filter(Review.content_hash.like("hash-removed-%")).update(
+        {Review.removed_at: now}, synchronize_session="fetch"
+    )
+    db_session.commit()
     scrape = FakeScrapeService(db_session)
     run = JobService(db_session).create_run(reviews_job.id, JobTrigger.manual)
 
@@ -164,13 +191,24 @@ def test_skips_when_platform_count_lower_than_collected(db_session, reviews_job)
 
     item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
     assert item.status is JobItemStatus.skipped
-    assert "3" in item.reason and "5" in item.reason
-    assert "совпадают" not in item.reason
-    assert item.scrape_run_id is None
     assert scrape.executed == []
-    db_session.refresh(run)
-    assert run.status is JobRunStatus.success
-    assert run.orgs_skipped == 1
+
+
+def test_scrape_requests_uncapped_pagination(db_session, reviews_job):
+    # Полный проход обязан игнорировать settings-капы: иначе full_pass
+    # недостижим и пометка removed никогда не сработает.
+    import math
+
+    org = _org(db_session, review_count=5)
+    _seed_reviews(db_session, org, 2)
+    scrape = FakeScrapeService(db_session, inserted=3)
+    run = JobService(db_session).create_run(reviews_job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    assert scrape.overrides["limit"] == math.inf
+    assert scrape.overrides["max_pages"] is not None
+    assert scrape.overrides["max_pages"] > 5  # больше settings-дефолта
 
 
 def test_needs_manual_action_scrape_run_maps_to_item_status(db_session, reviews_job):
@@ -185,6 +223,111 @@ def test_needs_manual_action_scrape_run_maps_to_item_status(db_session, reviews_
     assert item.status is JobItemStatus.needs_manual_action
     db_session.refresh(run)
     assert run.status is JobRunStatus.needs_manual_action
+
+
+def _seed_full_pass_run(db_session, org, *, days_ago, mode=ScrapeMode.public_http):
+    from datetime import datetime, timedelta, timezone
+
+    finished = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    run = ScrapeRun(
+        organization_id=org.id,
+        mode=mode,
+        status=ScrapeRunStatus.success,
+        full_pass=True,
+        finished_at=finished,
+    )
+    db_session.add(run)
+    db_session.commit()
+    return run
+
+
+def _forced_job(db_session, days):
+    job = Job(
+        kind=JobKind.reviews,
+        platform=ReviewPlatform.yandex,
+        options={"delay_seconds": 0, "force_full_every_days": days},
+    )
+    db_session.add(job)
+    db_session.commit()
+    return job
+
+
+def test_forced_refresh_when_last_full_pass_is_stale(db_session):
+    # Счётчики сходятся, но последний подтверждённый полный проход старше N
+    # дней — форсируем полный проход (слепая зона +1/−1).
+    org = _org(db_session, review_count=2)
+    _seed_reviews(db_session, org, 2)
+    _seed_full_pass_run(db_session, org, days_ago=8)
+    job = _forced_job(db_session, days=7)
+    scrape = FakeScrapeService(db_session, inserted=0)
+    run = JobService(db_session).create_run(job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.success
+    assert len(scrape.executed) == 1
+    assert item.reason is not None and "принудительный" in item.reason
+
+
+def test_forced_refresh_when_no_full_pass_ever(db_session):
+    org = _org(db_session, review_count=2)
+    _seed_reviews(db_session, org, 2)
+    job = _forced_job(db_session, days=7)
+    scrape = FakeScrapeService(db_session, inserted=0)
+    run = JobService(db_session).create_run(job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.success
+    assert len(scrape.executed) == 1
+
+
+def test_no_forced_refresh_when_full_pass_is_fresh(db_session):
+    org = _org(db_session, review_count=2)
+    _seed_reviews(db_session, org, 2)
+    _seed_full_pass_run(db_session, org, days_ago=2)
+    job = _forced_job(db_session, days=7)
+    scrape = FakeScrapeService(db_session)
+    run = JobService(db_session).create_run(job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.skipped
+    assert scrape.executed == []
+
+
+def test_forced_refresh_ignores_other_mode_full_passes(db_session):
+    # Полный проход 2GIS не считается покрытием Яндекса той же организации.
+    org = _org(db_session, review_count=2)
+    _seed_reviews(db_session, org, 2)
+    _seed_full_pass_run(db_session, org, days_ago=1, mode=ScrapeMode.twogis_api)
+    job = _forced_job(db_session, days=7)
+    scrape = FakeScrapeService(db_session, inserted=0)
+    run = JobService(db_session).create_run(job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.success
+    assert len(scrape.executed) == 1
+
+
+def test_option_absent_means_plain_counter_rule(db_session, reviews_job):
+    # Без force_full_every_days поведение идентично сравнению счётчиков.
+    org = _org(db_session, review_count=2)
+    _seed_reviews(db_session, org, 2)
+    _seed_full_pass_run(db_session, org, days_ago=30)
+    scrape = FakeScrapeService(db_session)
+    run = JobService(db_session).create_run(reviews_job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    item = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).one()
+    assert item.status is JobItemStatus.skipped
+    assert scrape.executed == []
 
 
 @pytest.fixture()

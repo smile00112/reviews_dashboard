@@ -111,7 +111,7 @@ def test_fetch_reviews_skips_invalid_rating_entries(monkeypatch):
         "meta": {},
     }
     monkeypatch.setattr(scraper, "_get_json", lambda url, params: (payload, None))
-    collected = scraper._fetch_reviews("123")
+    collected, _exhausted = scraper._fetch_reviews("123")
     assert [r.external_review_id for r in collected] == ["ok"]
 
 

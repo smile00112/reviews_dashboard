@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import JobItemStatus, JobKind, JobRunStatus, JobTrigger, ReviewPlatform
 
@@ -46,6 +46,16 @@ class JobUpdateRequest(BaseModel):
     is_enabled: bool | None = None
     schedule_cron: str | None = None
     options: dict | None = None
+
+    @field_validator("options")
+    @classmethod
+    def _validate_force_full_every_days(cls, value: dict | None) -> dict | None:
+        # Feature 011: interval must be a whole number of days >= 1 when present.
+        if value is not None and "force_full_every_days" in value:
+            days = value["force_full_every_days"]
+            if not isinstance(days, int) or isinstance(days, bool) or days < 1:
+                raise ValueError("force_full_every_days must be an integer >= 1")
+        return value
 
 
 class JobRunStartResponse(BaseModel):

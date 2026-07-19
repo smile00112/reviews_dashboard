@@ -48,6 +48,22 @@ def test_run_now_rejects_review_operator(operator_client, db_session):
     assert db_session.query(JobRun).filter(JobRun.job_id == job.id).count() == 0
 
 
+def test_admin_can_set_force_full_every_days(admin_client, db_session):
+    job = _seed_job(db_session, kind=JobKind.reviews)
+    resp = admin_client.patch(
+        f"/api/jobs/{job.id}", json={"options": {"delay_seconds": 0, "force_full_every_days": 7}}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["options"]["force_full_every_days"] == 7
+
+
+def test_invalid_force_full_every_days_is_422(admin_client, db_session):
+    job = _seed_job(db_session, kind=JobKind.reviews)
+    for bad in (0, -1, "weekly", True, 1.5):
+        resp = admin_client.patch(f"/api/jobs/{job.id}", json={"options": {"force_full_every_days": bad}})
+        assert resp.status_code == 422, f"{bad!r} must be rejected, got {resp.status_code}"
+
+
 def test_admin_can_update_schedule(admin_client, db_session):
     job = _seed_job(db_session)
     resp = admin_client.patch(

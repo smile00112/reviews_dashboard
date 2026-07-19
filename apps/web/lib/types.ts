@@ -98,6 +98,8 @@ export interface Review {
   response_text: string | null;
   first_seen_at: string;
   last_seen_at: string;
+  // null = present on platform; set = no longer seen by a full scrape pass (feature 011)
+  removed_at: string | null;
   response_first_seen_at: string | null;
   status: ReviewStatus | null;
   is_paid: boolean;
@@ -165,6 +167,7 @@ export interface ScrapeRun {
   reviews_seen: number;
   reviews_inserted: number;
   reviews_updated: number;
+  full_pass: boolean;
   error_code: string | null;
   error_message: string | null;
   debug_screenshot_path: string | null;

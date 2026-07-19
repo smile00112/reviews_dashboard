@@ -41,6 +41,7 @@ def list_reviews(
     is_paid: bool | None = None,
     aspect: str | None = None,
     sort: str = Query(default="new", pattern="^(new|criticality)$"),
+    removed: str = Query(default="active", pattern="^(active|removed|all)$"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -60,6 +61,7 @@ def list_reviews(
         is_paid=is_paid,
         aspect=aspect,
         sort=sort,
+        removed=removed,
     )
     items = [_to_review_response(review, org_name) for review, org_name in rows]
     return ReviewListResponse(items=items, total=total, limit=limit, offset=offset)
@@ -71,6 +73,7 @@ def list_organization_reviews(
     rating: int | None = Query(default=None, ge=1, le=5),
     date_from: date | None = None,
     date_to: date | None = None,
+    removed: str = Query(default="active", pattern="^(active|removed|all)$"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -84,6 +87,7 @@ def list_organization_reviews(
         rating=rating,
         date_from=date_from,
         date_to=date_to,
+        removed=removed,
     )
     org = OrganizationService(db).get(organization_id)
     org_name = org.name if org else None
