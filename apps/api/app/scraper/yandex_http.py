@@ -64,10 +64,17 @@ class YandexHttpScraper:
         organization = ParsedOrganization()
         collected: list[ParsedReview] = []
         seen_keys: set[tuple[str | None, int, str]] = set()
+        # full_pass bookkeeping (feature 011): coverage is provable only when the
+        # loop ends via the exhaustion branch, no cap cut collection short, and
+        # no page was skipped over a transient error (a skipped page is a hole).
+        exhausted = False
+        capped = False
+        page_skipped = False
 
         try:
             for page in range(1, max_pages + 1):
                 if len(collected) >= limit:
+                    capped = True
                     break
 
                 html = self._fetch(self._page_url(url, page))
@@ -76,6 +83,7 @@ class YandexHttpScraper:
                         result.error_code = "fetch_error"
                         result.error_message = "Could not fetch the first review page"
                         return result
+                    page_skipped = True
                     continue  # skip a transient page error, keep what we have
 
                 if self._is_bot_wall(html):
@@ -100,10 +108,12 @@ class YandexHttpScraper:
                     collected.append(review)
                     fresh += 1
                     if len(collected) >= limit:
+                        capped = True
                         break
 
                 # No new reviews on a non-first page → assume pagination exhausted.
                 if page > 1 and fresh == 0:
+                    exhausted = True
                     break
 
                 if page < max_pages and delay > 0:
@@ -111,6 +121,7 @@ class YandexHttpScraper:
 
             result.organization = organization
             result.reviews = collected
+            result.full_pass = exhausted and not capped and not page_skipped
             return result
         except Exception as exc:  # never raise out of a scrape attempt
             result.error_code = "http_scrape_error"

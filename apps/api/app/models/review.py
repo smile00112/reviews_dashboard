@@ -58,6 +58,10 @@ class Review(Base):
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # Feature 011: NULL = currently present on the platform. Set only after a full
+    # scrape pass no longer sees the review; cleared on any re-sighting. Never
+    # feeds content_hash.
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Admin triage fields (feature 004, additive). Never feed content_hash.
     status: Mapped[ReviewStatus | None] = mapped_column(

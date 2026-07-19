@@ -31,6 +31,8 @@ class ReviewResponse(BaseModel):
     response_first_seen_at: datetime | None = None
     first_seen_at: datetime
     last_seen_at: datetime
+    # Feature 011: null = present on platform; set = no longer seen by a full pass.
+    removed_at: datetime | None = None
     # Derived analytics (feature 002); null when not yet analyzed.
     sentiment: str | None = None
     sentiment_score: float | None = None

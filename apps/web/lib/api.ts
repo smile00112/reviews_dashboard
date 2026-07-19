@@ -222,9 +222,13 @@ export async function patchReview(
   });
 }
 
-export async function listOrganizationReviews(organizationId: string) {
+export async function listOrganizationReviews(
+  organizationId: string,
+  removed: "active" | "removed" | "all" = "active",
+) {
+  const suffix = removed === "active" ? "" : `?removed=${removed}`;
   return request<{ items: Review[]; total: number }>(
-    `/api/organizations/${organizationId}/reviews`,
+    `/api/organizations/${organizationId}/reviews${suffix}`,
   );
 }
 

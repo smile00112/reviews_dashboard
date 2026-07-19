@@ -149,8 +149,54 @@ class ReviewService:
         self.db.commit()
         return seen, inserted, updated
 
+    def mark_removed_missing(
+        self,
+        organization_id: UUID,
+        platform: ReviewPlatform,
+        seen_reviews: list[ParsedReview],
+        now: datetime,
+    ) -> int:
+        """Mark reviews no longer present on the platform (feature 011).
+
+        Call ONLY after a successful full pass: every non-removed review of this
+        organization+platform whose content_hash was not seen in the pass gets
+        ``removed_at = now``. Hashes are recomputed here from the parsed batch —
+        deterministic by the dedup contract, so this never drifts from upsert.
+        Returns the number of rows marked. Commits.
+        """
+        seen_hashes = {
+            build_review_hash(p.author_name, p.rating, p.review_date_text, p.review_text)
+            for p in seen_reviews
+        }
+        query = self.db.query(Review).filter(
+            Review.organization_id == organization_id,
+            Review.platform == platform,
+            Review.removed_at.is_(None),
+        )
+        if seen_hashes:
+            query = query.filter(Review.content_hash.notin_(seen_hashes))
+        marked = query.update({Review.removed_at: now}, synchronize_session="fetch")
+        self.db.commit()
+        return marked
+
+    def count_present(self, organization_id: UUID, platform: ReviewPlatform) -> int:
+        """Non-removed collected reviews — the figure sync decisions compare
+        against the platform's public counter."""
+        return (
+            self.db.query(Review)
+            .filter(
+                Review.organization_id == organization_id,
+                Review.platform == platform,
+                Review.removed_at.is_(None),
+            )
+            .count()
+        )
+
     def _apply_update(self, existing: Review, parsed: ParsedReview, now: datetime) -> None:
         existing.last_seen_at = now
+        # Seen on the platform again => it is present, whatever any earlier
+        # full pass concluded (feature 011).
+        existing.removed_at = None
         if parsed.response_text and not existing.response_text:
             # Response first appears on this run: record text + first-observed time (once).
             existing.response_text = parsed.response_text
@@ -170,8 +216,10 @@ class ReviewService:
         rating: int | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
+        removed: str = "active",
     ) -> tuple[list[Review], int]:
         query = self.db.query(Review).filter(Review.organization_id == organization_id)
+        query = self._apply_removed_filter(query, removed)
         query = self._apply_filters(query, rating, date_from, date_to, new_only=False)
         total = query.count()
         items = (
@@ -199,10 +247,12 @@ class ReviewService:
         is_paid: bool | None = None,
         aspect: str | None = None,
         sort: str = "new",
+        removed: str = "active",
     ) -> tuple[list[tuple[Review, str | None]], int]:
         query = self.db.query(Review, Organization.name).join(Organization)
         if organization_id:
             query = query.filter(Review.organization_id == organization_id)
+        query = self._apply_removed_filter(query, removed)
         query = self._apply_filters(query, rating, date_from, date_to, new_only=new_only)
         query = self._apply_feed_filters(
             query, status_tab=status_tab, platform=platform, tone=tone, period=period, is_paid=is_paid
@@ -217,6 +267,16 @@ class ReviewService:
         total = query.count()
         rows = ordered.offset(offset).limit(limit).all()
         return rows, total
+
+    @staticmethod
+    def _apply_removed_filter(query, removed: str):
+        """Feature 011: default lists show only reviews still present on the
+        platform; removed ones are an explicit opt-in view."""
+        if removed == "active":
+            return query.filter(Review.removed_at.is_(None))
+        if removed == "removed":
+            return query.filter(Review.removed_at.isnot(None))
+        return query  # "all"
 
     def _apply_filters(self, query, rating, date_from, date_to, new_only: bool):
         if rating is not None:

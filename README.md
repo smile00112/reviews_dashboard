@@ -135,6 +135,37 @@ JSON to stdout, also writing it to a file.
    After logging in, call `POST /api/scraper/yandex/session/check` (or the web
    UI's "Check Session") to mark the session valid.
 
+## Background Jobs: Twice-Daily Review Sync (feature 011)
+
+Four jobs (`org_metrics`/`reviews` × `yandex`/`gis2`) live in the `jobs` table and are
+managed from the `/jobs` page or `PATCH /api/jobs/{id}` (admin). Recommended production
+schedule (Europe/Moscow) — metrics first, reviews an hour later so the count comparison
+sees fresh numbers, twice a day:
+
+```jsonc
+// org_metrics jobs (both platforms)
+{ "schedule_cron": "0 4,16 * * *", "is_enabled": true }
+// reviews jobs (both platforms)
+{ "schedule_cron": "0 5,17 * * *", "is_enabled": true }
+```
+
+The reviews job scrapes an organization whenever the platform's review counter differs
+**in either direction** from the non-removed collected count: higher = new reviews,
+lower = reviews deleted by the platform or successfully disputed. Such a run requests
+uncapped pagination; when the pass provably covers the whole list (pagination exhausted
+AND at least as many reviews seen as the platform counter claims), reviews no longer
+present are marked `removed_at` — kept in the DB, hidden from default lists, visible
+via the "показать удалённые" toggle / `?removed=removed|all`. A truncated or suspicious
+pass never marks anything; a full pass that returns zero reviews while the counter is
+non-zero fails loudly with `error_code=empty_full_pass` (parser-regression guard).
+Optional job option `"force_full_every_days": N` forces a full pass when counters match
+but the last corroborated full pass is older than N days (covers +1/−1 cancellation).
+
+Overlapping triggers are rejected (409) while a run is active, as before. Note the
+Yandex `?page=N` ceiling (~600 reviews) means orgs above it never achieve a
+corroborated full pass — they are re-scraped on mismatch but their removals are never
+marked (safe by design).
+
 ## Environment Variables
 
 | Variable | Description |

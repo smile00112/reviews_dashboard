@@ -8,8 +8,9 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from app.models.job_run import JobRun
 from app.models.job_run_item import JobRunItem
 from app.models.organization import Organization
 from app.models.review import Review
+from app.scraper.types import ALL_REVIEWS_MAX_PAGES
 from app.services.metrics_service import PLATFORM_COLUMNS, MetricsOutcome, MetricsService
 from app.services.scrape_service import ScrapeService
 
@@ -189,15 +191,22 @@ class JobRunner:
     def _run_reviews(self, run: JobRun, org: Organization, platform: str) -> JobRunItem:
         """Собрать отзывы, только если счётчик площадки разошёлся с собранным.
 
-        Расхождение -> полный проход по страницам: дедуп по content_hash сам
-        отбросит уже известные отзывы, а счётчики ScrapeRun покажут прирост.
+        Feature 011: расхождение в ЛЮБУЮ сторону запускает полный (без капов)
+        проход — счётчик выше собранного означает новые отзывы, ниже — удалённые
+        или оспоренные, и полный проход пометит их removed_at. Сравниваем только
+        неудалённые отзывы, иначе после первой пометки счётчики никогда не
+        сойдутся и организация пересобиралась бы каждый прогон.
         """
         platform_enum = _PLATFORM_ENUM_BY_KEY[platform]
         count_col = PLATFORM_COLUMNS[platform][2]
         platform_total = getattr(org, count_col)
         scraped_before = (
             self.db.query(Review)
-            .filter(Review.organization_id == org.id, Review.platform == platform_enum)
+            .filter(
+                Review.organization_id == org.id,
+                Review.platform == platform_enum,
+                Review.removed_at.is_(None),
+            )
             .count()
         )
         payload = {"platform_total": platform_total, "scraped_before": scraped_before}
@@ -208,24 +217,24 @@ class JobRunner:
                 reason="счётчик площадки неизвестен — сначала нужен сбор метрик",
                 payload=payload,
             )
+        forced_reason: str | None = None
         if platform_total == scraped_before:
-            return JobRunItem(
-                job_run_id=run.id, organization_id=org.id, status=JobItemStatus.skipped,
-                reason=f"счётчики совпадают: {platform_total} = {scraped_before}",
-                payload=payload,
-            )
-        if platform_total < scraped_before:
-            return JobRunItem(
-                job_run_id=run.id, organization_id=org.id, status=JobItemStatus.skipped,
-                reason=(
-                    f"площадка показывает меньше отзывов, чем уже собрано: "
-                    f"{platform_total} < {scraped_before} (отзывы удалены на площадке)"
-                ),
-                payload=payload,
-            )
+            forced_reason = self._forced_refresh_reason(run.job, org, platform)
+            if forced_reason is None:
+                return JobRunItem(
+                    job_run_id=run.id, organization_id=org.id, status=JobItemStatus.skipped,
+                    reason=f"счётчики совпадают: {platform_total} = {scraped_before}",
+                    payload=payload,
+                )
 
         scrape_run = self.scrape_service.create_run(org.id, PLATFORM_SCRAPE_MODE[platform])
-        self.scrape_service.execute_run(scrape_run.id)
+        # limit=inf: settings-капы (150 отзывов / 5 страниц) делают full_pass
+        # недостижимым для больших организаций, а без full_pass пометка
+        # removed_at не срабатывает. ALL_REVIEWS_MAX_PAGES остаётся защитой от
+        # разноса; упор в него даёт частичный проход без пометок — безопасно.
+        self.scrape_service.execute_run(
+            scrape_run.id, limit=math.inf, max_pages=ALL_REVIEWS_MAX_PAGES
+        )
         self.db.refresh(scrape_run)
 
         payload.update(
@@ -239,11 +248,45 @@ class JobRunner:
             job_run_id=run.id,
             organization_id=org.id,
             status=_SCRAPE_ITEM_STATUS.get(scrape_run.status, JobItemStatus.failed),
+            reason=forced_reason,
             payload=payload,
             scrape_run_id=scrape_run.id,
             error_code=scrape_run.error_code,
             error_message=scrape_run.error_message,
         )
+
+    def _forced_refresh_reason(self, job, org: Organization, platform: str) -> str | None:
+        """force_full_every_days (feature 011): при сошедшихся счётчиках всё
+        равно запустить полный проход, если последний подтверждённый полный
+        проход старше N дней. Закрывает слепую зону "+1 добавили, −1 удалили".
+        Возвращает причину для JobRunItem или None (не форсируем)."""
+        from app.models.scrape_run import ScrapeRun
+
+        days = (job.options or {}).get("force_full_every_days")
+        if not days:
+            return None
+        last = (
+            self.db.query(ScrapeRun.finished_at)
+            .filter(
+                ScrapeRun.organization_id == org.id,
+                ScrapeRun.mode == PLATFORM_SCRAPE_MODE[platform],
+                ScrapeRun.status == ScrapeRunStatus.success,
+                ScrapeRun.full_pass.is_(True),
+            )
+            .order_by(ScrapeRun.finished_at.desc())
+            .first()
+        )
+        if last is not None and last[0] is not None:
+            finished_at = last[0]
+            if finished_at.tzinfo is None:  # SQLite отдаёт naive datetime
+                finished_at = finished_at.replace(tzinfo=timezone.utc)
+            age = datetime.now(timezone.utc) - finished_at
+            if age < timedelta(days=int(days)):
+                return None
+            last_label = f"{age.days} дн. назад"
+        else:
+            last_label = "ещё не было"
+        return f"принудительный полный проход: последний подтверждённый {last_label} (порог {days} дн.)"
 
     # --- финализация ---
 

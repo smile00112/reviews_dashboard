@@ -88,7 +88,8 @@ class TwogisApiScraper:
 
             result.organization = organization
             # catalog already carries rating/counts; skip the reviews pagination.
-            result.reviews = [] if metrics_only else self._fetch_reviews(org_id, limit, max_pages)
+            if not metrics_only:
+                result.reviews, result.full_pass = self._fetch_reviews(org_id, limit, max_pages)
             return result
         except Exception as exc:  # never raise out of a scrape attempt (constitution IV)
             result.error_code = "twogis_error"
@@ -247,8 +248,12 @@ class TwogisApiScraper:
         org_id: str,
         limit: float | None = None,
         max_pages: int | None = None,
-    ) -> list[ParsedReview]:
+    ) -> tuple[list[ParsedReview], bool]:
+        """Returns (reviews, exhausted): exhausted=True only when the API's own
+        end-of-list was reached (empty page / no next_link) before any cap —
+        the full_pass contract of feature 011."""
         collected: list[ParsedReview] = []
+        exhausted = False
         limit = settings.twogis_review_limit if limit is None else limit
         page_size = settings.twogis_page_size
         delay = settings.twogis_request_delay_seconds
@@ -269,24 +274,30 @@ class TwogisApiScraper:
             }
             data, err = self._get_json(url, params)
             if err is not None or not data:
-                break
+                break  # mid-list error: coverage unprovable, stays non-exhausted
             batch = data.get("reviews") or []
             if not batch:
+                exhausted = True
                 break
+            hit_limit = False
             for raw in batch:
                 mapped = self._map_review(raw)
                 if mapped is None:
                     continue
                 collected.append(mapped)
                 if len(collected) >= limit:
+                    hit_limit = True
                     break
+            if hit_limit:
+                break  # cap cut the batch short — not exhaustion
             if not ((data.get("meta") or {}).get("next_link")):
+                exhausted = True
                 break
             offset += page_size
             if delay > 0:
                 time.sleep(delay)
 
-        return collected
+        return collected, exhausted
 
     @staticmethod
     def _map_review(raw: dict) -> ParsedReview | None:

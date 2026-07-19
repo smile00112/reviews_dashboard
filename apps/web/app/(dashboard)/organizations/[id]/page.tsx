@@ -58,16 +58,20 @@ export default function OrganizationDetailPage() {
   const params = useParams<{ id: string }>();
   const [org, setOrg] = useState<Organization | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [showRemoved, setShowRemoved] = useState(false);
 
   useEffect(() => {
     if (!params.id) return;
-    Promise.all([getOrganization(params.id), listOrganizationReviews(params.id)])
+    Promise.all([
+      getOrganization(params.id),
+      listOrganizationReviews(params.id, showRemoved ? "all" : "active"),
+    ])
       .then(([organization, data]) => {
         setOrg(organization);
         setReviews(data.items);
       })
       .catch(console.error);
-  }, [params.id]);
+  }, [params.id, showRemoved]);
 
   if (!org) {
     return <p className="text-sm text-slate-500">Загрузка...</p>;
@@ -107,6 +111,14 @@ export default function OrganizationDetailPage() {
           />
         </div>
       </div>
+      <label className="flex items-center gap-2 text-sm text-slate-600">
+        <input
+          type="checkbox"
+          checked={showRemoved}
+          onChange={(event) => setShowRemoved(event.target.checked)}
+        />
+        Показать удалённые с площадки
+      </label>
       <ReviewsTable items={reviews} emptyMessage="Отзывы для этой организации ещё не собраны." />
     </div>
   );

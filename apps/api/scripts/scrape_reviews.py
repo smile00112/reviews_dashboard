@@ -38,6 +38,7 @@ from uuid import UUID
 
 from app.models.enums import ScrapeMode
 from app.models.organization import Organization
+from app.scraper.types import ALL_REVIEWS_MAX_PAGES
 from app.services.scrape_service import ScrapeService, _mode_url
 from scripts.scrape_metrics import RunLogger
 
@@ -57,10 +58,6 @@ PLATFORM_DEFAULT_MODE: dict[str, ScrapeMode] = {
 # Modes that scroll a live page instead of paginating: they have no limit/max_pages
 # knob, so --all-reviews cannot be honoured and must not be silently ignored.
 SCROLL_MODES = (ScrapeMode.public, ScrapeMode.operator_auth)
-
-# Runaway guard for --all-reviews. Pagination already stops when a page yields no new
-# reviews; at ~50 reviews/page this covers ~5000, well above the largest known org.
-ALL_REVIEWS_MAX_PAGES = 100
 
 
 def build_parser() -> argparse.ArgumentParser:
