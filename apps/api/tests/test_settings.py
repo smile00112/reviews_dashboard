@@ -1,6 +1,13 @@
 """Settings storage + /api/settings contract (dashboard settings feature)."""
 
+from datetime import datetime, timedelta, timezone
+
 from app.models.app_setting import AppSetting
+from app.models.enums import ReviewPlatform, ScrapeMode
+from app.models.organization import Organization
+from app.models.review import Review
+
+NOW = datetime.now(timezone.utc)
 
 
 def test_app_setting_roundtrip(db_session):
@@ -88,3 +95,45 @@ def test_dashboard_uses_db_sla_threshold(db_session, monkeypatch):
     assert resolved == 90
     svc._review_cube(None, None, None, None, None, resolved)
     assert captured["sla_minutes"] == 90
+
+
+def test_overview_sla_percent_reflects_updated_threshold(admin_client, db_session):
+    """End-to-end regression guard for the feature's headline promise: changing
+    the threshold via the real PATCH endpoint changes ``sla_percent`` on the
+    real GET /api/dashboard/overview response. Unlike
+    test_dashboard_uses_db_sla_threshold above, this exercises overview()'s own
+    resolution-and-threading logic (SettingsService(...).sla_threshold_minutes()
+    -> _review_cube) rather than stubbing it out."""
+    org = Organization(name="Org", rating=4.5, review_count=1)
+    db_session.add(org)
+    db_session.commit()
+    db_session.refresh(org)
+
+    first_seen = NOW - timedelta(hours=1)
+    response_at = first_seen + timedelta(minutes=10)
+    review = Review(
+        organization_id=org.id,
+        source="yandex_maps",
+        scrape_mode=ScrapeMode.public,
+        platform=ReviewPlatform.yandex,
+        rating=5,
+        review_text="text",
+        content_hash="sla-e2e-1",
+        first_seen_at=first_seen,
+        last_seen_at=first_seen,
+        response_text="reply",
+        response_first_seen_at=response_at,
+    )
+    db_session.add(review)
+    db_session.commit()
+
+    # Default threshold (1440 min) comfortably covers a 10-minute reply.
+    default_body = admin_client.get("/api/dashboard/overview?period=30d").json()
+    assert default_body["kpi_strip"]["sla_percent"] == 100.0
+
+    # Lower the threshold below the reply's actual delay via the real PATCH endpoint.
+    patch_resp = admin_client.patch("/api/settings", json={"overview_sla_threshold_minutes": 5})
+    assert patch_resp.status_code == 200
+
+    updated_body = admin_client.get("/api/dashboard/overview?period=30d").json()
+    assert updated_body["kpi_strip"]["sla_percent"] == 0.0

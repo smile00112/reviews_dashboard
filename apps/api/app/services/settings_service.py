@@ -38,4 +38,6 @@ class SettingsService:
         return row
 
     def sla_threshold_minutes(self) -> int:
+        # Once a DB row exists here, it permanently shadows overview_sla_threshold_minutes
+        # in .env — a redeploy that changes the env value has no effect until the row is cleared.
         return self.get_int(SLA_KEY, settings.overview_sla_threshold_minutes)
