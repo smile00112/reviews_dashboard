@@ -36,3 +36,33 @@ def test_settings_service_sla_falls_back_to_config(db_session):
     from app.services.settings_service import SettingsService
 
     assert SettingsService(db_session).sla_threshold_minutes() == settings.overview_sla_threshold_minutes
+
+
+def test_get_settings_returns_config_default(admin_client):
+    resp = admin_client.get("/api/settings")
+    assert resp.status_code == 200
+    from app.core.config import settings
+    assert resp.json()["overview_sla_threshold_minutes"] == settings.overview_sla_threshold_minutes
+
+
+def test_patch_settings_persists(admin_client):
+    resp = admin_client.patch("/api/settings", json={"overview_sla_threshold_minutes": 360})
+    assert resp.status_code == 200
+    assert resp.json()["overview_sla_threshold_minutes"] == 360
+    # persisted across a fresh GET
+    assert admin_client.get("/api/settings").json()["overview_sla_threshold_minutes"] == 360
+
+
+def test_patch_settings_rejects_non_positive(admin_client):
+    resp = admin_client.patch("/api/settings", json={"overview_sla_threshold_minutes": 0})
+    assert resp.status_code == 422
+
+
+def test_patch_settings_requires_admin(operator_client):
+    resp = operator_client.patch("/api/settings", json={"overview_sla_threshold_minutes": 360})
+    assert resp.status_code == 403
+
+
+def test_patch_settings_requires_auth(client):
+    resp = client.patch("/api/settings", json={"overview_sla_threshold_minutes": 360})
+    assert resp.status_code == 401
