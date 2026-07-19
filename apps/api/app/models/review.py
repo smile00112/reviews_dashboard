@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -34,6 +35,14 @@ class Review(Base):
         Index("ix_reviews_org_review_date", "organization_id", "review_date"),
         Index("ix_reviews_org_first_seen", "organization_id", "first_seen_at"),
         Index("ix_reviews_org_platform", "organization_id", "platform"),
+        # Feature 012: overview SQL aggregates.
+        Index(
+            "ix_reviews_org_unanswered",
+            "organization_id",
+            postgresql_where=text("response_text IS NULL"),
+            sqlite_where=text("response_text IS NULL"),
+        ),
+        Index("ix_reviews_org_platform_first_seen", "organization_id", "platform", "first_seen_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
