@@ -25,6 +25,7 @@ from app.models.enums import AttentionRuleType, AttentionScope, ReviewPlatform, 
 from app.models.organization import Organization
 from app.models.rating_snapshot import RatingSnapshot
 from app.models.review import Review
+from app.services.settings_service import SettingsService
 
 # period token -> window length in days (None = all time / caller-supplied range)
 PERIOD_DAYS: dict[str, int | None] = {
@@ -254,6 +255,7 @@ class DashboardService:
         now: datetime,
         until: date | None = None,
         prev_window: tuple[date, date] | None = None,
+        sla_minutes: int | None = None,
     ) -> list:
         """One scan of the scoped reviews, grouped by (platform, rating, sentiment).
 
@@ -265,7 +267,9 @@ class DashboardService:
         """
         delay = self._response_delay_expr()
         answered = Review.response_first_seen_at.isnot(None)
-        sla_seconds = settings.overview_sla_threshold_minutes * 60
+        if sla_minutes is None:
+            sla_minutes = settings.overview_sla_threshold_minutes
+        sla_seconds = sla_minutes * 60
         fs = Review.first_seen_at
         published = self._published_expr()
         unanswered = Review.response_text.is_(None)
@@ -533,6 +537,8 @@ class DashboardService:
 
         page_platforms = None if platform == "all" else {ReviewPlatform(platform)}
 
+        sla_minutes = SettingsService(self.db).sla_threshold_minutes()
+
         # Previous window of the same length, ending the day before the period
         # starts. period=all has no cutoff, so no comparison base.
         prev_window = None
@@ -540,7 +546,7 @@ class DashboardService:
             prev_end = period_start - timedelta(days=1)
             prev_window = (prev_end - timedelta(days=days - 1), prev_end)
 
-        cube = self._review_cube(scope, cutoff, now, until, prev_window)
+        cube = self._review_cube(scope, cutoff, now, until, prev_window, sla_minutes)
         counters = self._counters_from_cube(cube, page_platforms)
         rating_counts = cube
         sentiment_counts = self._sentiment_counts_from_cube(cube, page_platforms)

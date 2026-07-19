@@ -20,6 +20,7 @@ import type {
   ScrapeMode,
   ScrapeRun,
   SessionInfo,
+  Settings,
 } from "./types";
 
 // Relative base: requests go to the web origin and Next.js rewrites /api/* to
@@ -359,4 +360,16 @@ export async function updateAttentionRule(
 
 export async function deleteAttentionRule(id: string): Promise<void> {
   await request<void>(`/api/attention-rules/${id}`, { method: "DELETE" });
+}
+
+// --- Settings ---
+export async function getSettings(): Promise<Settings> {
+  return request<Settings>("/api/settings");
+}
+
+export async function updateSettings(patch: Settings): Promise<Settings> {
+  return request<Settings>("/api/settings", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }

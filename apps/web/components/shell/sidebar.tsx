@@ -25,6 +25,10 @@ const NAV: { group: string; items: { href: string; label: string; icon: string }
       { href: "/http-scraper", label: "HTTP-парсер", icon: "🔧" },
     ],
   },
+  {
+    group: "Система",
+    items: [{ href: "/settings", label: "Настройки", icon: "⚙" }],
+  },
 ];
 
 export function Sidebar() {
