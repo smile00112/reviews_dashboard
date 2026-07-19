@@ -184,7 +184,7 @@ export interface SessionInfo {
 
 // --- Network overview dashboard (feature 009) ---
 
-export type OverviewPeriod = "day" | "week" | "30d" | "90d" | "year" | "all";
+export type OverviewPeriod = "day" | "week" | "30d" | "90d" | "year" | "all" | "custom";
 export type OverviewPlatform = "all" | "yandex" | "google" | "gis2";
 
 export interface OverviewHeader {

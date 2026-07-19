@@ -103,11 +103,15 @@ export async function getDashboardOverview(params: {
   platform?: OverviewPlatform;
   orgIds?: string[];
   companyId?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }): Promise<DashboardOverview> {
   const qs = new URLSearchParams();
   if (params.period) qs.set("period", params.period);
   if (params.platform) qs.set("platform", params.platform);
   if (params.companyId) qs.set("company_id", params.companyId);
+  if (params.dateFrom) qs.set("date_from", params.dateFrom);
+  if (params.dateTo) qs.set("date_to", params.dateTo);
   for (const id of params.orgIds ?? []) qs.append("org_ids", id);
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   return request<DashboardOverview>(`/api/dashboard/overview${suffix}`);

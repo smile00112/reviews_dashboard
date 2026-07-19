@@ -108,6 +108,12 @@ def test_http_metrics_only_never_full(monkeypatch):
 # --- twogis_api ----------------------------------------------------------
 
 
+# The reviews endpoint is org-level, so _fetch_reviews scopes the pool to one
+# branch; these full_pass cases are about pagination, so every review is ours.
+TWOGIS_ORG_ID = "123"
+TWOGIS_FIRM_ID = "456"
+
+
 def _review(i: int) -> dict:
     return {
         "id": f"r{i}",
@@ -115,6 +121,7 @@ def _review(i: int) -> dict:
         "rating": 5,
         "text": f"Отзыв номер {i}",
         "date_created": f"2026-07-{i:02d} 10:00:00",
+        "object": {"id": TWOGIS_FIRM_ID},
     }
 
 
@@ -122,7 +129,7 @@ def test_twogis_full_pass_on_natural_end(monkeypatch):
     scraper = TwogisApiScraper()
     page = {"meta": {}, "reviews": [_review(1), _review(2)]}  # no next_link => end
     monkeypatch.setattr(scraper, "_get_json", lambda url, params: (page, None))
-    reviews, exhausted = scraper._fetch_reviews("123")
+    reviews, exhausted = scraper._fetch_reviews(TWOGIS_ORG_ID, TWOGIS_FIRM_ID)
     assert len(reviews) == 2
     assert exhausted is True
 
@@ -134,7 +141,7 @@ def test_twogis_full_pass_on_empty_page(monkeypatch):
     ]
     scraper = TwogisApiScraper()
     monkeypatch.setattr(scraper, "_get_json", lambda url, params: (pages.pop(0), None))
-    reviews, exhausted = scraper._fetch_reviews("123")
+    reviews, exhausted = scraper._fetch_reviews(TWOGIS_ORG_ID, TWOGIS_FIRM_ID)
     assert len(reviews) == 1
     assert exhausted is True
 
@@ -143,7 +150,7 @@ def test_twogis_not_full_when_limit_cap_hit(monkeypatch):
     scraper = TwogisApiScraper()
     page = {"meta": {"next_link": "next"}, "reviews": [_review(1), _review(2), _review(3)]}
     monkeypatch.setattr(scraper, "_get_json", lambda url, params: (page, None))
-    reviews, exhausted = scraper._fetch_reviews("123", limit=2)
+    reviews, exhausted = scraper._fetch_reviews(TWOGIS_ORG_ID, TWOGIS_FIRM_ID, limit=2)
     assert len(reviews) == 2
     assert exhausted is False
 
@@ -152,7 +159,7 @@ def test_twogis_not_full_when_max_pages_cap_hit(monkeypatch):
     scraper = TwogisApiScraper()
     page = {"meta": {"next_link": "next"}, "reviews": [_review(1)]}
     monkeypatch.setattr(scraper, "_get_json", lambda url, params: (page, None))
-    reviews, exhausted = scraper._fetch_reviews("123", max_pages=1)
+    reviews, exhausted = scraper._fetch_reviews(TWOGIS_ORG_ID, TWOGIS_FIRM_ID, max_pages=1)
     assert exhausted is False
 
 
@@ -163,16 +170,18 @@ def test_twogis_not_full_on_mid_pagination_error(monkeypatch):
     ]
     scraper = TwogisApiScraper()
     monkeypatch.setattr(scraper, "_get_json", lambda url, params: pages.pop(0))
-    reviews, exhausted = scraper._fetch_reviews("123")
+    reviews, exhausted = scraper._fetch_reviews(TWOGIS_ORG_ID, TWOGIS_FIRM_ID)
     assert len(reviews) == 1
     assert exhausted is False
 
 
 def test_twogis_scrape_sets_result_full_pass(monkeypatch):
-    from tests.test_twogis_api import CATALOG, FULL_URL
+    from tests.test_twogis_api import CATALOG, FIRM_ID, FULL_URL
     from app.scraper.twogis_api import CATALOG_URL
 
-    page = {"meta": {}, "reviews": [_review(1)]}
+    # Scoped to the branch FULL_URL names, or the pool filter would drop it.
+    review = _review(1) | {"object": {"id": FIRM_ID}}
+    page = {"meta": {}, "reviews": [review]}
 
     def fake_get_json(self, url, params):
         if url == CATALOG_URL:
@@ -182,6 +191,7 @@ def test_twogis_scrape_sets_result_full_pass(monkeypatch):
     monkeypatch.setattr(TwogisApiScraper, "_get_json", fake_get_json)
     result = TwogisApiScraper().scrape(FULL_URL)
     assert result.error_code is None
+    assert len(result.reviews) == 1
     assert result.full_pass is True
     # metrics_only claims no review coverage.
     result_metrics = TwogisApiScraper().scrape(FULL_URL, metrics_only=True)

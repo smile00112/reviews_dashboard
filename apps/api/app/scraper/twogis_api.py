@@ -22,13 +22,14 @@ from __future__ import annotations
 import re
 import time
 from collections import Counter
+from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
 
 from app.core.config import settings
 from app.scraper.debug_artifacts import save_html_debug
 from app.scraper.markers import BOT_MARKERS as _SHARED_BOT_MARKERS
-from app.scraper.normalize import normalize_review_date
+from app.scraper.normalize import iso_datetime_to_local_date, normalize_review_date
 from app.scraper.proxy_pool import ProxyPool
 from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
 
@@ -47,6 +48,9 @@ BOT_MARKERS: tuple[str, ...] = _SHARED_BOT_MARKERS + (
 class TwogisApiScraper:
     REQUEST_TIMEOUT_SECONDS = 30
     PROXY_TIMEOUT_SECONDS = 90
+    RATE_LIMIT_RETRIES = 3
+    RATE_LIMIT_BACKOFF_SECONDS = 2.0
+    REDIRECT_RETRIES = 3
     # A residential/DC proxy needs browser-ish headers so the short-link HTML fetch
     # is not served the bot wall a bare requests UA gets.
     BROWSER_HEADERS = {
@@ -89,7 +93,9 @@ class TwogisApiScraper:
             result.organization = organization
             # catalog already carries rating/counts; skip the reviews pagination.
             if not metrics_only:
-                result.reviews, result.full_pass = self._fetch_reviews(org_id, limit, max_pages)
+                result.reviews, result.full_pass = self._fetch_reviews(
+                    org_id, firm_id, limit, max_pages
+                )
             return result
         except Exception as exc:  # never raise out of a scrape attempt (constitution IV)
             result.error_code = "twogis_error"
@@ -100,10 +106,18 @@ class TwogisApiScraper:
 
     def _resolve_firm_id(self, url: str) -> tuple[str | None, ScrapeResult | None]:
         """Return (firm_id, challenge). A full ``/firm/{id}`` URL needs no network;
-        a short link is resolved through the ScrapeOps proxy."""
+        a short link redirects through 2GIS's own ``go.2gis.com`` service to a URL
+        that already contains the firm id, even though the final SPA page then 403s
+        from a datacenter IP — so the id is read off the resolved redirect location,
+        no proxy needed. Only a short link that redirects without ever reaching a
+        ``/firm/`` URL falls back to the proxy-fetched page body."""
         match = FIRM_ID_RE.search(url)
         if match:
             return match.group(1), None
+
+        firm_id = self._resolve_via_redirect(url)
+        if firm_id:
+            return firm_id, None
 
         html, challenge = self._proxy_html(url)
         if challenge is not None:
@@ -118,6 +132,33 @@ class TwogisApiScraper:
         # appear less often. Most-common wins.
         firm_id = Counter(ids).most_common(1)[0][0]
         return firm_id, None
+
+    def _resolve_via_redirect(self, url: str) -> str | None:
+        """Follow the short link's redirect chain and read the firm id off wherever
+        it lands. Two things make this flaky enough to retry: the connection is
+        occasionally reset mid-redirect (transient), and 2GIS sometimes routes
+        through a ``/museum`` interstitial instead of the firm page directly — that
+        page carries the real destination in its own ``return_url`` query param
+        rather than redirecting straight to it, so both spots need checking."""
+        for attempt in range(self.REDIRECT_RETRIES):
+            try:
+                resp = requests.get(
+                    url,
+                    headers=self.BROWSER_HEADERS,
+                    timeout=self.REQUEST_TIMEOUT_SECONDS,
+                    allow_redirects=True,
+                )
+            except requests.RequestException:
+                continue
+            match = FIRM_ID_RE.search(resp.url)
+            if match:
+                return match.group(1)
+            return_url = parse_qs(urlparse(resp.url).query).get("return_url", [None])[0]
+            if return_url:
+                match = FIRM_ID_RE.search(unquote(return_url))
+                if match:
+                    return match.group(1)
+        return None
 
     def _proxy_html(self, url: str) -> tuple[str | None, ScrapeResult | None]:
         # Rotating proxy pool is primary; ScrapeOps is a legacy fallback.
@@ -246,12 +287,30 @@ class TwogisApiScraper:
     def _fetch_reviews(
         self,
         org_id: str,
+        firm_id: str,
         limit: float | None = None,
         max_pages: int | None = None,
     ) -> tuple[list[ParsedReview], bool]:
-        """Returns (reviews, exhausted): exhausted=True only when the API's own
+        """Collect the reviews of ONE branch out of the org-level review pool.
+
+        ``/orgs/{org_id}/reviews`` serves every branch of a franchise: all siblings
+        share one ``org_id``, so the endpoint returns the parent aggregate
+        (``org_review_count``), not what 2GIS prints on the branch card
+        (``general_review_count``). Persisting the whole pool under one branch
+        inflated its stored count several times over and made the reviews job's
+        counter comparison mismatch forever. Every review names the branch it was
+        left for in ``object.id`` — only those are this organization's. Reviews
+        with no ``object`` at all are kept: single-branch orgs may omit it, and
+        dropping them would lose data to be safe about a case that cannot happen.
+
+        Note the cost: harvesting one branch means paging the entire franchise
+        pool, so a large franchise walks many pages for few kept reviews.
+        ``max_pages`` remains the runaway guard.
+
+        Returns (reviews, exhausted): exhausted=True only when the API's own
         end-of-list was reached (empty page / no next_link) before any cap —
-        the full_pass contract of feature 011."""
+        the full_pass contract of feature 011.
+        """
         collected: list[ParsedReview] = []
         exhausted = False
         limit = settings.twogis_review_limit if limit is None else limit
@@ -270,7 +329,6 @@ class TwogisApiScraper:
                 "limit": page_size,
                 "offset": offset,
                 "sort_by": "date_created",
-                "rated": "true",
             }
             data, err = self._get_json(url, params)
             if err is not None or not data:
@@ -281,6 +339,8 @@ class TwogisApiScraper:
                 break
             hit_limit = False
             for raw in batch:
+                if not self._belongs_to_firm(raw, firm_id):
+                    continue
                 mapped = self._map_review(raw)
                 if mapped is None:
                     continue
@@ -298,6 +358,11 @@ class TwogisApiScraper:
                 time.sleep(delay)
 
         return collected, exhausted
+
+    @staticmethod
+    def _belongs_to_firm(raw: dict, firm_id: str) -> bool:
+        object_id = (raw.get("object") or {}).get("id")
+        return object_id is None or str(object_id) == str(firm_id)
 
     @staticmethod
     def _map_review(raw: dict) -> ParsedReview | None:
@@ -319,7 +384,12 @@ class TwogisApiScraper:
             review_text=raw.get("text") or "",
             # date_created is immutable per review → stable content_hash across re-scrapes.
             review_date_text=date_created or None,
-            review_date=normalize_review_date(date_created[:10] if date_created else None),
+            # date_created carries the reviewed branch's own UTC offset; resolve the
+            # day in MSK rather than slicing the reviewer's local date off the front.
+            review_date=(
+                iso_datetime_to_local_date(date_created)
+                or normalize_review_date(date_created[:10] if date_created else None)
+            ),
             response_text=official.get("text") if isinstance(official, dict) else None,
             external_review_id=str(review_id) if review_id is not None else None,
         )
@@ -327,14 +397,21 @@ class TwogisApiScraper:
     # --- transport (direct + ScrapeOps fallback) ----------------------------
 
     def _get_json(self, url: str, params: dict) -> tuple[dict | None, ScrapeResult | None]:
-        """Direct GET; on an IP-block (HTTP 403/429 or network error) retry through
-        the ScrapeOps proxy. Body-level key errors are handled by the caller."""
+        """Direct GET. A 403/429 is retried directly a couple of times first — bulk
+        runs (``scrape_metrics``) fire one org after another with no delay, and 2GIS
+        rate-limits the burst rather than the IP outright — before falling back
+        through the ScrapeOps proxy on a persistent block. Body-level key errors are
+        handled by the caller."""
         try:
-            resp = requests.get(url, params=params, timeout=self.REQUEST_TIMEOUT_SECONDS)
-            if resp.status_code in (403, 429):
-                return self._get_json_via_proxy(url, params)
-            resp.raise_for_status()
-            return resp.json(), None
+            for attempt in range(self.RATE_LIMIT_RETRIES):
+                resp = requests.get(url, params=params, timeout=self.REQUEST_TIMEOUT_SECONDS)
+                if resp.status_code in (403, 429):
+                    if attempt < self.RATE_LIMIT_RETRIES - 1:
+                        time.sleep(self.RATE_LIMIT_BACKOFF_SECONDS)
+                        continue
+                    return self._get_json_via_proxy(url, params)
+                resp.raise_for_status()
+                return resp.json(), None
         except requests.RequestException:
             return self._get_json_via_proxy(url, params)
         except ValueError as exc:  # non-JSON body

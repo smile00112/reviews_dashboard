@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from uuid import UUID
 
-from sqlalchemy import Float, and_, case, cast, func
+from sqlalchemy import Date, Float, and_, case, cast, func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -26,7 +26,7 @@ from app.models.organization import Organization
 from app.models.rating_snapshot import RatingSnapshot
 from app.models.review import Review
 
-# period token -> window length in days (None = all time)
+# period token -> window length in days (None = all time / caller-supplied range)
 PERIOD_DAYS: dict[str, int | None] = {
     "day": 1,
     "week": 7,
@@ -34,7 +34,11 @@ PERIOD_DAYS: dict[str, int | None] = {
     "90d": 90,
     "year": 365,
     "all": None,
+    # feature 013: bounds come from date_from/date_to, not from a fixed length
+    "custom": None,
 }
+
+CUSTOM_PERIOD = "custom"
 
 # platform -> (org rating column, org review_count column)
 _PLATFORM_COLS: dict[ReviewPlatform, tuple[str, str]] = {
@@ -191,6 +195,24 @@ class DashboardService:
             return dt.astimezone(timezone.utc).replace(tzinfo=None)
         return dt
 
+    def _published_expr(self):
+        """Publication date of a review: ``review_date`` when the platform gave
+        one, else the day we first saw it.
+
+        Period membership ("новых за период", "сегодня") must key off *when the
+        review was written*, not when the scraper first saw it: a first bulk
+        import of a platform stamps every row with today's ``first_seen_at`` and
+        would report the whole backlog as new (2GIS: 35 892 rows -> 34 533 "new
+        in day"). ``first_seen_at`` stays the basis for reaction windows
+        (2h/24h) and response-delay math, where "since we could have answered"
+        is the right clock.
+        """
+        if self.db.get_bind().dialect.name == "sqlite":
+            fallback = func.date(Review.first_seen_at)
+        else:
+            fallback = cast(Review.first_seen_at, Date)
+        return func.coalesce(Review.review_date, fallback)
+
     @staticmethod
     def _scoped_filters(org_ids: list[UUID] | None, platform: str) -> list:
         """``org_ids=None`` means "every organization" — the IN clause is then
@@ -203,7 +225,13 @@ class DashboardService:
     # ------------------------------------------------------------------ #
     # Aggregate queries (feature 012 — no full review materialization)   #
     # ------------------------------------------------------------------ #
-    def _review_cube(self, org_ids: list[UUID] | None, cutoff: datetime | None, now: datetime) -> list:
+    def _review_cube(
+        self,
+        org_ids: list[UUID] | None,
+        cutoff: datetime | None,
+        now: datetime,
+        until: date | None = None,
+    ) -> list:
         """One scan of the scoped reviews, grouped by (platform, rating, sentiment).
 
         Every counter, distribution and response-delay figure the overview needs is
@@ -216,11 +244,27 @@ class DashboardService:
         answered = Review.response_first_seen_at.isnot(None)
         sla_seconds = settings.overview_sla_threshold_minutes * 60
         fs = Review.first_seen_at
+        published = self._published_expr()
         unanswered = Review.response_text.is_(None)
-        in_period = True if cutoff is None else fs >= self._dt_param(cutoff)
-        cutoff_24h = self._dt_param(now - timedelta(hours=24))
+        # Period, "today" and the unanswered card are publication-date based: a
+        # bulk import stamps first_seen_at with today for the whole backlog, which
+        # would report every old unanswered review as answered-in-time and every
+        # backlog row as new. The 2h fresh-negative alert has no day-granular
+        # equivalent and stays sighting-based.
+        # ``until`` (feature 013) is the optional upper bound of a custom range;
+        # None keeps the historical "everything up to now" behaviour.
+        period_conds = []
+        if cutoff is not None:
+            period_conds.append(published >= cutoff.date())
+        if until is not None:
+            period_conds.append(published <= until)
+        in_period = and_(*period_conds) if period_conds else True
         cutoff_2h = self._dt_param(now - timedelta(hours=2))
-        today_start = self._dt_param(datetime(now.year, now.month, now.day, tzinfo=timezone.utc))
+        # "Today" is an equality, not ``>= today``: platforms hand out timezone-
+        # shifted future review_date values (2GIS stamps tomorrow near midnight),
+        # which would otherwise be counted as today's.
+        today = now.date()
+        yesterday = today - timedelta(days=1)
 
         def cnt(*conds):
             return func.count(case((and_(*conds), 1)))
@@ -230,13 +274,13 @@ class DashboardService:
             Review.rating,
             Review.sentiment,
             func.count().label("total"),
-            (func.count() if cutoff is None else cnt(in_period)).label("count"),
-            cnt(fs >= today_start).label("new_today"),
+            (func.count() if not period_conds else cnt(in_period)).label("count"),
+            cnt(published == today).label("new_today"),
             cnt(Review.rating <= 2, fs >= cutoff_2h).label("fresh_negatives_2h"),
-            cnt(unanswered).label("unanswered_total"),
-            cnt(unanswered, fs <= cutoff_24h).label("overdue_24h"),
-            cnt(unanswered, fs >= cutoff_24h).label("unanswered_delta_24h"),
-            func.min(fs).label("min_first_seen"),
+            cnt(in_period, unanswered).label("unanswered_total"),
+            cnt(in_period, unanswered, published <= yesterday).label("overdue_24h"),
+            cnt(in_period, unanswered, published == today).label("unanswered_delta_24h"),
+            func.min(published).label("min_published"),
             cnt(in_period, answered).label("response_count"),
             func.sum(case((and_(in_period, answered), delay))).label("response_sum_seconds"),
             cnt(in_period, answered, delay <= sla_seconds).label("within_sla"),
@@ -262,10 +306,10 @@ class DashboardService:
                 continue
             for k in keys:
                 totals[k] += getattr(row, k)
-            if row.min_first_seen is not None and (earliest is None or row.min_first_seen < earliest):
-                earliest = row.min_first_seen
+            if row.min_published is not None and (earliest is None or row.min_published < earliest):
+                earliest = row.min_published
         totals["new_in_period"] = totals.pop("count")
-        totals["min_first_seen"] = earliest
+        totals["min_published"] = earliest
         return totals
 
     @staticmethod
@@ -287,10 +331,21 @@ class DashboardService:
             entry["within_sla"] += row.within_sla
         return stats
 
-    def _unanswered_by_org(self, org_ids: list[UUID] | None, platform: str) -> dict[UUID, int]:
-        query = self.db.query(Review.organization_id, func.count()).filter(
-            *self._scoped_filters(org_ids, platform), Review.response_text.is_(None)
-        )
+    def _unanswered_by_org(
+        self,
+        org_ids: list[UUID] | None,
+        platform: str,
+        cutoff: datetime | None,
+        until: date | None = None,
+    ) -> dict[UUID, int]:
+        """Per-org unanswered count, scoped to the page period by publication date
+        (same clock as the "Без ответа" hero card)."""
+        filters = [*self._scoped_filters(org_ids, platform), Review.response_text.is_(None)]
+        if cutoff is not None:
+            filters.append(self._published_expr() >= cutoff.date())
+        if until is not None:
+            filters.append(self._published_expr() <= until)
+        query = self.db.query(Review.organization_id, func.count()).filter(*filters)
         return dict(query.group_by(Review.organization_id).all())
 
     def _response_delay_expr(self):
@@ -305,17 +360,25 @@ class DashboardService:
             func.extract("epoch", Review.response_first_seen_at - Review.first_seen_at), Float
         )
 
-    def _response_base(self, org_ids: list[UUID] | None, cutoff: datetime | None):
+    def _response_base(
+        self, org_ids: list[UUID] | None, cutoff: datetime | None, until: date | None = None
+    ):
         """Filtered query base over period rows carrying a response (platform-agnostic)."""
         filters = [Review.response_first_seen_at.isnot(None)]
         if org_ids is not None:
             filters.append(Review.organization_id.in_(org_ids))
         if cutoff is not None:
-            filters.append(Review.first_seen_at >= self._dt_param(cutoff))
+            filters.append(self._published_expr() >= cutoff.date())
+        if until is not None:
+            filters.append(self._published_expr() <= until)
         return filters
 
     def _response_percentiles(
-        self, org_ids: list[UUID] | None, cutoff: datetime | None, platform: str
+        self,
+        org_ids: list[UUID] | None,
+        cutoff: datetime | None,
+        platform: str,
+        until: date | None = None,
     ) -> tuple[float | None, float | None]:
         """(median, p95) response delay in seconds for the page's platform scope.
 
@@ -324,7 +387,7 @@ class DashboardService:
         which lacks it, falls back to loading the delays.
         """
         delay = self._response_delay_expr()
-        filters = list(self._response_base(org_ids, cutoff))
+        filters = list(self._response_base(org_ids, cutoff, until))
         if platform != "all":
             filters.append(Review.platform == ReviewPlatform(platform))
 
@@ -378,11 +441,21 @@ class DashboardService:
         platform: str = "all",
         org_ids: list[UUID] | None = None,
         company_id: UUID | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
         now: datetime | None = None,
     ) -> dict:
         now = now or datetime.now(timezone.utc)
         days = PERIOD_DAYS.get(period, 30)
-        cutoff = None if days is None else now - timedelta(days=days)
+        until: date | None = None
+        if period == CUSTOM_PERIOD and date_from is not None and date_to is not None:
+            # Feature 013: caller-supplied window, both bounds inclusive. ``days``
+            # counts calendar days in the range so avg_per_day stays honest.
+            cutoff = datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc)
+            until = date_to
+            days = (date_to - date_from).days + 1
+        else:
+            cutoff = None if days is None else now - timedelta(days=days)
         period_start = (cutoff or now).date()
 
         orgs = self._selected_orgs(org_ids, company_id)
@@ -401,13 +474,13 @@ class DashboardService:
 
         page_platforms = None if platform == "all" else {ReviewPlatform(platform)}
 
-        cube = self._review_cube(scope, cutoff, now)
+        cube = self._review_cube(scope, cutoff, now, until)
         counters = self._counters_from_cube(cube, page_platforms)
         rating_counts = cube
         sentiment_counts = self._sentiment_counts_from_cube(cube, page_platforms)
         response_stats = self._response_stats_from_cube(cube)
-        unanswered_by_org = self._unanswered_by_org(scope, platform)
-        response_percentiles = self._response_percentiles(scope, cutoff, platform)
+        unanswered_by_org = self._unanswered_by_org(scope, platform, cutoff, until)
+        response_percentiles = self._response_percentiles(scope, cutoff, platform, until)
         aspect_rows = self._aspect_rows(scope, platform, now)
 
         header = self._header(counters)
@@ -452,7 +525,7 @@ class DashboardService:
         avg_rating = self._weighted_avg_rating(orgs, platform)
         delta = self._network_rating_delta(orgs, platform, snaps)
 
-        span = days or max(1, self._span_days(counters["min_first_seen"], now))
+        span = days or max(1, self._span_days(counters["min_published"], now))
         new_in_period = counters["new_in_period"]
         return {
             "network_avg_rating": avg_rating,
@@ -889,10 +962,16 @@ class DashboardService:
         return round(sum(deltas) / len(deltas), 2) if deltas else None
 
     @staticmethod
-    def _span_days(earliest: datetime | None, now: datetime) -> int:
+    def _span_days(earliest: date | datetime | str | None, now: datetime) -> int:
+        """Days covered by the data. ``earliest`` is a publication date; SQLite
+        hands back the ISO string its coalesce produced, Postgres a ``date``."""
         if earliest is None:
             return 1
-        return max(1, (now - _aware(earliest)).days)
+        if isinstance(earliest, str):
+            earliest = date.fromisoformat(earliest[:10])
+        if isinstance(earliest, datetime):
+            return max(1, (now - _aware(earliest)).days)
+        return max(1, (now.date() - earliest).days)
 
     @staticmethod
     def _percentile(values: list[float], pct: int) -> int:

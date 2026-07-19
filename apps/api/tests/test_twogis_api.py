@@ -1,5 +1,7 @@
 """Tests for the 2GIS reviews API scraper (twogis_api mode, feature 006)."""
 
+import requests
+
 from app.models.enums import ReviewPlatform, ScrapeMode
 from app.models.organization import Organization
 from app.models.review import Review
@@ -8,6 +10,7 @@ from app.scraper.types import ParsedOrganization, ParsedReview, ScrapeResult
 from app.services.scrape_service import ScrapeService
 
 FULL_URL = "https://2gis.ru/achinsk/firm/70000001027742089/tab/reviews"
+FIRM_ID = "70000001027742089"
 
 CATALOG = {
     "meta": {"code": 200},
@@ -40,6 +43,7 @@ REVIEWS_PAGE = {
             "rating": 5,
             "text": "Очень вкусно",
             "date_created": "2026-07-01 10:00:00",
+            "object": {"id": FIRM_ID},
             "official_answer": {"text": "Спасибо за отзыв!"},
         },
         {
@@ -48,6 +52,7 @@ REVIEWS_PAGE = {
             "rating": 4,
             "text": "Нормально",
             "date_created": "2026-06-28 09:00:00",
+            "object": {"id": FIRM_ID},
         },
     ],
 }
@@ -101,6 +106,34 @@ def test_map_review_degrades_safely_on_missing_optional_fields():
     assert pr.response_text is None
 
 
+def test_map_review_converts_source_offset_to_moscow_date():
+    """2GIS stamps date_created in the BRANCH's own UTC offset. Slicing the first
+    10 characters kept that local day, so a review posted just after midnight in
+    Novosibirsk (+07:00) was stored as a date still in the future for an operator
+    on Moscow time. The instant must be converted to MSK before taking the day."""
+    pr = TwogisApiScraper._map_review(
+        {
+            "id": "r9",
+            "user": {"name": "Ларочка"},
+            "rating": 5,
+            "text": "Прекрасные роллы",
+            "date_created": "2026-07-20T00:03:31.0+07:00",
+        }
+    )
+    assert pr.review_date is not None
+    assert pr.review_date.isoformat() == "2026-07-19"
+    # The raw timestamp still feeds the content_hash verbatim.
+    assert pr.review_date_text == "2026-07-20T00:03:31.0+07:00"
+
+
+def test_map_review_keeps_moscow_day_for_utc_timestamps():
+    # 21:30 UTC is already the next day in MSK (+03:00).
+    pr = TwogisApiScraper._map_review(
+        {"id": "r10", "user": {}, "rating": 4, "text": "x", "date_created": "2026-07-19T21:30:00Z"}
+    )
+    assert pr.review_date.isoformat() == "2026-07-20"
+
+
 def test_fetch_reviews_skips_invalid_rating_entries(monkeypatch):
     scraper = TwogisApiScraper()
     payload = {
@@ -111,8 +144,87 @@ def test_fetch_reviews_skips_invalid_rating_entries(monkeypatch):
         "meta": {},
     }
     monkeypatch.setattr(scraper, "_get_json", lambda url, params: (payload, None))
-    collected, _exhausted = scraper._fetch_reviews("123")
+    collected, _exhausted = scraper._fetch_reviews("123", "456")
     assert [r.external_review_id for r in collected] == ["ok"]
+
+
+# --- branch scoping --------------------------------------------------------
+
+
+def _branch_payload(*object_ids, next_link=None):
+    return {
+        "meta": {"next_link": next_link} if next_link else {},
+        "reviews": [
+            {
+                "id": f"r{i}",
+                "user": {"name": f"U{i}"},
+                "rating": 5,
+                "text": "ok",
+                "date_created": "2026-07-01T10:00:00+03:00",
+                **({"object": {"id": oid}} if oid is not None else {}),
+            }
+            for i, oid in enumerate(object_ids)
+        ],
+    }
+
+
+def test_fetch_reviews_keeps_only_the_requested_branch(monkeypatch):
+    """``/orgs/{org_id}/reviews`` serves the whole FRANCHISE pool — every branch of
+    a multi-branch org shares one org_id. Persisting the pool under a single branch
+    inflated its review count far past the branch counter 2GIS shows on the card
+    (observed: 42 on the card vs 150 stored). Each review names its own branch in
+    ``object.id``; only those belong to this organization."""
+    scraper = TwogisApiScraper()
+    payload = _branch_payload(FIRM_ID, "70000009999999999", FIRM_ID, "70000008888888888")
+    monkeypatch.setattr(scraper, "_get_json", lambda url, params: (payload, None))
+    collected, exhausted = scraper._fetch_reviews("70000001027742088", FIRM_ID)
+    assert [r.external_review_id for r in collected] == ["r0", "r2"]
+    assert exhausted is True
+
+
+def test_fetch_reviews_keeps_reviews_without_an_object_id(monkeypatch):
+    # Single-branch orgs may omit `object`; absence must not silently drop reviews.
+    scraper = TwogisApiScraper()
+    monkeypatch.setattr(
+        scraper, "_get_json", lambda url, params: (_branch_payload(None, FIRM_ID), None)
+    )
+    collected, _ = scraper._fetch_reviews("70000001027742088", FIRM_ID)
+    assert [r.external_review_id for r in collected] == ["r0", "r1"]
+
+
+def test_fetch_reviews_limit_counts_only_kept_reviews(monkeypatch):
+    """The cap bounds reviews we KEEP, not pool rows walked — otherwise a franchise
+    branch's own reviews get cut short by its siblings' volume."""
+    scraper = TwogisApiScraper()
+    payload = _branch_payload("70000009999999999", FIRM_ID, "70000009999999999", FIRM_ID)
+    monkeypatch.setattr(scraper, "_get_json", lambda url, params: (payload, None))
+    collected, exhausted = scraper._fetch_reviews("70000001027742088", FIRM_ID, limit=2)
+    assert [r.external_review_id for r in collected] == ["r1", "r3"]
+    # The cap cut the walk short, so coverage is unproven.
+    assert exhausted is False
+
+
+def test_fetch_reviews_does_not_filter_by_rated(monkeypatch):
+    """``rated=true`` silently dropped ordinary rated reviews (5 of 42 on the
+    observed org), leaving the collected count permanently below the platform
+    counter so a full pass could never corroborate."""
+    seen = {}
+    scraper = TwogisApiScraper()
+
+    def fake(url, params):
+        seen.update(params)
+        return _branch_payload(FIRM_ID), None
+
+    monkeypatch.setattr(scraper, "_get_json", fake)
+    scraper._fetch_reviews("70000001027742088", FIRM_ID)
+    assert "rated" not in seen
+
+
+def test_scrape_filters_pool_to_the_requested_branch(monkeypatch):
+    pool = _branch_payload(FIRM_ID, "70000009999999999")
+    monkeypatch.setattr(TwogisApiScraper, "_get_json", _fake_get_json(reviews=pool))
+    result = TwogisApiScraper().scrape(FULL_URL)
+    assert [r.external_review_id for r in result.reviews] == ["r0"]
 
 
 # --- firm id resolution ----------------------------------------------------
@@ -128,8 +240,69 @@ def test_resolve_firm_id_from_full_url_no_network(monkeypatch):
     assert challenge is None
 
 
+def test_resolve_firm_id_short_link_via_redirect_no_proxy(monkeypatch):
+    # go.2gis.com redirects to a URL already containing the firm id, even though
+    # the final SPA page 403s from a datacenter IP — no proxy is needed to read it.
+    class FakeResponse:
+        url = (
+            "https://2gis.ru/ishim/search/name/firm/70000001034286619/69.48,56.11"
+        )
+
+    def fake_get(url, headers=None, timeout=None, allow_redirects=None):
+        assert allow_redirects is True
+        return FakeResponse()
+
+    monkeypatch.setattr("app.scraper.twogis_api.requests.get", fake_get)
+
+    def boom(self, url):
+        raise AssertionError("_proxy_html should not be called when redirect resolves")
+
+    monkeypatch.setattr(TwogisApiScraper, "_proxy_html", boom)
+    firm_id, challenge = TwogisApiScraper()._resolve_firm_id("https://go.2gis.com/xbrHO")
+    assert firm_id == "70000001034286619"
+    assert challenge is None
+
+
+def test_resolve_via_redirect_reads_museum_interstitial_return_url(monkeypatch):
+    # 2GIS sometimes routes the short link through a /museum interstitial instead
+    # of the firm page — the real destination is in its return_url query param.
+    class FakeResponse:
+        url = (
+            "https://2gis.ru/museum?return_url=https%3A%2F%2F2gis.ru%2Fspb%2Fbranches"
+            "%2F70000001036318139%2Ffirm%2F70000001041151499%2F30.22%2C6.5"
+        )
+
+    monkeypatch.setattr(
+        "app.scraper.twogis_api.requests.get", lambda *a, **k: FakeResponse()
+    )
+    scraper = TwogisApiScraper()
+    firm_id = scraper._resolve_via_redirect("https://go.2gis.com/wgSo1")
+    assert firm_id == "70000001041151499"
+
+
+def test_resolve_via_redirect_retries_transient_connection_error(monkeypatch):
+    calls = {"n": 0}
+
+    class FakeResponse:
+        url = "https://2gis.ru/x/firm/70000001028349013/1,2"
+
+    def flaky_get(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise requests.exceptions.ConnectionError("reset")
+        return FakeResponse()
+
+    monkeypatch.setattr("app.scraper.twogis_api.requests.get", flaky_get)
+    scraper = TwogisApiScraper()
+    firm_id = scraper._resolve_via_redirect("https://go.2gis.com/q1Evm")
+    assert firm_id == "70000001028349013"
+    assert calls["n"] == 2
+
+
 def test_resolve_firm_id_short_link_picks_dominant_id(monkeypatch):
     html = '<a href="/firm/999">a</a><a href="/firm/999">b</a><a href="/firm/111">c</a>'
+    # Redirect resolution is tried first; force the fallback-to-page-body path.
+    monkeypatch.setattr(TwogisApiScraper, "_resolve_via_redirect", lambda self, url: None)
     monkeypatch.setattr(TwogisApiScraper, "_proxy_html", lambda self, url: (html, None))
     firm_id, challenge = TwogisApiScraper()._resolve_firm_id("https://go.2gis.com/xbrHO")
     assert firm_id == "999"
@@ -140,6 +313,7 @@ def test_short_link_without_proxy_key_needs_manual_action(monkeypatch):
     # No proxy pool AND no ScrapeOps key → short link cannot be resolved offline.
     monkeypatch.setattr("app.scraper.twogis_api.settings.proxy_pool", "")
     monkeypatch.setattr("app.scraper.twogis_api.settings.scrapeops_api_key", "")
+    monkeypatch.setattr(TwogisApiScraper, "_resolve_via_redirect", lambda self, url: None)
     result = TwogisApiScraper().scrape("https://go.2gis.com/xbrHO")
     assert result.needs_manual_action is True
     assert result.error_code == "twogis_no_proxy_key"

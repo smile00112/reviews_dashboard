@@ -2,8 +2,9 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getDashboardOverview, listOrganizations } from "@/lib/api";
+import { getDashboardOverview, listCompanies, listOrganizations } from "@/lib/api";
 import type {
+  Company,
   DashboardOverview,
   Organization,
   OverviewPeriod,
@@ -20,8 +21,23 @@ import { WorstLocationsTable } from "@/components/dashboard/worst-locations-tabl
 import { TrendingAspectsTable } from "@/components/dashboard/trending-aspects-table";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 
-const PERIODS = new Set<OverviewPeriod>(["day", "week", "30d", "90d", "year", "all"]);
+const PERIODS = new Set<OverviewPeriod>([
+  "day",
+  "week",
+  "30d",
+  "90d",
+  "year",
+  "all",
+  "custom",
+]);
 const PLATFORMS = new Set<OverviewPlatform>(["all", "yandex", "google", "gis2"]);
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `YYYY-MM-DD` or null — anything malformed is dropped (FR-012). */
+function isoDateParam(raw: string | null): string | null {
+  if (!raw || !ISO_DATE.test(raw)) return null;
+  return Number.isNaN(Date.parse(raw)) ? null : raw;
+}
 
 /** Russian plural agreement: pick(one, few, many) by count. */
 function plural(n: number, one: string, few: string, many: string): string {
@@ -36,27 +52,51 @@ function OverviewContent() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const period = (PERIODS.has(params.get("period") as OverviewPeriod)
+  const rawPeriod = (PERIODS.has(params.get("period") as OverviewPeriod)
     ? params.get("period")
     : "30d") as OverviewPeriod;
   const platform = (PLATFORMS.has(params.get("platform") as OverviewPlatform)
     ? params.get("platform")
     : "all") as OverviewPlatform;
   const orgIds = useMemo(() => params.getAll("org_ids"), [params]);
+  const companyId = params.get("company_id");
+
+  // A custom range needs a valid, ordered pair — otherwise fall back to 30d.
+  const rawFrom = isoDateParam(params.get("from"));
+  const rawTo = isoDateParam(params.get("to"));
+  const rangeOk = rawFrom !== null && rawTo !== null && rawFrom <= rawTo;
+  const period: OverviewPeriod = rawPeriod === "custom" && !rangeOk ? "30d" : rawPeriod;
+  const dateFrom = period === "custom" ? rawFrom : null;
+  const dateTo = period === "custom" ? rawTo : null;
 
   const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     listOrganizations().then(setOrgs).catch(() => setOrgs([]));
+    listCompanies()
+      .then((items) => setCompanies(items.filter((c) => c.is_active)))
+      .catch(() => setCompanies([]));
   }, []);
+
+  // A company_id that no longer exists is treated as "no brand" (FR-012).
+  const activeCompanyId =
+    companyId && companies.some((c) => c.id === companyId) ? companyId : null;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getDashboardOverview({ period, platform, orgIds })
+    getDashboardOverview({
+      period,
+      platform,
+      orgIds,
+      companyId: activeCompanyId ?? undefined,
+      dateFrom: dateFrom ?? undefined,
+      dateTo: dateTo ?? undefined,
+    })
       .then((d) => {
         if (!cancelled) {
           setData(d);
@@ -72,17 +112,34 @@ function OverviewContent() {
     return () => {
       cancelled = true;
     };
-  }, [period, platform, orgIds]);
+  }, [period, platform, orgIds, activeCompanyId, dateFrom, dateTo]);
 
   const pushParams = useCallback(
-    (next: { period?: OverviewPeriod; platform?: OverviewPlatform; orgIds?: string[] }) => {
+    (next: {
+      period?: OverviewPeriod;
+      platform?: OverviewPlatform;
+      orgIds?: string[];
+      companyId?: string | null;
+      dateFrom?: string | null;
+      dateTo?: string | null;
+    }) => {
       const qs = new URLSearchParams();
-      qs.set("period", next.period ?? period);
+      const nextPeriod = next.period ?? period;
+      qs.set("period", nextPeriod);
       qs.set("platform", next.platform ?? platform);
+      const nextCompany = next.companyId === undefined ? activeCompanyId : next.companyId;
+      if (nextCompany) qs.set("company_id", nextCompany);
+      // Dates only travel with the custom period; any preset drops them (FR-006).
+      if (nextPeriod === "custom") {
+        const from = next.dateFrom === undefined ? dateFrom : next.dateFrom;
+        const to = next.dateTo === undefined ? dateTo : next.dateTo;
+        if (from) qs.set("from", from);
+        if (to) qs.set("to", to);
+      }
       for (const id of next.orgIds ?? orgIds) qs.append("org_ids", id);
       router.replace(`/overview?${qs.toString()}`, { scroll: false });
     },
-    [router, period, platform, orgIds],
+    [router, period, platform, orgIds, activeCompanyId, dateFrom, dateTo],
   );
 
   const toggleOrg = (id: string) =>
@@ -107,8 +164,17 @@ function OverviewContent() {
           platform={platform}
           orgIds={orgIds}
           orgs={orgs}
-          onPeriod={(p) => pushParams({ period: p })}
+          companies={companies}
+          companyId={activeCompanyId}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onPeriod={(p) => pushParams({ period: p, dateFrom: null, dateTo: null })}
           onPlatform={(p) => pushParams({ platform: p })}
+          onRange={(from, to) =>
+            pushParams({ period: "custom", dateFrom: from, dateTo: to })
+          }
+          // Switching brands drops branch picks — they belong to the old brand (FR-010).
+          onCompany={(id) => pushParams({ companyId: id, orgIds: [] })}
           onToggleOrg={toggleOrg}
           onClearOrgs={() => pushParams({ orgIds: [] })}
         />

@@ -5,13 +5,13 @@ alwaysApply: true
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/012-dashboard-overview-perf/plan.md
+specs/013-overview-filters/plan.md
 
 Also available:
-- Feature spec: specs/012-dashboard-overview-perf/spec.md
-- Data model: specs/012-dashboard-overview-perf/data-model.md
-- Contracts: specs/012-dashboard-overview-perf/contracts/ (overview-unchanged)
-- Quickstart: specs/012-dashboard-overview-perf/quickstart.md
-- Tasks: specs/012-dashboard-overview-perf/tasks.md
-- Research notes: specs/012-dashboard-overview-perf/research.md
+- Feature spec: specs/013-overview-filters/spec.md
+- Data model: specs/013-overview-filters/data-model.md
+- Contracts: specs/013-overview-filters/contracts/ (dashboard-overview)
+- Quickstart: specs/013-overview-filters/quickstart.md
+- Tasks: specs/013-overview-filters/tasks.md
+- Research notes: specs/013-overview-filters/research.md
 <!-- SPECKIT END -->

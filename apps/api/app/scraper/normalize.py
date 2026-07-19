@@ -2,6 +2,9 @@ import hashlib
 import re
 from datetime import date, datetime, timedelta, timezone
 
+# Europe/Moscow as a fixed offset — Russia dropped DST in 2014.
+MOSCOW_TZ = timezone(timedelta(hours=3))
+
 # Russian + English month names → month number.
 _MONTHS: dict[str, int] = {
     "января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
@@ -64,6 +67,31 @@ def normalize_review_date(text: str | None, *, today: date | None = None) -> dat
         return None
 
     return None
+
+
+def iso_datetime_to_local_date(text: str | None) -> date | None:
+    """Convert an ISO-8601 timestamp to the calendar day it falls on in MSK.
+
+    2GIS stamps ``date_created`` in the offset of the branch that was reviewed
+    (``…T00:03:31.0+07:00`` for a Novosibirsk firm). Taking the first ten
+    characters keeps the *reviewer's* local day, which reads as a future date to
+    an operator on Moscow time. Everything else in this product (job cron, the
+    dashboard's "today" windows) is Europe/Moscow, so the day is resolved there.
+    A fixed +03:00 is used deliberately: Russia has had no DST since 2014, so
+    the offset is constant and needs no tz database on the host.
+
+    Returns ``None`` for empty or non-ISO input — never raises.
+    """
+    if not text or not isinstance(text, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        # No offset to reconcile — the timestamp is already in local terms.
+        return parsed.date()
+    return parsed.astimezone(MOSCOW_TZ).date()
 
 
 def normalize_text(value: str | None, *, lowercase: bool = False) -> str:

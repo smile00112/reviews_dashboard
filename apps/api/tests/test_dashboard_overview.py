@@ -114,6 +114,28 @@ def test_headline_kpis_reconcile(admin_client, db_session):
     assert strip["reputation_index"] == 0.0       # share5 33.3 - share1-3 33.3
 
 
+def test_period_counts_use_publication_date_not_first_seen(admin_client, db_session):
+    """A first bulk import stamps every row with today's ``first_seen_at``; the
+    period counters must follow ``review_date`` so the backlog isn't reported as
+    new. Rows without a ``review_date`` still fall back to ``first_seen_at``."""
+    org = _org(db_session)
+    today = NOW.date()
+    # Imported today, but published long ago -> backlog, not new.
+    for i in range(3):
+        _review(db_session, org, rating=5, first_seen=NOW - timedelta(minutes=5),
+                review_date=today - timedelta(days=200), hash_=f"old{i}")
+    # Imported today and published today -> genuinely new.
+    _review(db_session, org, rating=4, first_seen=NOW - timedelta(minutes=5),
+            review_date=today, hash_="new1")
+    # No publication date at all -> falls back to the sighting day.
+    _review(db_session, org, rating=4, first_seen=NOW - timedelta(minutes=5), hash_="nodate")
+
+    hero = admin_client.get("/api/dashboard/overview?period=day").json()["kpi_hero"]
+    assert hero["total_reviews"] == 5
+    assert hero["new_in_period"] == 2   # new1 + nodate
+    assert hero["new_today"] == 2
+
+
 # --- US2 distribution / sentiment / platform --------------------------------
 
 def test_rating_distribution(admin_client, db_session):
@@ -295,3 +317,130 @@ def test_company_scopes(admin_client, db_session):
     body = admin_client.get(f"/api/dashboard/overview?company_id={comp.id}&period=all").json()
     assert body["kpi_hero"]["total_reviews"] == 1
     assert body["kpi_hero"]["network_avg_rating"] == 4.0
+
+
+# --- Feature 013: custom date range -----------------------------------------
+
+def _d(days_ago: int):
+    """Publication date ``days_ago`` days before today (UTC)."""
+    return (NOW - timedelta(days=days_ago)).date()
+
+
+def _range_url(frm, to, **extra):
+    qs = "".join(f"&{k}={v}" for k, v in extra.items())
+    return f"/api/dashboard/overview?period=custom&date_from={frm}&date_to={to}{qs}"
+
+
+def test_custom_range_bounds_are_inclusive(admin_client, db_session):
+    org = _org(db_session)
+    # published exactly on the lower bound / upper bound -> inside; neighbours -> outside
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=11), review_date=_d(11), hash_="before")
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=10), review_date=_d(10), hash_="lower")
+    _review(db_session, org, rating=4, first_seen=NOW - timedelta(days=7), review_date=_d(7), hash_="middle")
+    _review(db_session, org, rating=4, first_seen=NOW - timedelta(days=5), review_date=_d(5), hash_="upper")
+    _review(db_session, org, rating=3, first_seen=NOW - timedelta(days=4), review_date=_d(4), hash_="after")
+
+    body = admin_client.get(_range_url(_d(10), _d(5))).json()
+
+    assert body["period"] == "custom"
+    assert body["header"]["new_in_period"] == 3      # lower, middle, upper
+    assert body["kpi_hero"]["new_in_period"] == 3
+    assert body["kpi_hero"]["total_reviews"] == 5    # all-time total is range-independent
+
+
+def test_custom_range_single_day(admin_client, db_session):
+    org = _org(db_session)
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=3), review_date=_d(3), hash_="day")
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=2), review_date=_d(2), hash_="next")
+
+    body = admin_client.get(_range_url(_d(3), _d(3))).json()
+    assert body["header"]["new_in_period"] == 1
+    assert body["kpi_hero"]["avg_per_day"] == 1.0    # one inclusive day in the range
+
+
+def test_custom_range_with_no_reviews_is_zeroed(admin_client, db_session):
+    org = _org(db_session)
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=1), review_date=_d(1), hash_="recent")
+
+    body = admin_client.get(_range_url(_d(300), _d(290))).json()
+    assert body["header"]["new_in_period"] == 0
+    assert body["kpi_hero"]["new_in_period"] == 0
+    assert body["kpi_hero"]["total_reviews"] == 1
+
+
+def test_custom_range_requires_both_dates(admin_client):
+    assert admin_client.get("/api/dashboard/overview?period=custom").status_code == 422
+    assert admin_client.get(f"/api/dashboard/overview?period=custom&date_from={_d(5)}").status_code == 422
+    assert admin_client.get(f"/api/dashboard/overview?period=custom&date_to={_d(5)}").status_code == 422
+
+
+def test_custom_range_rejects_inverted_bounds(admin_client):
+    assert admin_client.get(_range_url(_d(1), _d(10))).status_code == 422
+
+
+def test_dates_ignored_for_preset_period(admin_client, db_session):
+    org = _org(db_session)
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=1), review_date=_d(1), hash_="recent")
+
+    url = f"/api/dashboard/overview?period=30d&date_from={_d(300)}&date_to={_d(290)}"
+    body = admin_client.get(url).json()
+    assert body["period"] == "30d"
+    assert body["header"]["new_in_period"] == 1      # dates did not narrow the preset window
+
+
+def test_custom_range_does_not_move_reaction_windows(admin_client, db_session):
+    """2h/attention windows key off ``now``, not the selected range (FR-003)."""
+    _seed_rules(db_session)
+    org = _org(db_session)
+    _review(db_session, org, rating=1, first_seen=NOW - timedelta(minutes=30),
+            review_date=_d(0), sentiment="negative", hash_="fresh")
+    _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=8), review_date=_d(8), hash_="old")
+
+    preset = admin_client.get("/api/dashboard/overview?period=30d").json()
+    ranged = admin_client.get(_range_url(_d(10), _d(5))).json()
+
+    assert ranged["header"]["new_in_period"] == 1                  # only the 8-days-ago review
+    assert ranged["header"]["fresh_negatives_2h"] == preset["header"]["fresh_negatives_2h"] == 1
+    assert len(ranged["attention"]) == len(preset["attention"])
+
+
+def test_custom_range_combines_with_company_platform_and_orgs(admin_client, db_session):
+    from app.models.company import Company
+
+    comp = Company(name="Chain 013")
+    db_session.add(comp)
+    db_session.commit()
+    db_session.refresh(comp)
+
+    inside = _org(db_session, name="Inside", company_id=comp.id)
+    other = _org(db_session, name="Outside")
+    # in range + right company + right platform -> the only counted review
+    _review(db_session, inside, rating=5, first_seen=NOW - timedelta(days=7), review_date=_d(7), hash_="hit")
+    _review(db_session, inside, rating=5, first_seen=NOW - timedelta(days=7), review_date=_d(7),
+            hash_="wrong_platform", platform=ReviewPlatform.gis2)
+    _review(db_session, inside, rating=5, first_seen=NOW - timedelta(days=1), review_date=_d(1), hash_="out_of_range")
+    _review(db_session, other, rating=5, first_seen=NOW - timedelta(days=7), review_date=_d(7), hash_="other_company")
+
+    body = admin_client.get(
+        _range_url(_d(10), _d(5), company_id=comp.id, platform="yandex", org_ids=inside.id)
+    ).json()
+    assert body["header"]["new_in_period"] == 1
+
+
+def test_company_filter_excludes_orgs_without_company(admin_client, db_session):
+    from app.models.company import Company
+
+    comp = Company(name="Branded")
+    db_session.add(comp)
+    db_session.commit()
+    db_session.refresh(comp)
+
+    branded = _org(db_session, name="Branded branch", company_id=comp.id)
+    orphan = _org(db_session, name="No brand")
+    _review(db_session, branded, rating=5, first_seen=NOW - timedelta(hours=1), hash_="b")
+    _review(db_session, orphan, rating=5, first_seen=NOW - timedelta(hours=1), hash_="o")
+
+    scoped = admin_client.get(f"/api/dashboard/overview?company_id={comp.id}&period=all").json()
+    unscoped = admin_client.get("/api/dashboard/overview?period=all").json()
+    assert scoped["kpi_hero"]["total_reviews"] == 1
+    assert unscoped["kpi_hero"]["total_reviews"] == 2
