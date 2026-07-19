@@ -78,3 +78,25 @@ class JobItemStatus(str, enum.Enum):
     skipped = "skipped"
     failed = "failed"
     needs_manual_action = "needs_manual_action"
+
+
+class AttentionRuleType(str, enum.Enum):
+    unanswered_overdue = "unanswered_overdue"
+    fresh_negative = "fresh_negative"
+    escalated = "escalated"
+    rating_drop = "rating_drop"
+    aspect_spike = "aspect_spike"
+
+
+class AttentionSeverity(str, enum.Enum):
+    urgent = "urgent"
+    warn = "warn"
+    info = "info"
+
+
+class AttentionScope(str, enum.Enum):
+    # "global" is a Python keyword, so the member is global_; the DB/API value
+    # stays "global" (values_callable pattern on the columns).
+    global_ = "global"
+    company = "company"
+    organizations = "organizations"

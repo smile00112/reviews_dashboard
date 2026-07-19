@@ -255,6 +255,8 @@ export interface AttentionItem {
   value: number;
   severity: string;
   link: string;
+  rule_id: string | null;
+  rule_name: string | null;
 }
 
 export interface WorstLocation {
@@ -288,6 +290,45 @@ export interface DashboardOverview {
   worst_locations: WorstLocation[];
   trending_aspects: TrendingAspect[];
 }
+
+// --- Правила блока «Требуют внимания» ---
+export type AttentionRuleType =
+  | "unanswered_overdue"
+  | "fresh_negative"
+  | "escalated"
+  | "rating_drop"
+  | "aspect_spike";
+
+export type AttentionSeverity = "urgent" | "warn" | "info";
+
+export type AttentionScopeType = "global" | "company" | "organizations";
+
+export interface AttentionRule {
+  id: string;
+  rule_type: AttentionRuleType;
+  name: string | null;
+  is_enabled: boolean;
+  severity: AttentionSeverity;
+  params: Record<string, number>;
+  scope_type: AttentionScopeType;
+  company_id: string | null;
+  organization_ids: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttentionRuleCreatePayload {
+  rule_type: AttentionRuleType;
+  name?: string | null;
+  is_enabled?: boolean;
+  severity: AttentionSeverity;
+  params?: Record<string, number>;
+  scope_type?: AttentionScopeType;
+  company_id?: string | null;
+  organization_ids?: string[];
+}
+
+export type AttentionRuleUpdatePayload = Partial<Omit<AttentionRuleCreatePayload, "rule_type">>;
 
 // --- Фоновые задачи ---
 export type JobKind = "org_metrics" | "reviews";

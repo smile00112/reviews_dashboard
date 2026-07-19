@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 
 from app.analysis.analyzer import summarize
 from app.core.config import settings
-from app.models.enums import ReviewPlatform, ReviewStatus
+from app.models.attention_rule import AttentionRule
+from app.models.enums import AttentionRuleType, AttentionScope, ReviewPlatform, ReviewStatus
 from app.models.organization import Organization
 from app.models.rating_snapshot import RatingSnapshot
 from app.models.review import Review
@@ -411,57 +412,126 @@ class DashboardService:
         return cards
 
     # ------------------------------------------------------------------ #
-    # Attention feed (last 24h, ranked by criticality)                   #
+    # Attention feed — управляется правилами attention_rules              #
     # ------------------------------------------------------------------ #
     _SEVERITY_ORDER = {"urgent": 0, "warn": 1, "info": 2}
 
     def _attention(self, orgs, all_reviews, platform, snaps, now) -> list[dict]:
+        rules = (
+            self.db.query(AttentionRule)
+            .filter(AttentionRule.is_enabled.is_(True))
+            .order_by(AttentionRule.created_at, AttentionRule.id)
+            .all()
+        )
         items: list[dict] = []
-        cutoff_24h = now - timedelta(hours=24)
-        cutoff_2h = now - timedelta(hours=2)
-
-        overdue = sum(1 for r in all_reviews if r.response_text is None and _aware(r.first_seen_at) <= cutoff_24h)
-        if overdue:
-            items.append({
-                "type": "unanswered_overdue",
-                "title": f"{overdue} {_ru_plural(overdue, 'отзыв', 'отзыва', 'отзывов')} без ответа > 24ч",
-                "subtitle": "SLA нарушен · риск эскалации",
-                "value": overdue,
-                "severity": "urgent",
-                "link": "/reviews",
-            })
-
-        fresh_neg = sum(1 for r in all_reviews if r.rating <= 2 and _aware(r.first_seen_at) >= cutoff_2h)
-        if fresh_neg:
-            items.append({
-                "type": "fresh_negative",
-                "title": f"{fresh_neg} "
-                + _ru_plural(fresh_neg, "новый негативный отзыв", "новых негативных отзыва", "новых негативных отзывов")
-                + " (1–2★)",
-                "subtitle": "Поступили за последние 2 часа",
-                "value": fresh_neg,
-                "severity": "urgent",
-                "link": "/reviews?rating=1",
-            })
-
-        escalated = sum(1 for r in all_reviews if r.status == ReviewStatus.escalated)
-        if escalated:
-            items.append({
-                "type": "escalated",
-                "title": f"{escalated} "
-                + _ru_plural(escalated, "эскалированный отзыв ждёт", "эскалированных отзыва ждут", "эскалированных отзывов ждут")
-                + " реакции",
-                "subtitle": "Назначены маркетологу головного офиса",
-                "value": escalated,
-                "severity": "warn",
-                "link": "/reviews?status=escalated",
-            })
-
-        items.extend(self._aspect_spikes(all_reviews, now))
-        items.extend(self._rating_drops(orgs, platform, snaps))
-
-        items.sort(key=lambda i: self._SEVERITY_ORDER.get(i["severity"], 9))
+        for rule in rules:
+            scope_ids = self._rule_scope_ids(rule, orgs)
+            if not scope_ids:
+                continue  # скоуп не пересекается с фильтрами страницы
+            rule_orgs = [o for o in orgs if o.id in scope_ids]
+            rule_reviews = [r for r in all_reviews if r.organization_id in scope_ids]
+            items.extend(self._evaluate_rule(rule, rule_orgs, rule_reviews, platform, snaps, now))
+        # Внутри severity — по модулю value: у rating_drop value отрицательный,
+        # худшее падение должно стоять первым, как и самый большой счётчик.
+        items.sort(key=lambda i: (self._SEVERITY_ORDER.get(i["severity"], 9), -abs(i["value"])))
         return items
+
+    @staticmethod
+    def _rule_scope_ids(rule: AttentionRule, orgs) -> set[UUID]:
+        if rule.scope_type == AttentionScope.company:
+            if rule.company_id is None:
+                return set()
+            return {o.id for o in orgs if o.company_id == rule.company_id}
+        selected = {o.id for o in orgs}
+        if rule.scope_type == AttentionScope.organizations:
+            wanted: set[UUID] = set()
+            for raw in rule.organization_ids or []:
+                try:
+                    wanted.add(UUID(str(raw)))
+                except ValueError:
+                    continue  # мусорный id (организация удалена) — игнорируем
+            return selected & wanted
+        return selected
+
+    def _evaluate_rule(self, rule, rule_orgs, rule_reviews, platform, snaps, now) -> list[dict]:
+        params = rule.params or {}
+        if rule.rule_type == AttentionRuleType.unanswered_overdue:
+            found = self._eval_unanswered(rule_reviews, now, hours=int(params.get("hours", 24)))
+        elif rule.rule_type == AttentionRuleType.fresh_negative:
+            found = self._eval_fresh_negative(
+                rule_reviews, now,
+                window_hours=int(params.get("window_hours", 2)),
+                max_rating=int(params.get("max_rating", 2)),
+            )
+        elif rule.rule_type == AttentionRuleType.escalated:
+            found = self._eval_escalated(rule_reviews)
+        elif rule.rule_type == AttentionRuleType.rating_drop:
+            found = self._rating_drops(
+                rule_orgs, platform, snaps,
+                threshold=float(params.get("threshold", -0.2)),
+                top=int(params.get("top", 3)),
+            )
+        else:  # aspect_spike
+            found = self._aspect_spikes(
+                rule_reviews, now,
+                min_recent=int(params.get("min_recent", 3)),
+                top=int(params.get("top", 3)),
+            )
+
+        severity = rule.severity.value if hasattr(rule.severity, "value") else str(rule.severity)
+        for item in found:
+            item["severity"] = severity
+            item["rule_id"] = rule.id
+            item["rule_name"] = rule.name
+            if rule.name:
+                item["subtitle"] = f"{rule.name} · {item['subtitle']}"
+        return found
+
+    @staticmethod
+    def _eval_unanswered(reviews, now, *, hours: int) -> list[dict]:
+        cutoff = now - timedelta(hours=hours)
+        overdue = sum(1 for r in reviews if r.response_text is None and _aware(r.first_seen_at) <= cutoff)
+        if not overdue:
+            return []
+        return [{
+            "type": "unanswered_overdue",
+            "title": f"{overdue} {_ru_plural(overdue, 'отзыв', 'отзыва', 'отзывов')} без ответа > {hours}ч",
+            "subtitle": "SLA нарушен · риск эскалации",
+            "value": overdue,
+            "link": "/reviews",
+        }]
+
+    @staticmethod
+    def _eval_fresh_negative(reviews, now, *, window_hours: int, max_rating: int) -> list[dict]:
+        cutoff = now - timedelta(hours=window_hours)
+        fresh = sum(1 for r in reviews if r.rating <= max_rating and _aware(r.first_seen_at) >= cutoff)
+        if not fresh:
+            return []
+        return [{
+            "type": "fresh_negative",
+            "title": f"{fresh} "
+            + _ru_plural(fresh, "новый негативный отзыв", "новых негативных отзыва", "новых негативных отзывов")
+            + f" (1–{max_rating}★)",
+            "subtitle": f"Поступили за последние {window_hours} "
+            + _ru_plural(window_hours, "час", "часа", "часов"),
+            "value": fresh,
+            "link": "/reviews?rating=1",
+        }]
+
+    @staticmethod
+    def _eval_escalated(reviews) -> list[dict]:
+        escalated = sum(1 for r in reviews if r.status == ReviewStatus.escalated)
+        if not escalated:
+            return []
+        return [{
+            "type": "escalated",
+            "title": f"{escalated} "
+            + _ru_plural(escalated, "эскалированный отзыв ждёт", "эскалированных отзыва ждут", "эскалированных отзывов ждут")
+            + " реакции",
+            "subtitle": "Назначены маркетологу головного офиса",
+            "value": escalated,
+            "link": "/reviews?status=escalated",
+        }]
 
     def _aspect_spikes(self, all_reviews, now, *, min_recent: int = 3, top: int = 3) -> list[dict]:
         recent_start = (now - timedelta(days=7)).date()
@@ -495,7 +565,6 @@ class DashboardService:
                 "title": f"Рост упоминаний аспекта «{cat}»",
                 "subtitle": f"+{change}% за 7 дней · {rc} {_ru_plural(rc, 'упоминание', 'упоминания', 'упоминаний')}",
                 "value": change,
-                "severity": "warn",
                 "link": "/reviews",
             }
             for change, cat, rc in spikes[:top]
@@ -516,7 +585,6 @@ class DashboardService:
                 + (f" ({org.city})" if org.city else ""),
                 "subtitle": f"{round(delta, 2)} за период",
                 "value": round(delta, 2),
-                "severity": "warn",
                 "link": f"/organizations/{org.id}",
             }
             for delta, org in drops[:top]

@@ -20,9 +20,19 @@ export function AttentionList({ items }: { items: AttentionItem[] }) {
       title="⚡ Требуют внимания за последние 24 часа"
       meta="События, которые нельзя пропустить · отсортировано по критичности"
       action={
-        <Link href="/reviews" className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] hover:bg-surface-3">
-          К отзывам →
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/attention-rules"
+            title="Настроить правила"
+            aria-label="Настроить правила"
+            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] hover:bg-surface-3"
+          >
+            ⚙
+          </Link>
+          <Link href="/reviews" className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] hover:bg-surface-3">
+            К отзывам →
+          </Link>
+        </div>
       }
     >
       {items.length === 0 ? (
