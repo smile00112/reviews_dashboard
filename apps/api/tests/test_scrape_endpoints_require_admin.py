@@ -79,3 +79,13 @@ def test_unknown_organization_still_rejects_anonymous_before_404(client):
     with patch("app.api.scrape_runs._run_scrape_background"):
         resp = client.post(f"/api/organizations/{uuid4()}/scrape", json={"mode": "public"})
     assert resp.status_code == 401
+
+
+def test_session_code_rejects_anonymous(client):
+    resp = client.post("/api/scraper/yandex/session/code", json={"code": "123456"})
+    assert resp.status_code == 401
+
+
+def test_session_code_rejects_review_operator(operator_client):
+    resp = operator_client.post("/api/scraper/yandex/session/code", json={"code": "123456"})
+    assert resp.status_code == 403
