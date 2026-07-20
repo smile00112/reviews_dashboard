@@ -48,9 +48,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <UserContext.Provider value={user}>
       <div className="grid min-h-screen grid-cols-[240px_1fr]">
-        <Sidebar />
+        <Sidebar user={user} />
         <main className="min-w-0">
-          <Topbar user={user} />
+          <Topbar />
           <div className="px-8 py-7">{children}</div>
         </main>
       </div>

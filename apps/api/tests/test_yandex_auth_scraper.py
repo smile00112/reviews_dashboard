@@ -70,22 +70,58 @@ def test_missing_storage_state_short_circuits(tmp_path):
     assert result.error_code == "missing_session"
 
 
-from app.scraper.yandex_auth import _looks_like_code_screen
+from app.scraper.yandex_auth import _is_code_screen
+
+# URLs captured from a live Passport run on 2026-07-20. The previous
+# HTML-marker detector was replaced because "код из"/"введите код"/"пароль"
+# all appear in the bundled JS of *every* Passport screen — the markers hit
+# 6-26 times on the plain login screen, so they never discriminated anything.
 
 
-def test_looks_like_code_screen_detects_push_code_heading():
-    html = "<html><h1>Введите код из пуш-уведомления</h1></html>"
-    assert _looks_like_code_screen(html) is True
+def test_is_code_screen_detects_the_push_code_step():
+    url = "https://passport.yandex.ru/pwl-yandex/auth/push-code?cause=auth&process_uuid=db054be9"
+    assert _is_code_screen(url) is True
 
 
-def test_looks_like_code_screen_detects_generic_confirmation_wording():
-    html = "<html><p>Введите код подтверждения, который мы отправили</p></html>"
-    assert _looks_like_code_screen(html) is True
+def test_is_code_screen_detects_the_post_password_challenge():
+    """Passport asks for the code on a different route once a password was
+    accepted; classifying this one as anything else strands the login there."""
+    url = "https://passport.yandex.ru/pwl-yandex/auth/challenges/push?cause=auth&track_id=17c9dc"
+    assert _is_code_screen(url) is True
 
 
-def test_looks_like_code_screen_false_for_password_screen():
-    html = "<html><h1>Введите пароль</h1></html>"
-    assert _looks_like_code_screen(html) is False
+def test_classify_screen_names_each_passport_step():
+    from app.scraper.yandex_auth import _classify_screen
+
+    base = "https://passport.yandex.ru/pwl-yandex"
+    assert _classify_screen(f"{base}?cause=auth") == "login"
+    assert _classify_screen(f"{base}/auth/add?cause=auth") == "login"
+    assert _classify_screen(f"{base}/auth/password?cause=auth") == "password"
+    assert _classify_screen(f"{base}/auth/push-code?cause=auth") == "code"
+    assert _classify_screen(f"{base}/auth/challenges/push?cause=auth") == "code"
+    assert _classify_screen(None) == "unknown"
+
+
+def test_is_code_screen_false_for_the_login_step():
+    url = "https://passport.yandex.ru/pwl-yandex/auth/add?cause=auth&process_uuid=db054be9"
+    assert _is_code_screen(url) is False
+
+
+def test_is_code_screen_false_for_missing_url():
+    assert _is_code_screen("") is False
+    assert _is_code_screen(None) is False
+
+
+def test_is_login_screen_covers_the_shell_and_the_form():
+    """Passport lands on /pwl-yandex and only then redirects, client-side, to
+    /pwl-yandex/auth/add. A live run filled the form before that redirect and
+    the click went nowhere, so both URLs must count as "still logging in"."""
+    from app.scraper.yandex_auth import _is_login_screen
+
+    assert _is_login_screen("https://passport.yandex.ru/pwl-yandex?cause=auth&process_uuid=a4f9") is True
+    assert _is_login_screen("https://passport.yandex.ru/pwl-yandex/auth/add?cause=auth&process_uuid=a4f9") is True
+    assert _is_login_screen("https://passport.yandex.ru/pwl-yandex/auth/push-code?cause=auth") is False
+    assert _is_login_screen(None) is False
 
 
 def test_login_with_password_without_credentials_short_circuits(tmp_path):

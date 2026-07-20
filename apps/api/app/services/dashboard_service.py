@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from uuid import UUID
 
-from sqlalchemy import Date, Float, and_, case, cast, func, literal
+from sqlalchemy import Date, Float, Integer, and_, case, cast, func, literal
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -47,6 +47,36 @@ _PLATFORM_COLS: dict[ReviewPlatform, tuple[str, str]] = {
     ReviewPlatform.gis2: ("gis2_rating", "gis2_review_count"),
     ReviewPlatform.google: ("google_rating", "google_review_count"),
 }
+
+# Ratings page (feature 014) presentation constants. Colours match the prototype
+# so the hand-rolled SVG charts stay recognisable against the design.
+_PLATFORM_LABELS: dict[ReviewPlatform, str] = {
+    ReviewPlatform.yandex: "Яндекс Бизнес",
+    ReviewPlatform.google: "Google Business",
+    ReviewPlatform.gis2: "2ГИС",
+}
+_PLATFORM_SHORT: dict[ReviewPlatform, str] = {
+    ReviewPlatform.yandex: "Яндекс",
+    ReviewPlatform.google: "Google",
+    ReviewPlatform.gis2: "2ГИС",
+}
+_PLATFORM_COLORS: dict[ReviewPlatform, str] = {
+    ReviewPlatform.yandex: "#ffcc00",
+    ReviewPlatform.google: "#4285f4",
+    ReviewPlatform.gis2: "#2ecc71",
+}
+# Platforms we actually collect individual reviews for (Yandex scrapers +
+# the 2GIS reviews API, constitution Principle VIII). Google has no collector
+# and contributes an aggregate rating/count only, so its per-star, removed and
+# response figures are None ("нет данных") rather than a misleading 0.
+_PER_REVIEW_PLATFORMS: frozenset[ReviewPlatform] = frozenset(
+    {ReviewPlatform.yandex, ReviewPlatform.gis2}
+)
+
+_WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+_WEEKDAY_FULL = [
+    "понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье",
+]
 
 
 def _ru_plural(n: int, one: str, few: str, many: str) -> str:
@@ -1155,3 +1185,438 @@ class DashboardService:
             "worst_locations": [],
             "trending_aspects": [],
         }
+
+    # ------------------------------------------------------------------ #
+    # Ratings page (feature 014)                                          #
+    #                                                                     #
+    # Comparative rating analytics: per-platform star distribution,       #
+    # monthly rating/volume trends from rating_snapshot, weekly response  #
+    # percentiles, and a weekday breakdown. Read-only; every figure is a  #
+    # deterministic SQL aggregate (constitution Principle VI).            #
+    # ------------------------------------------------------------------ #
+    def _month_key_expr(self, column):
+        """``YYYY-MM`` bucket key for a date column, per dialect."""
+        if self.db.get_bind().dialect.name == "sqlite":
+            return func.strftime("%Y-%m", column)
+        return func.to_char(column, "YYYY-MM")
+
+    def _week_key_expr(self, column):
+        """``YYYY-Www`` ISO-week bucket key for a date column, per dialect."""
+        if self.db.get_bind().dialect.name == "sqlite":
+            # %W = week of year, Monday as first day — matches ISO closely enough
+            # for bucketing/labelling (tests only run on SQLite).
+            return func.strftime("%Y-W%W", column)
+        return func.to_char(column, 'IYYY"-W"IW')
+
+    def _weekday_expr(self, column):
+        """Weekday index normalized to 0 = Monday .. 6 = Sunday, per dialect."""
+        if self.db.get_bind().dialect.name == "sqlite":
+            # strftime('%w') is 0=Sunday..6=Saturday -> shift to Monday-first.
+            return (cast(func.strftime("%w", column), Integer) + 6) % 7
+        # isodow is 1=Monday..7=Sunday -> shift to 0-based.
+        return cast(func.extract("isodow", column), Integer) - 1
+
+    def ratings(
+        self,
+        *,
+        period: str = "30d",
+        platform: str = "all",
+        org_ids: list[UUID] | None = None,
+        company_id: UUID | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        now: datetime | None = None,
+    ) -> dict:
+        """Composed payload for the ratings page.
+
+        Period/platform/scope semantics are identical to ``overview`` — the page
+        reuses the same filter component, so any divergence would be a bug.
+        """
+        now = now or datetime.now(timezone.utc)
+        days = PERIOD_DAYS.get(period, 30)
+        until: date | None = None
+        if period == CUSTOM_PERIOD and date_from is not None and date_to is not None:
+            cutoff = datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc)
+            until = date_to
+            days = (date_to - date_from).days + 1
+        else:
+            cutoff = None if days is None else now - timedelta(days=days)
+
+        orgs = self._selected_orgs(org_ids, company_id)
+        selected_ids = [o.id for o in orgs]
+
+        sla_minutes = SettingsService(self.db).sla_threshold_minutes()
+        empty = self._empty_ratings_payload(period, platform, now, sla_minutes)
+        if not selected_ids:
+            return empty
+
+        # Whole network selected -> drop the IN clause entirely (feature 012).
+        scope = None if (not org_ids and company_id is None) else selected_ids
+        page_platforms = (
+            list(_PLATFORM_COLS.keys()) if platform == "all" else [ReviewPlatform(platform)]
+        )
+
+        return {
+            **empty,
+            "platform_distribution": self._platform_distribution(
+                orgs, scope, page_platforms, cutoff, until
+            ),
+            **self._snapshot_trends(selected_ids, page_platforms, cutoff, until),
+            "response_speed": self._response_speed_weekly(
+                scope, platform, cutoff, until, sla_minutes
+            ),
+            "weekday": self._weekday_stats(scope, platform, cutoff, until),
+        }
+
+    def _empty_ratings_payload(
+        self, period: str, platform: str, now: datetime, sla_minutes: int
+    ) -> dict:
+        return {
+            "period": period,
+            "platform": platform,
+            "generated_at": now,
+            "platform_distribution": [],
+            "rating_trend": {"labels": [], "series": []},
+            "volume_trend": {"labels": [], "series": []},
+            "response_speed": {
+                "labels": [],
+                "median_minutes": [],
+                "p95_minutes": [],
+                "sla_target_minutes": sla_minutes,
+            },
+            "weekday": {"days": self._empty_weekdays(), "insight": None},
+        }
+
+    @staticmethod
+    def _empty_weekdays() -> list[dict]:
+        return [
+            {"weekday": i, "label": label, "count": 0, "avg_rating": None}
+            for i, label in enumerate(_WEEKDAY_LABELS)
+        ]
+
+    def _star_scan(
+        self,
+        org_ids: list[UUID] | None,
+        cutoff: datetime | None,
+        until: date | None,
+    ) -> list:
+        """One grouped scan of scoped reviews by (platform, rating).
+
+        Active and removed rows are separated by conditional counts rather than
+        two queries, so the statement count stays constant (feature 012).
+        """
+        filters = list(self._scoped_filters(org_ids, "all"))
+        published = self._published_expr()
+        if cutoff is not None:
+            filters.append(published >= cutoff.date())
+        if until is not None:
+            filters.append(published <= until)
+        return (
+            self.db.query(
+                Review.platform,
+                Review.rating,
+                func.count(case((Review.removed_at.is_(None), 1))).label("active_count"),
+                func.count(case((Review.removed_at.isnot(None), 1))).label("removed_count"),
+            )
+            .filter(*filters)
+            .group_by(Review.platform, Review.rating)
+            .all()
+        )
+
+    def _platform_distribution(
+        self,
+        orgs,
+        org_ids: list[UUID] | None,
+        page_platforms: list[ReviewPlatform],
+        cutoff: datetime | None,
+        until: date | None,
+    ) -> list[dict]:
+        """Per-platform average rating + 5★..1★ shares + removed count.
+
+        For platforms that store individual reviews (Yandex) every figure comes
+        from the scoped review rows, so the average and the star breakdown are
+        internally consistent and both honour the period. Aggregate-only
+        platforms (Google, 2ГИС) fall back to the organization's stored rating
+        and count, and report ``None`` — not 0 — for the per-review columns.
+        """
+        scan = self._star_scan(org_ids, cutoff, until)
+        active: dict[tuple[ReviewPlatform, int], int] = {}
+        removed: dict[ReviewPlatform, int] = {}
+        for row in scan:
+            active[(row.platform, row.rating)] = (
+                active.get((row.platform, row.rating), 0) + row.active_count
+            )
+            removed[row.platform] = removed.get(row.platform, 0) + row.removed_count
+
+        rows: list[dict] = []
+        for p in page_platforms:
+            if p in _PER_REVIEW_PLATFORMS:
+                counts = {star: active.get((p, star), 0) for star in range(1, 6)}
+                total = sum(counts.values())
+                stars = [
+                    {
+                        "star": star,
+                        "count": counts[star],
+                        "share": round(counts[star] / total * 100, 1) if total else 0.0,
+                    }
+                    # 5★ first, matching the prototype's column order
+                    for star in range(5, 0, -1)
+                ]
+                weighted = sum(star * n for star, n in counts.items())
+                rows.append({
+                    "platform": p.value,
+                    "label": _PLATFORM_LABELS[p],
+                    "avg_rating": round(weighted / total, 2) if total else None,
+                    "total_reviews": total,
+                    "stars": stars,
+                    "removed_count": removed.get(p, 0),
+                })
+                continue
+
+            rating_col, count_col = _PLATFORM_COLS[p]
+            num = 0.0
+            den = 0
+            for org in orgs:
+                rating = getattr(org, rating_col)
+                count = getattr(org, count_col) or 0
+                if rating is not None and count:
+                    num += float(rating) * count
+                    den += count
+            rows.append({
+                "platform": p.value,
+                "label": _PLATFORM_LABELS[p],
+                "avg_rating": round(num / den, 2) if den else None,
+                "total_reviews": den or None,
+                # No per-review rows for this platform -> «нет данных», not 0.
+                "stars": None,
+                "removed_count": None,
+            })
+        return rows
+
+    def _snapshot_trends(
+        self,
+        org_ids: list[UUID],
+        page_platforms: list[ReviewPlatform],
+        cutoff: datetime | None,
+        until: date | None,
+    ) -> dict:
+        """Monthly average-rating and review-volume series per platform.
+
+        Sourced from ``rating_snapshot``, not from live review counts: a bulk
+        import stamps the whole backlog with one ``first_seen_at``, which would
+        distort a review-derived volume trend (the same reason
+        ``_published_expr`` exists). Within a month the **latest** snapshot per
+        (organization, platform) is the month's reading; those are then
+        aggregated across the selected organizations — volume summed, rating
+        weighted by review_count. Months with no snapshot for a platform stay
+        ``None`` (a gap in the line), never 0.
+        """
+        month = self._month_key_expr(RatingSnapshot.captured_on)
+        filters = [
+            RatingSnapshot.organization_id.in_(org_ids),
+            RatingSnapshot.platform.in_(page_platforms),
+        ]
+        if cutoff is not None:
+            filters.append(RatingSnapshot.captured_on >= cutoff.date())
+        if until is not None:
+            filters.append(RatingSnapshot.captured_on <= until)
+
+        # Latest capture day per (org, platform, month) ...
+        latest = (
+            self.db.query(
+                RatingSnapshot.organization_id.label("org_id"),
+                RatingSnapshot.platform.label("platform"),
+                month.label("month"),
+                func.max(RatingSnapshot.captured_on).label("last_day"),
+            )
+            .filter(*filters)
+            .group_by(RatingSnapshot.organization_id, RatingSnapshot.platform, month)
+            .subquery()
+        )
+        # ... folded to one row per (month, platform) so the result set stays
+        # bounded by months x platforms regardless of organization count.
+        weight = func.coalesce(RatingSnapshot.review_count, 1)
+        rated = RatingSnapshot.rating.isnot(None)
+        rows = (
+            self.db.query(
+                latest.c.month.label("month"),
+                RatingSnapshot.platform.label("platform"),
+                func.sum(case((rated, RatingSnapshot.rating * weight))).label("rating_num"),
+                func.sum(case((rated, weight))).label("rating_den"),
+                func.sum(func.coalesce(RatingSnapshot.review_count, 0)).label("volume"),
+            )
+            .join(
+                latest,
+                and_(
+                    RatingSnapshot.organization_id == latest.c.org_id,
+                    RatingSnapshot.platform == latest.c.platform,
+                    RatingSnapshot.captured_on == latest.c.last_day,
+                ),
+            )
+            .group_by(latest.c.month, RatingSnapshot.platform)
+            .all()
+        )
+
+        ratings: dict[tuple[str, ReviewPlatform], float] = {}
+        volumes: dict[tuple[str, ReviewPlatform], int] = {}
+        months: set[str] = set()
+        for row in rows:
+            months.add(row.month)
+            den = float(row.rating_den or 0)
+            if den:
+                ratings[(row.month, row.platform)] = round(float(row.rating_num) / den, 2)
+            volumes[(row.month, row.platform)] = int(row.volume or 0)
+
+        labels = sorted(months)
+        if not labels:
+            return {
+                "rating_trend": {"labels": [], "series": []},
+                "volume_trend": {"labels": [], "series": []},
+            }
+
+        # Only platforms that actually have history get a series — an all-None
+        # line would render as an empty legend entry.
+        def build(source: dict) -> list[dict]:
+            series = []
+            for p in page_platforms:
+                points = [source.get((m, p)) for m in labels]
+                if all(pt is None for pt in points):
+                    continue
+                series.append({
+                    "platform": p.value,
+                    "label": _PLATFORM_SHORT[p],
+                    "color": _PLATFORM_COLORS[p],
+                    "points": points,
+                })
+            return series
+
+        return {
+            "rating_trend": {"labels": labels, "series": build(ratings)},
+            "volume_trend": {"labels": labels, "series": build(volumes)},
+        }
+
+    def _response_speed_weekly(
+        self,
+        org_ids: list[UUID] | None,
+        platform: str,
+        cutoff: datetime | None,
+        until: date | None,
+        sla_minutes: int,
+    ) -> dict:
+        """Weekly median / p95 response delay, in minutes.
+
+        Extends ``_response_percentiles`` from one figure to a weekly series.
+        Median and p95 (not the mean) because the response distribution has a
+        long tail — a handful of very late replies would make an average look
+        far worse than the typical experience.
+        """
+        delay = self._response_delay_expr()
+        week = self._week_key_expr(self._published_expr())
+        filters = list(self._response_base(org_ids, cutoff, until))
+        if platform != "all":
+            filters.append(Review.platform == ReviewPlatform(platform))
+
+        buckets: dict[str, tuple[float | None, float | None]] = {}
+        if self.db.get_bind().dialect.name == "sqlite":
+            # No percentile_cont: pull the delays per week and fold in Python.
+            per_week: dict[str, list[float]] = {}
+            rows = (
+                self.db.query(week.label("week"), delay.label("delay"))
+                .select_from(Review)
+                .filter(*filters)
+                .all()
+            )
+            for row in rows:
+                if row.delay is not None:
+                    per_week.setdefault(row.week, []).append(float(row.delay))
+            for key, values in per_week.items():
+                buckets[key] = (median(values), float(self._percentile(values, 95)))
+        else:
+            rows = (
+                self.db.query(
+                    week.label("week"),
+                    func.percentile_cont(0.5).within_group(delay.asc()).label("median"),
+                    func.percentile_cont(0.95).within_group(delay.asc()).label("p95"),
+                )
+                .select_from(Review)
+                .filter(*filters)
+                .group_by(week)
+                .all()
+            )
+            for row in rows:
+                if row.median is not None:
+                    buckets[row.week] = (float(row.median), float(row.p95))
+
+        labels = sorted(buckets)
+        to_min = lambda seconds: round(seconds / 60.0, 1)  # noqa: E731
+        return {
+            "labels": labels,
+            "median_minutes": [to_min(buckets[k][0]) for k in labels],
+            "p95_minutes": [to_min(buckets[k][1]) for k in labels],
+            "sla_target_minutes": sla_minutes,
+        }
+
+    def _weekday_stats(
+        self,
+        org_ids: list[UUID] | None,
+        platform: str,
+        cutoff: datetime | None,
+        until: date | None,
+    ) -> dict:
+        """Review count and average rating per weekday (Mon..Sun).
+
+        Keyed on ``review_date`` — the only real posting-time signal we store.
+        Reviews without a parsed date are excluded from this block (they still
+        count everywhere else); there is deliberately no hour-of-day axis,
+        because posting time is not recorded (``first_seen_at`` is scrape time).
+        """
+        filters = [
+            *self._scoped_filters(org_ids, platform),
+            Review.removed_at.is_(None),
+            Review.review_date.isnot(None),
+        ]
+        published = self._published_expr()
+        if cutoff is not None:
+            filters.append(published >= cutoff.date())
+        if until is not None:
+            filters.append(published <= until)
+
+        weekday = self._weekday_expr(Review.review_date)
+        rows = (
+            self.db.query(
+                weekday.label("weekday"),
+                func.count().label("count"),
+                func.avg(Review.rating).label("avg_rating"),
+            )
+            .filter(*filters)
+            .group_by(weekday)
+            .all()
+        )
+
+        days = self._empty_weekdays()
+        for row in rows:
+            idx = int(row.weekday)
+            if 0 <= idx <= 6:
+                days[idx]["count"] = int(row.count)
+                days[idx]["avg_rating"] = (
+                    round(float(row.avg_rating), 2) if row.avg_rating is not None else None
+                )
+
+        return {"days": days, "insight": self._weekday_insight(days)}
+
+    @staticmethod
+    def _weekday_insight(days: list[dict]) -> str | None:
+        """"Worst day / best day" sentence, or None when there is nothing to compare."""
+        rated = [d for d in days if d["avg_rating"] is not None]
+        if len(rated) < 2:
+            return None
+        worst = min(rated, key=lambda d: d["avg_rating"])
+        best = max(rated, key=lambda d: d["avg_rating"])
+        if worst["weekday"] == best["weekday"]:
+            return None
+        return (
+            f"Пик жалоб — {_WEEKDAY_FULL[worst['weekday']]} "
+            f"(средняя оценка {worst['avg_rating']:.2f}). "
+            f"Лучшие оценки — {_WEEKDAY_FULL[best['weekday']]} "
+            f"({best['avg_rating']:.2f})."
+        )

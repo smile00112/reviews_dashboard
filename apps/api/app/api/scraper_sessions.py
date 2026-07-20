@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.core.database import SessionLocal, get_db
 from app.models.enums import SessionStatus
-from app.schemas.scraper_session import CodeSubmission, LoginResponse, SessionStatusResponse
+from app.schemas.scraper_session import CodeSubmission, CookieImport, LoginResponse, SessionStatusResponse
 from app.services.scrape_service import ScrapeService
 
 router = APIRouter(prefix="/api/scraper/yandex", tags=["scraper-session"])
@@ -32,6 +32,8 @@ def _to_status_response(session) -> SessionStatusResponse:
         last_login_at=session.last_login_at,
         last_checked_at=session.last_checked_at,
         storage_state_path=session.storage_state_path,
+        message=session.last_message,
+        progress=session.progress,
     )
 
 
@@ -69,6 +71,21 @@ def check_session(
     if session.status != SessionStatus.pending:
         session = service.mark_session_pending()
         background_tasks.add_task(_run_check_background)
+    return _to_status_response(session)
+
+
+@router.post("/session/import", response_model=SessionStatusResponse)
+def import_session_cookies(
+    payload: CookieImport,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+) -> SessionStatusResponse:
+    """Adopt a session from a browser the operator is already signed in to —
+    the fallback when Passport's confirmation-code push cannot be delivered."""
+    try:
+        session = ScrapeService(db).import_session_cookies(payload.cookies)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     return _to_status_response(session)
 
 

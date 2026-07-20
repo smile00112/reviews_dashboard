@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from app.models.enums import OrganizationScrapeStatus, ReviewPlatform, ScrapeMod
 from app.services.metrics_service import PLATFORM_COLUMNS
 from app.models.scrape_run import ScrapeRun
 from app.models.scraper_session import ScraperSession
+from app.scraper.cookie_import import build_storage_state, parse_cookie_input
 from app.scraper.types import ScrapeResult
 from app.scraper.twogis_api import TwogisApiScraper
 from app.scraper.yandex_auth import YandexAuthScraper
@@ -337,9 +339,15 @@ class ScrapeService:
         if session.status in (SessionStatus.pending, SessionStatus.awaiting_code):
             return session
         path = Path(session.storage_state_path)
-        if not path.exists():
+        has_state = path.exists() and path.stat().st_size > 0
+        if session.status == SessionStatus.valid and not has_state:
+            # The state file backing this verdict is gone.
             session.status = SessionStatus.missing
-        elif path.stat().st_size > 0:
+        elif session.status == SessionStatus.missing and has_state:
+            # Bootstrap only: a file appeared without this app writing it
+            # (scripts/ run login_manual). Never applied to needs_manual_action
+            # or expired — those are verdicts from a real attempt, and a stale
+            # file must not repaint a failed login as valid.
             session.status = SessionStatus.valid
         self.db.commit()
         return session
@@ -384,19 +392,55 @@ class ScrapeService:
         self.db.commit()
         return session
 
+    def import_session_cookies(self, text: str) -> ScraperSession:
+        """Adopt cookies exported from a browser the operator is signed in to.
+
+        Raises ValueError (surfaced as 422) before touching the filesystem, so
+        a rejected paste never leaves a half-written storage state behind.
+        """
+        cookies = parse_cookie_input(text)
+        session = self._get_or_create_session_record()
+
+        path = Path(session.storage_state_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(build_storage_state(cookies), ensure_ascii=False), encoding="utf-8")
+
+        now = datetime.now(timezone.utc)
+        session.status = SessionStatus.valid
+        session.last_login_at = now
+        session.last_checked_at = now
+        session.last_message = f"Session imported manually ({len(cookies)} cookies)"
+        session.progress = None
+        self.db.commit()
+        return session
+
     def login_operator(self) -> tuple[SessionStatus, str]:
         session = self._get_or_create_session_record()
+        # Each attempt starts a fresh trace; committing per step means the UI
+        # can watch the login advance instead of staring at "pending".
+        steps: list[dict] = []
+        session.progress = []
+        session.last_message = None
+        self.db.commit()
+
+        def on_step(name: str, url: str | None = None) -> None:
+            steps.append({"at": datetime.now(timezone.utc).isoformat(), "step": name, "url": url})
+            session.progress = list(steps)
+            self.db.commit()
+
         try:
             status, message = self.auth_scraper.login_with_password(
                 settings.yandex_operator_login,
                 settings.yandex_operator_password,
                 session.storage_state_path,
                 request_code=self._request_code,
+                on_step=on_step,
             )
         except Exception as exc:  # pending must always reach a terminal state
             logger.exception("operator login failed")
             status, message = SessionStatus.needs_manual_action, f"Login failed: {exc}"
         session.status = status
+        session.last_message = message
         if status == SessionStatus.valid:
             session.last_login_at = datetime.now(timezone.utc)
         session.last_checked_at = datetime.now(timezone.utc)
