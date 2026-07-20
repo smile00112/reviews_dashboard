@@ -1,10 +1,10 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.core.database import SessionLocal, get_db
 from app.models.enums import SessionStatus
-from app.schemas.scraper_session import LoginResponse, SessionStatusResponse
+from app.schemas.scraper_session import CodeSubmission, LoginResponse, SessionStatusResponse
 from app.services.scrape_service import ScrapeService
 
 router = APIRouter(prefix="/api/scraper/yandex", tags=["scraper-session"])
@@ -69,4 +69,20 @@ def check_session(
     if session.status != SessionStatus.pending:
         session = service.mark_session_pending()
         background_tasks.add_task(_run_check_background)
+    return _to_status_response(session)
+
+
+@router.post("/session/code", response_model=SessionStatusResponse)
+def submit_session_code(
+    payload: CodeSubmission,
+    db: Session = Depends(get_db),
+    _admin=Depends(require_admin),
+) -> SessionStatusResponse:
+    """Deliver the operator's confirmation code to a login that's paused in
+    awaiting_code, waiting on ScrapeService._request_code's poll loop."""
+    service = ScrapeService(db)
+    session = service.get_session_record()
+    if session.status != SessionStatus.awaiting_code:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No pending confirmation code request")
+    session = service.submit_code(payload.code)
     return _to_status_response(session)

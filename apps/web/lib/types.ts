@@ -23,7 +23,9 @@ export type SessionStatus =
   | "missing"
   | "valid"
   | "expired"
-  | "needs_manual_action";
+  | "needs_manual_action"
+  | "pending"
+  | "awaiting_code";
 
 export interface Organization {
   id: string;

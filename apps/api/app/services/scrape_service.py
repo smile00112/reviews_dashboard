@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
@@ -331,8 +332,9 @@ class ScrapeService:
 
     def get_session_status(self) -> ScraperSession:
         session = self._get_or_create_session_record()
-        # A background login/check is in flight: file heuristics must not clobber it.
-        if session.status == SessionStatus.pending:
+        # A background login/check (or an in-progress code prompt) is in
+        # flight: file heuristics must not clobber it.
+        if session.status in (SessionStatus.pending, SessionStatus.awaiting_code):
             return session
         path = Path(session.storage_state_path)
         if not path.exists():
@@ -352,13 +354,44 @@ class ScrapeService:
         self.db.commit()
         return session
 
+    def _request_code(self) -> str | None:
+        """Pause the login for the operator's confirmation code. Marks the
+        session awaiting_code, then polls pending_code — written by
+        submit_code() from a concurrent request — until it appears or the
+        configured timeout elapses. DB-only; the scraper layer never touches
+        the database (it just calls this as a plain callback)."""
+        session = self._get_or_create_session_record()
+        session.status = SessionStatus.awaiting_code
+        session.pending_code = None
+        self.db.commit()
+
+        deadline = time.monotonic() + settings.yandex_code_wait_timeout_seconds
+        while time.monotonic() < deadline:
+            self.db.refresh(session)
+            if session.pending_code:
+                code = session.pending_code
+                session.pending_code = None
+                self.db.commit()
+                return code
+            time.sleep(settings.yandex_code_poll_interval_seconds)
+        return None
+
+    def submit_code(self, code: str) -> ScraperSession:
+        session = self._get_or_create_session_record()
+        if session.status != SessionStatus.awaiting_code:
+            raise ValueError("Session is not awaiting a confirmation code")
+        session.pending_code = code
+        self.db.commit()
+        return session
+
     def login_operator(self) -> tuple[SessionStatus, str]:
         session = self._get_or_create_session_record()
         try:
-            status, message = self.auth_scraper.login(
+            status, message = self.auth_scraper.login_with_password(
                 settings.yandex_operator_login,
                 settings.yandex_operator_password,
                 session.storage_state_path,
+                request_code=self._request_code,
             )
         except Exception as exc:  # pending must always reach a terminal state
             logger.exception("operator login failed")

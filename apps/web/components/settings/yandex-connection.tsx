@@ -1,0 +1,165 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { checkSession, getSession, loginYandex, submitSessionCode } from "@/lib/api";
+import type { SessionInfo, SessionStatus } from "@/lib/types";
+
+const STATUS_LABEL: Record<SessionStatus, string> = {
+  missing: "Не подключено",
+  valid: "Подключено",
+  expired: "Сессия устарела",
+  needs_manual_action: "Требуется ручной вход",
+  pending: "Выполняется вход…",
+  awaiting_code: "Ожидает код подтверждения",
+};
+
+const POLL_INTERVAL_MS = 2000;
+
+export function YandexConnection() {
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const info = await getSession();
+        setSession(info);
+        if (info.status !== "pending" && info.status !== "awaiting_code") {
+          stopPolling();
+        }
+      } catch {
+        stopPolling();
+      }
+    }, POLL_INTERVAL_MS);
+  }
+
+  useEffect(() => {
+    getSession()
+      .then((info) => {
+        setSession(info);
+        if (info.status === "pending" || info.status === "awaiting_code") {
+          startPolling();
+        }
+      })
+      .catch((err) => setError((err as Error).message));
+    return stopPolling;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleStartLogin() {
+    setError(null);
+    setBusy(true);
+    try {
+      await loginYandex();
+      startPolling();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSubmitCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const info = await submitSessionCode(code);
+      setSession(info);
+      setCode("");
+      startPolling();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCheck() {
+    setError(null);
+    setBusy(true);
+    try {
+      const info = await checkSession();
+      setSession(info);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const status = session?.status ?? "missing";
+
+  return (
+    <div className="max-w-md space-y-3 rounded border border-border bg-surface p-4">
+      <div>
+        <h2 className="text-sm font-medium">Подключение к Яндексу</h2>
+        <p className="text-xs text-text-dim">
+          Статус: <strong className="text-text">{STATUS_LABEL[status]}</strong>
+        </p>
+        {session?.last_login_at && (
+          <p className="text-xs text-text-dim">Последний вход: {new Date(session.last_login_at).toLocaleString("ru-RU")}</p>
+        )}
+      </div>
+
+      {status === "awaiting_code" && (
+        <form onSubmit={handleSubmitCode} className="space-y-2">
+          <label htmlFor="yandex-code" className="block text-xs font-medium">
+            Код подтверждения
+          </label>
+          <input
+            id="yandex-code"
+            type="text"
+            inputMode="numeric"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="w-40 rounded border border-border bg-bg px-2 py-1 text-sm"
+            data-testid="yandex-code-input"
+          />
+          <button
+            type="submit"
+            disabled={busy || code.length === 0}
+            className="rounded bg-accent px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+            data-testid="yandex-code-submit"
+          >
+            Подтвердить
+          </button>
+        </form>
+      )}
+
+      {error && <div className="text-sm text-bad">{error}</div>}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleStartLogin}
+          disabled={busy || status === "pending" || status === "awaiting_code"}
+          className="rounded bg-accent px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+          data-testid="yandex-start-login"
+        >
+          Начать авторизацию
+        </button>
+        <button
+          type="button"
+          onClick={handleCheck}
+          disabled={busy || status === "pending" || status === "awaiting_code"}
+          className="rounded border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          data-testid="yandex-check-session"
+        >
+          Проверить
+        </button>
+      </div>
+    </div>
+  );
+}

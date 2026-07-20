@@ -287,6 +287,13 @@ export async function checkSession(): Promise<SessionInfo> {
   return request<SessionInfo>("/api/scraper/yandex/session/check", { method: "POST" });
 }
 
+export async function submitSessionCode(code: string): Promise<SessionInfo> {
+  return request<SessionInfo>("/api/scraper/yandex/session/code", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
 // --- Фоновые задачи ---
 export async function listJobs(): Promise<Job[]> {
   const data = await request<{ items: Job[] }>("/api/jobs");

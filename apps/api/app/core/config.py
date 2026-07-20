@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     yandex_operator_login: str = ""
     yandex_operator_password: str = ""
     yandex_storage_state_path: str = ".local/yandex-storage-state.json"
+    # Yandex password+confirmation-code login: how long the background login
+    # waits for the operator to submit the push/SMS code via POST
+    # /api/scraper/yandex/session/code before giving up as needs_manual_action.
+    yandex_code_wait_timeout_seconds: float = 300.0
+    yandex_code_poll_interval_seconds: float = 2.0
     scraper_debug_dir: str = ".local/scraper-debug"
     api_cors_origins: str = "http://localhost:3000"
 

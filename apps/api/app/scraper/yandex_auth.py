@@ -1,3 +1,5 @@
+from typing import Callable
+
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -7,6 +9,21 @@ from app.scraper.debug_artifacts import save_debug_artifacts
 from app.scraper.types import ScrapeResult
 from app.scraper.yandex_public import CAPTCHA_MARKERS, YandexPublicScraper
 
+# Substrings that show up on Passport's push/SMS confirmation-code screen —
+# checked in lowercase against page.content(). Deliberately generic (not tied
+# to push vs SMS wording) since Yandex picks the channel, not us.
+_CODE_SCREEN_MARKERS = ("код из", "введите код", "код подтверждения")
+
+
+def _looks_like_code_screen(html: str) -> bool:
+    """True once Passport is asking for a confirmation code (push or SMS).
+    Pure text check — testable without a live page, mirrors the existing
+    CAPTCHA_MARKERS pattern in this module."""
+    if not isinstance(html, str):
+        return False
+    lowered = html.lower()
+    return any(marker in lowered for marker in _CODE_SCREEN_MARKERS)
+
 
 class YandexAuthScraper:
     PASSPORT_AUTH_URL = "https://passport.yandex.ru/auth"
@@ -15,6 +32,9 @@ class YandexAuthScraper:
     SESSION_COOKIE = "Session_id"
     MANUAL_LOGIN_TIMEOUT_MS = 180000
     MANUAL_LOGIN_POLL_MS = 1000
+    LOGIN_PLACEHOLDER = "Логин или email"
+    NEXT_BUTTON_TEXT = "Далее"
+    CONTINUE_BUTTON_TEXT = "Продолжить"
 
     def login(
         self,
@@ -76,6 +96,106 @@ class YandexAuthScraper:
             and "yandex.ru" in (cookie.get("domain") or "")
             for cookie in cookies
         )
+
+    def _passport_challenge(self, page) -> tuple[SessionStatus, str] | None:
+        """Bot-wall/captcha check at a login checkpoint — same markers as the
+        rest of the codebase, never bypassed."""
+        html = page.content()
+        if any(marker.lower() in html.lower() for marker in CAPTCHA_MARKERS):
+            return SessionStatus.needs_manual_action, "Captcha or bot check detected during login"
+        return None
+
+    @staticmethod
+    def _fill_code(page, code: str) -> None:
+        """Passport renders the confirmation code as either one input or one
+        box per digit; fill whichever is present."""
+        boxes = [
+            box
+            for box in page.locator('input[type="tel"], input[type="text"], input[type="number"]').all()
+            if box.is_visible()
+        ]
+        if len(boxes) >= len(code):
+            for digit, box in zip(code, boxes):
+                box.fill(digit)
+        elif boxes:
+            boxes[0].fill(code)
+
+    def login_with_password(
+        self,
+        login: str,
+        password: str,
+        storage_state_path: str,
+        request_code: Callable[[], str | None] | None = None,
+    ) -> tuple[SessionStatus, str]:
+        """Automated password + confirmation-code login (Yandex
+        password+confirmation-code login). Uses resilient text/role locators
+        rather than name=/id selectors — Passport's React flow regenerates
+        those per render, which is why the older `login()` method above no
+        longer works. `request_code` is called once a confirmation-code
+        screen appears; it blocks until the operator submits one (or times
+        out) and is owned entirely by the caller — this method never touches
+        the database."""
+        if not login or not password:
+            return SessionStatus.missing, "YANDEX_OPERATOR_LOGIN and YANDEX_OPERATOR_PASSWORD must be set"
+
+        path = Path(storage_state_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)
+                context = browser.new_context(locale=YandexPublicScraper.LOCALE)
+                page = context.new_page()
+                try:
+                    page.goto(self.PASSPORT_AUTH_URL, wait_until="domcontentloaded", timeout=30000)
+
+                    challenge = self._passport_challenge(page)
+                    if challenge:
+                        return challenge
+
+                    page.get_by_placeholder(self.LOGIN_PLACEHOLDER).fill(login)
+                    page.get_by_role("button", name=self.NEXT_BUTTON_TEXT).click()
+                    page.wait_for_timeout(1500)
+
+                    challenge = self._passport_challenge(page)
+                    if challenge:
+                        return challenge
+
+                    page.locator('input[type="password"]').first.fill(password)
+                    page.get_by_role("button", name=self.NEXT_BUTTON_TEXT).click()
+                    page.wait_for_timeout(2000)
+
+                    challenge = self._passport_challenge(page)
+                    if challenge:
+                        return challenge
+
+                    if _looks_like_code_screen(page.content()):
+                        if request_code is None:
+                            return (
+                                SessionStatus.needs_manual_action,
+                                "Confirmation code required but no code channel was configured",
+                            )
+                        code = request_code()
+                        if not code:
+                            return SessionStatus.needs_manual_action, "Timed out waiting for the confirmation code"
+
+                        self._fill_code(page, code)
+                        page.get_by_role("button", name=self.CONTINUE_BUTTON_TEXT).click()
+                        page.wait_for_timeout(2000)
+
+                        challenge = self._passport_challenge(page)
+                        if challenge:
+                            return challenge
+
+                    if self._has_session_cookie(context.cookies()):
+                        context.storage_state(path=str(path))
+                        return SessionStatus.valid, "Login successful"
+
+                    return SessionStatus.needs_manual_action, "Login did not complete — no session cookie was issued"
+                finally:
+                    browser.close()
+        except Exception as exc:
+            return SessionStatus.needs_manual_action, f"Automated login failed: {exc}"
 
     def login_manual(
         self,
