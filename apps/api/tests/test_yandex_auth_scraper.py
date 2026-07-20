@@ -68,3 +68,30 @@ def test_missing_storage_state_short_circuits(tmp_path):
     result = YandexAuthScraper().scrape("https://yandex.ru/maps/org/x/1/", str(tmp_path / "absent.json"))
     assert result.needs_manual_action is True
     assert result.error_code == "missing_session"
+
+
+from app.scraper.yandex_auth import _looks_like_code_screen
+
+
+def test_looks_like_code_screen_detects_push_code_heading():
+    html = "<html><h1>Введите код из пуш-уведомления</h1></html>"
+    assert _looks_like_code_screen(html) is True
+
+
+def test_looks_like_code_screen_detects_generic_confirmation_wording():
+    html = "<html><p>Введите код подтверждения, который мы отправили</p></html>"
+    assert _looks_like_code_screen(html) is True
+
+
+def test_looks_like_code_screen_false_for_password_screen():
+    html = "<html><h1>Введите пароль</h1></html>"
+    assert _looks_like_code_screen(html) is False
+
+
+def test_login_with_password_without_credentials_short_circuits(tmp_path):
+    from app.models.enums import SessionStatus
+    from app.scraper.yandex_auth import YandexAuthScraper
+
+    status, message = YandexAuthScraper().login_with_password("", "", str(tmp_path / "state.json"))
+    assert status == SessionStatus.missing
+    assert "YANDEX_OPERATOR_LOGIN" in message
