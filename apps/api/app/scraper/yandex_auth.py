@@ -14,14 +14,47 @@ from app.scraper.yandex_public import CAPTCHA_MARKERS, YandexPublicScraper
 # "введите код" and "пароль" all live in Passport's bundled JS and match on
 # EVERY screen (measured 6-26 hits each on the plain login screen), so text
 # markers cannot tell the steps apart.
-_CODE_SCREEN_URL_MARKER = "/auth/push-code"
+# Each Passport step has its own route. Matching on the route rather than on
+# page text or visible elements is deliberate: the wording ("код из",
+# "введите код", "пароль") ships in the bundled JS of every screen, and right
+# after a submit the previous screen's fields are still in the DOM.
+#
+# Two routes ask for a confirmation code: /auth/push-code when Passport skips
+# the password entirely, and /auth/challenges/push after a password is
+# accepted. Both were observed live on 2026-07-20.
+_CODE_SCREEN_URL_MARKERS = ("/auth/push-code", "/auth/challenges/push")
+_PASSWORD_SCREEN_URL_MARKER = "/auth/password"
+# The login form, plus the bare shell Passport lands on before redirecting to
+# it client-side. Note /pwl-yandex alone prefixes EVERY route here, so it only
+# counts as the login step when no /auth/ segment follows.
+_LOGIN_FORM_URL_MARKER = "/auth/add"
+_LOGIN_SHELL_URL_MARKER = "/pwl-yandex"
+
+
+def _classify_screen(url: str | None) -> str:
+    """Name Passport's current step from its URL."""
+    if not isinstance(url, str):
+        return "unknown"
+    lowered = url.lower()
+    if any(marker in lowered for marker in _CODE_SCREEN_URL_MARKERS):
+        return "code"
+    if _PASSWORD_SCREEN_URL_MARKER in lowered:
+        return "password"
+    if _LOGIN_FORM_URL_MARKER in lowered:
+        return "login"
+    if _LOGIN_SHELL_URL_MARKER in lowered and "/auth/" not in lowered:
+        return "login"
+    return "other"
 
 
 def _is_code_screen(url: str | None) -> bool:
-    """True once Passport has navigated to the confirmation-code step."""
-    if not isinstance(url, str):
-        return False
-    return _CODE_SCREEN_URL_MARKER in url.lower()
+    """True once Passport is asking for a confirmation code."""
+    return _classify_screen(url) == "code"
+
+
+def _is_login_screen(url: str | None) -> bool:
+    """True while Passport is still asking for the login."""
+    return _classify_screen(url) == "login"
 
 
 class YandexAuthScraper:
@@ -38,10 +71,17 @@ class YandexAuthScraper:
     # the login step it goes straight to a push code. This button is the way
     # back to the password screen.
     PASSWORD_BUTTON_TEXT = "Войти с паролем"
+    LOGIN_BUTTON_TEXT = "Войти"
+    LOGIN_FORM_URL_MARKER = "/auth/add"
     # Short probes, because these elements are optional by design — a missing
     # one is a branch to take, not an error to wait 30s for.
     PROBE_TIMEOUT_MS = 5000
-    SETTLE_MS = 3000
+    # Passport advances client-side, so every step waits for the next screen to
+    # actually appear rather than guessing a duration. A live run showed a
+    # fixed 3s pause racing the /pwl-yandex -> /auth/add redirect and typing
+    # the login into a form that had not rendered yet.
+    STEP_TIMEOUT_MS = 20000
+    POLL_MS = 250
 
     def login(
         self,
@@ -128,35 +168,84 @@ class YandexAuthScraper:
         elif boxes:
             boxes[0].fill(code)
 
-    def _try_password_step(self, page, password: str) -> bool:
-        """Switch Passport off its passwordless default and submit the
-        password. Returns False (without raising) whenever that route isn't
-        offered — the caller then finishes via the confirmation code."""
+    @staticmethod
+    def _visible(page, selector: str):
+        """First visible match, or None — a probe, never a wait."""
+        locator = page.locator(selector)
         try:
-            switch = page.get_by_role("button", name=self.PASSWORD_BUTTON_TEXT)
-            if switch.count() and switch.first.is_visible():
-                switch.first.click()
-                page.wait_for_timeout(self.SETTLE_MS)
+            if locator.count() and locator.first.is_visible():
+                return locator.first
         except Exception:
-            return False
+            return None
+        return None
+
+    def _wait_for_login_form(self, page):
+        """Wait for the real login form, not the landing shell.
+
+        Passport serves /pwl-yandex with a login field that only routes to the
+        actual form at /auth/add — a live run filled the shell's field, and the
+        click navigated to an empty form, losing the input.
+        """
+        waited = 0
+        while waited < self.STEP_TIMEOUT_MS and self.LOGIN_FORM_URL_MARKER not in (page.url or "").lower():
+            page.wait_for_timeout(self.POLL_MS)
+            waited += self.POLL_MS
+        field = page.get_by_placeholder(self.LOGIN_PLACEHOLDER)
+        field.wait_for(state="visible", timeout=self.STEP_TIMEOUT_MS)
+        return field
+
+    def _wait_for_next_screen(self, page, from_url: str, timeout_ms: int | None = None) -> str:
+        """Block until Passport navigates away from `from_url`, then name the
+        screen it landed on.
+
+        Keyed on the URL rather than on visible elements: right after a submit
+        the old screen's fields are still in the DOM, so an element probe
+        reports the screen we just left as if it were the new one.
+        """
+        remaining = timeout_ms if timeout_ms is not None else self.STEP_TIMEOUT_MS
+        while remaining > 0 and page.url == from_url:
+            page.wait_for_timeout(self.POLL_MS)
+            remaining -= self.POLL_MS
+        return _classify_screen(page.url)
+
+    def _try_password_step(self, page, password: str) -> str | None:
+        """Switch Passport off its passwordless default and submit the
+        password, returning the screen it lands on afterwards. Returns None
+        (without raising) whenever that route isn't offered — the caller then
+        finishes via the confirmation code.
+
+        The post-submit wait lives here because this method navigates: a
+        caller capturing the URL beforehand would compare against a screen we
+        have already left.
+        """
+        if _classify_screen(page.url) != "password":
+            try:
+                switch = page.get_by_role("button", name=self.PASSWORD_BUTTON_TEXT)
+                if not (switch.count() and switch.first.is_visible()):
+                    return None
+                before = page.url
+                switch.first.click()
+                self._wait_for_next_screen(page, before)
+            except Exception:
+                return None
 
         try:
             field = page.locator('input[type="password"]').first
             field.wait_for(state="visible", timeout=self.PROBE_TIMEOUT_MS)
             field.fill(password)
         except Exception:
-            return False
+            return None
 
-        for label in (self.NEXT_BUTTON_TEXT, self.CONTINUE_BUTTON_TEXT):
+        for label in (self.NEXT_BUTTON_TEXT, self.CONTINUE_BUTTON_TEXT, self.LOGIN_BUTTON_TEXT):
             try:
                 button = page.get_by_role("button", name=label)
                 if button.count() and button.first.is_visible():
+                    before = page.url
                     button.first.click()
-                    page.wait_for_timeout(self.SETTLE_MS)
-                    return True
+                    return self._wait_for_next_screen(page, before)
             except Exception:
                 continue
-        return False
+        return None
 
     def login_with_password(
         self,
@@ -202,20 +291,30 @@ class YandexAuthScraper:
                         step("bot_check_detected", page)
                         return challenge
 
-                    page.get_by_placeholder(self.LOGIN_PLACEHOLDER).fill(login)
-                    page.get_by_role("button", name=self.NEXT_BUTTON_TEXT).click()
-                    page.wait_for_timeout(self.SETTLE_MS)
-                    step("login_submitted", page)
+                    login_field = self._wait_for_login_form(page)
+                    step("login_form_ready", page)
+
+                    login_field.fill(login)
+                    before = page.url
+                    page.get_by_role("button", name=self.NEXT_BUTTON_TEXT).first.click()
+                    screen = self._wait_for_next_screen(page, before)
+                    step(f"login_submitted:{screen}", page)
 
                     challenge = self._passport_challenge(page)
                     if challenge:
                         step("bot_check_detected", page)
                         return challenge
 
-                    # Password first when Passport still offers it; otherwise
-                    # fall through to the confirmation code it sent instead.
-                    used_password = self._try_password_step(page, password)
-                    step("password_submitted" if used_password else "password_step_unavailable", page)
+                    # Password first when Passport offers it — either it served
+                    # the password screen outright, or its opt-out button is on
+                    # the code screen. Otherwise finish with the code it sent.
+                    if screen in ("code", "password"):
+                        after_password = self._try_password_step(page, password)
+                        if after_password:
+                            screen = after_password
+                            step(f"password_submitted:{screen}", page)
+                        else:
+                            step("password_step_unavailable", page)
 
                     challenge = self._passport_challenge(page)
                     if challenge:
@@ -237,7 +336,11 @@ class YandexAuthScraper:
 
                         self._fill_code(page, code)
                         page.get_by_role("button", name=self.CONTINUE_BUTTON_TEXT).first.click()
-                        page.wait_for_timeout(self.SETTLE_MS)
+                        # The cookie is the completion signal, not a duration.
+                        waited = 0
+                        while waited < self.STEP_TIMEOUT_MS and not self._has_session_cookie(context.cookies()):
+                            page.wait_for_timeout(self.POLL_MS)
+                            waited += self.POLL_MS
                         step("code_submitted", page)
 
                         challenge = self._passport_challenge(page)
