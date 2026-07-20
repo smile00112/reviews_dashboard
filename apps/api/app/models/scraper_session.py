@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Text, func
+from sqlalchemy import DateTime, Enum, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +11,10 @@ from app.models.enums import SessionStatus
 
 class ScraperSession(Base):
     __tablename__ = "scraper_sessions"
+    # Exactly one row per provider: _get_or_create_session_record()'s
+    # unordered .first() must always resolve to the same row, or a login can
+    # be marked pending on one row and terminalized on another.
+    __table_args__ = (UniqueConstraint("provider", name="uq_scraper_sessions_provider"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     provider: Mapped[str] = mapped_column(Text, nullable=False, default="yandex")
