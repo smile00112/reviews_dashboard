@@ -19,6 +19,10 @@ const POLL_INTERVAL_MS = 2000;
 export function YandexConnection() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [dismissedCodePrompt, setDismissedCodePrompt] = useState(false);
+  // The status stays awaiting_code until the background login picks the code
+  // up, so without this the modal would sit there inviting a second submit —
+  // which the API rejects with 409, the code having already been consumed.
+  const [codeSubmitted, setCodeSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -78,6 +82,7 @@ export function YandexConnection() {
     setError(null);
     setBusy(true);
     setDismissedCodePrompt(false);
+    setCodeSubmitted(false);
     try {
       await loginYandex();
       startPolling();
@@ -92,6 +97,7 @@ export function YandexConnection() {
     // Throws on failure so the modal can keep itself open and show why.
     const info = await submitSessionCode(value);
     setSession(info);
+    setCodeSubmitted(true);
     startPolling();
   }
 
@@ -127,7 +133,13 @@ export function YandexConnection() {
         )}
       </div>
 
-      {status === "awaiting_code" && dismissedCodePrompt && (
+      {status === "awaiting_code" && codeSubmitted && (
+        <p className="text-xs text-text-dim" data-testid="yandex-code-sent">
+          Код отправлен, ждём ответа Яндекса…
+        </p>
+      )}
+
+      {status === "awaiting_code" && dismissedCodePrompt && !codeSubmitted && (
         <button
           type="button"
           onClick={() => setDismissedCodePrompt(false)}
@@ -161,7 +173,7 @@ export function YandexConnection() {
         </button>
       </div>
 
-      {status === "awaiting_code" && !dismissedCodePrompt && (
+      {status === "awaiting_code" && !dismissedCodePrompt && !codeSubmitted && (
         <YandexCodeModal onSubmit={handleSubmitCode} onCancel={() => setDismissedCodePrompt(true)} />
       )}
     </div>

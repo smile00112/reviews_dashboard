@@ -208,6 +208,24 @@ class YandexAuthScraper:
             remaining -= self.POLL_MS
         return _classify_screen(page.url)
 
+    def _click_if_present(self, page, *labels: str) -> bool:
+        """Click the first of `labels` that is actually on screen.
+
+        A probe, never a wait: these submit buttons are optional. The code
+        screen reached after a password submits itself once the last digit is
+        typed and has no button at all, so an unconditional click there just
+        burned Playwright's 30s default timeout and failed the whole login.
+        """
+        for label in labels:
+            try:
+                button = page.get_by_role("button", name=label)
+                if button.count() and button.first.is_visible():
+                    button.first.click()
+                    return True
+            except Exception:
+                continue
+        return False
+
     def _try_password_step(self, page, password: str) -> str | None:
         """Switch Passport off its passwordless default and submit the
         password, returning the screen it lands on afterwards. Returns None
@@ -236,15 +254,9 @@ class YandexAuthScraper:
         except Exception:
             return None
 
-        for label in (self.NEXT_BUTTON_TEXT, self.CONTINUE_BUTTON_TEXT, self.LOGIN_BUTTON_TEXT):
-            try:
-                button = page.get_by_role("button", name=label)
-                if button.count() and button.first.is_visible():
-                    before = page.url
-                    button.first.click()
-                    return self._wait_for_next_screen(page, before)
-            except Exception:
-                continue
+        before = page.url
+        if self._click_if_present(page, self.NEXT_BUTTON_TEXT, self.CONTINUE_BUTTON_TEXT, self.LOGIN_BUTTON_TEXT):
+            return self._wait_for_next_screen(page, before)
         return None
 
     def login_with_password(
@@ -335,7 +347,12 @@ class YandexAuthScraper:
                             return SessionStatus.needs_manual_action, "Timed out waiting for the confirmation code"
 
                         self._fill_code(page, code)
-                        page.get_by_role("button", name=self.CONTINUE_BUTTON_TEXT).first.click()
+                        self._click_if_present(
+                            page,
+                            self.CONTINUE_BUTTON_TEXT,
+                            self.LOGIN_BUTTON_TEXT,
+                            self.NEXT_BUTTON_TEXT,
+                        )
                         # The cookie is the completion signal, not a duration.
                         waited = 0
                         while waited < self.STEP_TIMEOUT_MS and not self._has_session_cookie(context.cookies()):
