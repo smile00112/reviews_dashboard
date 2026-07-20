@@ -102,6 +102,39 @@ def test_get_session_does_not_clobber_pending(client, db_session, tmp_path, monk
     assert resp.json()["status"] == "pending"
 
 
+def test_get_session_does_not_clobber_awaiting_code(client, db_session, tmp_path, monkeypatch):
+    # Existing non-empty storage-state file (e.g. from a previous valid
+    # session) would normally flip status to valid.
+    state = tmp_path / "state.json"
+    state.write_text("{}", encoding="utf-8")
+
+    service = ScrapeService(db_session)
+    session = service.get_session_record()
+    session.storage_state_path = str(state)
+    session.status = SessionStatus.awaiting_code
+    db_session.commit()
+
+    resp = client.get("/api/scraper/yandex/session")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "awaiting_code"
+
+
+def test_get_session_does_not_clobber_awaiting_code_missing_file(client, db_session, tmp_path):
+    # Real-world mid-login scenario: the storage-state file does not exist
+    # yet because Playwright only writes it on successful login.
+    state = tmp_path / "does-not-exist.json"
+
+    service = ScrapeService(db_session)
+    session = service.get_session_record()
+    session.storage_state_path = str(state)
+    session.status = SessionStatus.awaiting_code
+    db_session.commit()
+
+    resp = client.get("/api/scraper/yandex/session")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "awaiting_code"
+
+
 def test_login_exception_reaches_terminal_state(db_session):
     class _BoomAuth:
         def login_with_password(self, *a, **kw):

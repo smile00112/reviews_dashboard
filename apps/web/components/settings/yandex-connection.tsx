@@ -153,7 +153,7 @@ export function YandexConnection() {
         <button
           type="button"
           onClick={handleCheck}
-          disabled={busy}
+          disabled={busy || status === "pending" || status === "awaiting_code"}
           className="rounded border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           data-testid="yandex-check-session"
         >

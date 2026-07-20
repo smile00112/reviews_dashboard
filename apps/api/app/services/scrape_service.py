@@ -332,8 +332,9 @@ class ScrapeService:
 
     def get_session_status(self) -> ScraperSession:
         session = self._get_or_create_session_record()
-        # A background login/check is in flight: file heuristics must not clobber it.
-        if session.status == SessionStatus.pending:
+        # A background login/check (or an in-progress code prompt) is in
+        # flight: file heuristics must not clobber it.
+        if session.status in (SessionStatus.pending, SessionStatus.awaiting_code):
             return session
         path = Path(session.storage_state_path)
         if not path.exists():
