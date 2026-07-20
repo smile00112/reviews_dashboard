@@ -1,7 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { logout } from "@/lib/api";
+import type { CurrentUser } from "@/lib/types";
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Админ · полный доступ",
+  review_operator: "Оператор · только чтение",
+};
 
 const NAV: { group: string; items: { href: string; label: string; icon: string }[] }[] = [
   {
@@ -34,8 +50,18 @@ const NAV: { group: string; items: { href: string; label: string; icon: string }
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: CurrentUser }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      router.replace("/login");
+    }
+  }
+
   return (
     <aside className="sticky top-0 flex h-screen w-60 flex-col border-r border-border bg-surface py-6">
       <div className="border-b border-border px-6 pb-6">
@@ -73,6 +99,24 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+      <div className="mt-auto border-t border-border px-3 pt-4">
+        <div className="mb-2 flex items-center gap-2.5 rounded-lg bg-surface-2 px-3 py-1.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-[#7a9020] text-[13px] font-bold text-bg">
+            {initials(user.name)}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-semibold leading-tight">{user.name}</div>
+            <div className="text-[11px] text-text-faint">{ROLE_LABEL[user.role] ?? user.role}</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full rounded-lg border border-border bg-surface-2 px-3.5 py-2 text-[13px] font-medium text-text hover:bg-surface-3"
+        >
+          Выйти
+        </button>
+      </div>
     </aside>
   );
 }

@@ -1,56 +1,42 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { logout } from "@/lib/api";
-import type { CurrentUser } from "@/lib/types";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("");
+const PAGE_LABEL: { prefix: string; label: string }[] = [
+  { prefix: "/ratings", label: "рейтинги" },
+  { prefix: "/companies", label: "организации" },
+  { prefix: "/organizations", label: "все филиалы" },
+  { prefix: "/reviews", label: "отзывы" },
+  { prefix: "/scrape-runs", label: "история сборов" },
+  { prefix: "/jobs", label: "фоновые задачи" },
+  { prefix: "/attention-rules", label: "правила внимания" },
+  { prefix: "/http-scraper", label: "http-парсер" },
+  { prefix: "/settings", label: "настройки" },
+];
+
+function currentPageLabel(pathname: string): string | null {
+  if (pathname === "/overview") return null;
+  const match = PAGE_LABEL.find((p) => pathname === p.prefix || pathname.startsWith(p.prefix + "/"));
+  return match?.label ?? null;
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Админ · полный доступ",
-  review_operator: "Оператор · только чтение",
-};
-
-export function Topbar({ user }: { user: CurrentUser }) {
-  const router = useRouter();
-
-  async function handleLogout() {
-    try {
-      await logout();
-    } finally {
-      router.replace("/login");
-    }
-  }
+export function Topbar() {
+  const pathname = usePathname();
+  const pageLabel = currentPageLabel(pathname);
 
   return (
     <div className="sticky top-0 z-10 flex items-center gap-4 border-b border-border bg-bg/90 px-8 py-4 backdrop-blur">
       <div className="font-mono text-xs uppercase tracking-widest text-text-faint">
-        сеть / <span className="text-accent">панель управления</span>
-      </div>
-      <div className="ml-auto flex items-center gap-3">
-        <div className="flex items-center gap-2.5 rounded-lg bg-surface-2 px-3 py-1.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-[#7a9020] text-[13px] font-bold text-bg">
-            {initials(user.name)}
-          </div>
-          <div className="min-w-0">
-            <div className="text-[13px] font-semibold leading-tight">{user.name}</div>
-            <div className="text-[11px] text-text-faint">{ROLE_LABEL[user.role] ?? user.role}</div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="rounded-lg border border-border bg-surface-2 px-3.5 py-2 text-[13px] font-medium text-text hover:bg-surface-3"
-        >
-          Выйти
-        </button>
+        <Link href="/overview" className={pageLabel ? "hover:text-accent" : "text-accent"}>
+          сеть
+        </Link>
+        {pageLabel ? (
+          <>
+            {" "}
+            / <span className="text-accent">{pageLabel}</span>
+          </>
+        ) : null}
       </div>
     </div>
   );
