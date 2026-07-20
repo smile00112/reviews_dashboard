@@ -7,6 +7,7 @@ import type {
   CompanyBranches,
   CurrentUser,
   DashboardOverview,
+  DashboardRatings,
   Job,
   JobRun,
   JobRunDetail,
@@ -116,6 +117,27 @@ export async function getDashboardOverview(params: {
   for (const id of params.orgIds ?? []) qs.append("org_ids", id);
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   return request<DashboardOverview>(`/api/dashboard/overview${suffix}`);
+}
+
+// --- Ratings dashboard (feature 014) ---
+// Same filter contract as the overview endpoint.
+export async function getDashboardRatings(params: {
+  period?: OverviewPeriod;
+  platform?: OverviewPlatform;
+  orgIds?: string[];
+  companyId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<DashboardRatings> {
+  const qs = new URLSearchParams();
+  if (params.period) qs.set("period", params.period);
+  if (params.platform) qs.set("platform", params.platform);
+  if (params.companyId) qs.set("company_id", params.companyId);
+  if (params.dateFrom) qs.set("date_from", params.dateFrom);
+  if (params.dateTo) qs.set("date_to", params.dateTo);
+  for (const id of params.orgIds ?? []) qs.append("org_ids", id);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return request<DashboardRatings>(`/api/dashboard/ratings${suffix}`);
 }
 
 // --- Organizations (branches) ---

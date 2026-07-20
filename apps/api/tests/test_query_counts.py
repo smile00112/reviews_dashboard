@@ -147,3 +147,45 @@ def test_companies_list_bounded_queries(admin_client, db_session, query_counter)
     assert all(item["branch_count"] == 1 for item in items)
     # session/user lookup + companies + grouped counts — never one COUNT per company
     assert query_counter["selects"] <= 5, f"companies list issued {query_counter['selects']} SELECTs"
+
+
+# --- Feature 014: ratings page ------------------------------------------------
+
+
+def test_ratings_query_count_does_not_scale_with_orgs(db_session, query_counter):
+    def measure(n_orgs: int) -> int:
+        db_session.query(Organization).delete()
+        db_session.commit()
+        orgs = _seed_orgs(db_session, n_orgs)
+        service = ReviewService(db_session)
+        dash = DashboardService(db_session)
+        now = datetime.now(timezone.utc)
+        for i, org in enumerate(orgs):
+            service.upsert_reviews(org.id, [_parsed(i * 10 + j) for j in range(3)], ScrapeMode.public)
+            dash.capture_snapshot(org.id, ReviewPlatform.yandex, now=now - timedelta(days=5))
+
+        query_counter["selects"] = 0
+        dash.ratings(period="30d", platform="all")
+        return query_counter["selects"]
+
+    q2, q5 = measure(2), measure(5)
+    assert q5 == q2, f"ratings SELECT count scales with org count: {q2} -> {q5}"
+
+
+def test_ratings_query_count_does_not_scale_with_reviews(db_session, query_counter):
+    """Every block aggregates in SQL — same SELECT count at any review volume."""
+    orgs = _seed_orgs(db_session, 2)
+    service = ReviewService(db_session)
+    dash = DashboardService(db_session)
+
+    def measure(extra_reviews: int) -> int:
+        for org in orgs:
+            service.upsert_reviews(
+                org.id, [_parsed(i) for i in range(extra_reviews)], ScrapeMode.public
+            )
+        query_counter["selects"] = 0
+        dash.ratings(period="30d", platform="all")
+        return query_counter["selects"]
+
+    q_small, q_large = measure(20), measure(60)
+    assert q_large == q_small, f"ratings SELECT count scales with review count: {q_small} -> {q_large}"

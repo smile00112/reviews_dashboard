@@ -131,3 +131,72 @@ class DashboardOverview(BaseModel):
     attention: list[AttentionItem]
     worst_locations: list[WorstLocation]
     trending_aspects: list[TrendingAspect]
+
+
+# --------------------------------------------------------------------------- #
+# Ratings page (feature 014)                                                   #
+#                                                                              #
+# Mirrors specs/014-ratings-page/contracts/dashboard-ratings.md. ``None``      #
+# always means "no data available" and is rendered as «нет данных» or a line   #
+# gap — it is never interchangeable with 0. The one deliberate exception is    #
+# WeekdayStat.count, where 0 is real data (that weekday had no reviews).       #
+# --------------------------------------------------------------------------- #
+
+
+class StarShare(BaseModel):
+    star: int
+    count: int
+    share: float
+
+
+class PlatformDistributionRow(BaseModel):
+    platform: str
+    label: str
+    avg_rating: float | None
+    total_reviews: int | None
+    # None (not []) when the platform stores no per-review rows (Google, 2ГИС).
+    stars: list[StarShare] | None
+    removed_count: int | None
+
+
+class TrendSeries(BaseModel):
+    platform: str
+    label: str
+    color: str
+    # index-aligned with TrendBlock.labels; None = no snapshot that month (gap)
+    points: list[float | None]
+
+
+class TrendBlock(BaseModel):
+    labels: list[str]
+    series: list[TrendSeries]
+
+
+class ResponseSpeedBlock(BaseModel):
+    labels: list[str]
+    median_minutes: list[float | None]
+    p95_minutes: list[float | None]
+    sla_target_minutes: int
+
+
+class WeekdayStat(BaseModel):
+    weekday: int  # 0 = Monday .. 6 = Sunday
+    label: str
+    count: int
+    avg_rating: float | None
+
+
+class WeekdayBlock(BaseModel):
+    days: list[WeekdayStat]
+    insight: str | None
+
+
+class DashboardRatings(BaseModel):
+    period: str
+    platform: str
+    generated_at: datetime
+    platform_distribution: list[PlatformDistributionRow]
+    rating_trend: TrendBlock
+    volume_trend: TrendBlock
+    response_speed: ResponseSpeedBlock
+    weekday: WeekdayBlock

@@ -305,6 +305,69 @@ export interface DashboardOverview {
   trending_aspects: TrendingAspect[];
 }
 
+// --- Ratings page (feature 014) ---
+// `null` always means «нет данных» (render a placeholder or a line gap), never 0.
+// The one exception is WeekdayStat.count, where 0 is a real measurement.
+export interface StarShare {
+  star: number;
+  count: number;
+  share: number;
+}
+
+export interface PlatformDistributionRow {
+  platform: string;
+  label: string;
+  avg_rating: number | null;
+  total_reviews: number | null;
+  /** null when the platform stores no per-review rows (Google, 2ГИС). */
+  stars: StarShare[] | null;
+  removed_count: number | null;
+}
+
+export interface TrendSeries {
+  platform: string;
+  label: string;
+  color: string;
+  /** Index-aligned with TrendBlock.labels; null = gap (no snapshot that month). */
+  points: (number | null)[];
+}
+
+export interface TrendBlock {
+  labels: string[];
+  series: TrendSeries[];
+}
+
+export interface ResponseSpeedBlock {
+  labels: string[];
+  median_minutes: (number | null)[];
+  p95_minutes: (number | null)[];
+  sla_target_minutes: number;
+}
+
+export interface WeekdayStat {
+  /** 0 = Monday .. 6 = Sunday */
+  weekday: number;
+  label: string;
+  count: number;
+  avg_rating: number | null;
+}
+
+export interface WeekdayBlock {
+  days: WeekdayStat[];
+  insight: string | null;
+}
+
+export interface DashboardRatings {
+  period: string;
+  platform: string;
+  generated_at: string;
+  platform_distribution: PlatformDistributionRow[];
+  rating_trend: TrendBlock;
+  volume_trend: TrendBlock;
+  response_speed: ResponseSpeedBlock;
+  weekday: WeekdayBlock;
+}
+
 // --- Правила блока «Требуют внимания» ---
 export type AttentionRuleType =
   | "unanswered_overdue"
