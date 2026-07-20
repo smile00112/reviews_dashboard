@@ -6,7 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # running uvicorn from apps/api used to read only apps/api/.env and miss the
 # operator credentials that live in the repo-root .env.
 _API_DIR = Path(__file__).resolve().parents[2]
-_REPO_ROOT = _API_DIR.parents[1]
+# In the Docker image the code lives at /app, so _API_DIR has no grandparent —
+# fall back to itself instead of raising IndexError at import time.
+_REPO_ROOT = _API_DIR.parents[1] if len(_API_DIR.parents) > 1 else _API_DIR
 
 
 class Settings(BaseSettings):
