@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from app.models.enums import OrganizationScrapeStatus, ReviewPlatform, ScrapeMod
 from app.services.metrics_service import PLATFORM_COLUMNS
 from app.models.scrape_run import ScrapeRun
 from app.models.scraper_session import ScraperSession
+from app.scraper.cookie_import import build_storage_state, parse_cookie_input
 from app.scraper.types import ScrapeResult
 from app.scraper.twogis_api import TwogisApiScraper
 from app.scraper.yandex_auth import YandexAuthScraper
@@ -387,6 +389,28 @@ class ScrapeService:
         if session.status != SessionStatus.awaiting_code:
             raise ValueError("Session is not awaiting a confirmation code")
         session.pending_code = code
+        self.db.commit()
+        return session
+
+    def import_session_cookies(self, text: str) -> ScraperSession:
+        """Adopt cookies exported from a browser the operator is signed in to.
+
+        Raises ValueError (surfaced as 422) before touching the filesystem, so
+        a rejected paste never leaves a half-written storage state behind.
+        """
+        cookies = parse_cookie_input(text)
+        session = self._get_or_create_session_record()
+
+        path = Path(session.storage_state_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(build_storage_state(cookies), ensure_ascii=False), encoding="utf-8")
+
+        now = datetime.now(timezone.utc)
+        session.status = SessionStatus.valid
+        session.last_login_at = now
+        session.last_checked_at = now
+        session.last_message = f"Session imported manually ({len(cookies)} cookies)"
+        session.progress = None
         self.db.commit()
         return session
 

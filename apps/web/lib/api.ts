@@ -309,6 +309,13 @@ export async function checkSession(): Promise<SessionInfo> {
   return request<SessionInfo>("/api/scraper/yandex/session/check", { method: "POST" });
 }
 
+export async function importSessionCookies(cookies: string): Promise<SessionInfo> {
+  return request<SessionInfo>("/api/scraper/yandex/session/import", {
+    method: "POST",
+    body: JSON.stringify({ cookies }),
+  });
+}
+
 export async function submitSessionCode(code: string): Promise<SessionInfo> {
   return request<SessionInfo>("/api/scraper/yandex/session/code", {
     method: "POST",

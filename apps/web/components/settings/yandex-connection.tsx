@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { checkSession, getSession, loginYandex, submitSessionCode } from "@/lib/api";
 import type { SessionInfo, SessionStatus } from "@/lib/types";
 import { YandexCodeModal } from "./yandex-code-modal";
+import { YandexCookieImport } from "./yandex-cookie-import";
 
 const STATUS_LABEL: Record<SessionStatus, string> = {
   missing: "Не подключено",
@@ -172,6 +173,8 @@ export function YandexConnection() {
           Проверить
         </button>
       </div>
+
+      <YandexCookieImport onImported={setSession} />
 
       {status === "awaiting_code" && !dismissedCodePrompt && !codeSubmitted && (
         <YandexCodeModal onSubmit={handleSubmitCode} onCancel={() => setDismissedCodePrompt(true)} />
