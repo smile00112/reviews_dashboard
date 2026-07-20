@@ -182,6 +182,13 @@ export interface SessionInfo {
   last_checked_at: string | null;
   storage_state_path: string | null;
   message?: string | null;
+  progress?: SessionProgressStep[] | null;
+}
+
+export interface SessionProgressStep {
+  at: string;
+  step: string;
+  url: string | null;
 }
 
 // --- Network overview dashboard (feature 009) ---

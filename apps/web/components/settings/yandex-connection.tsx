@@ -21,6 +21,22 @@ export function YandexConnection() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loggedStepsRef = useRef(0);
+
+  // Mirror the login trace into the browser console. The Playwright run
+  // happens in a background task on the API, so this is the only place an
+  // operator can watch it advance or see where it stopped.
+  useEffect(() => {
+    const steps = session?.progress ?? [];
+    if (steps.length < loggedStepsRef.current) {
+      loggedStepsRef.current = 0; // a new attempt reset the trace
+    }
+    for (let i = loggedStepsRef.current; i < steps.length; i += 1) {
+      const { at, step, url } = steps[i];
+      console.info(`[yandex-login] ${new Date(at).toLocaleTimeString("ru-RU")} ${step}`, url ?? "");
+    }
+    loggedStepsRef.current = steps.length;
+  }, [session]);
 
   function stopPolling() {
     if (pollRef.current) {
@@ -110,6 +126,11 @@ export function YandexConnection() {
         </p>
         {session?.last_login_at && (
           <p className="text-xs text-text-dim">Последний вход: {new Date(session.last_login_at).toLocaleString("ru-RU")}</p>
+        )}
+        {session?.message && status !== "valid" && (
+          <p className="text-xs text-text-dim" data-testid="yandex-session-message">
+            Причина: <span className="text-text">{session.message}</span>
+          </p>
         )}
       </div>
 

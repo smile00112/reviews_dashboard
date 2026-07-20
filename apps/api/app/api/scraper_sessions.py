@@ -32,6 +32,8 @@ def _to_status_response(session) -> SessionStatusResponse:
         last_login_at=session.last_login_at,
         last_checked_at=session.last_checked_at,
         storage_state_path=session.storage_state_path,
+        message=session.last_message,
+        progress=session.progress,
     )
 
 

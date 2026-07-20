@@ -164,6 +164,7 @@ class YandexAuthScraper:
         password: str,
         storage_state_path: str,
         request_code: Callable[[], str | None] | None = None,
+        on_step: Callable[[str, str | None], None] | None = None,
     ) -> tuple[SessionStatus, str]:
         """Automated password + confirmation-code login (Yandex
         password+confirmation-code login). Uses resilient text/role locators
@@ -173,66 +174,88 @@ class YandexAuthScraper:
         screen appears; it blocks until the operator submits one (or times
         out) and is owned entirely by the caller — this method never touches
         the database."""
+        def step(name: str, page=None) -> None:
+            """Never receives the password or the code — only step names and
+            Passport URLs, so the trace is safe to expose to the operator."""
+            if on_step:
+                on_step(name, getattr(page, "url", None) if page is not None else None)
+
         if not login or not password:
+            step("credentials_missing")
             return SessionStatus.missing, "YANDEX_OPERATOR_LOGIN and YANDEX_OPERATOR_PASSWORD must be set"
 
         path = Path(storage_state_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
+            step("browser_launching")
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True)
                 context = browser.new_context(locale=YandexPublicScraper.LOCALE)
                 page = context.new_page()
                 try:
                     page.goto(self.PASSPORT_AUTH_URL, wait_until="domcontentloaded", timeout=30000)
+                    step("passport_opened", page)
 
                     challenge = self._passport_challenge(page)
                     if challenge:
+                        step("bot_check_detected", page)
                         return challenge
 
                     page.get_by_placeholder(self.LOGIN_PLACEHOLDER).fill(login)
                     page.get_by_role("button", name=self.NEXT_BUTTON_TEXT).click()
                     page.wait_for_timeout(self.SETTLE_MS)
+                    step("login_submitted", page)
 
                     challenge = self._passport_challenge(page)
                     if challenge:
+                        step("bot_check_detected", page)
                         return challenge
 
                     # Password first when Passport still offers it; otherwise
                     # fall through to the confirmation code it sent instead.
-                    self._try_password_step(page, password)
+                    used_password = self._try_password_step(page, password)
+                    step("password_submitted" if used_password else "password_step_unavailable", page)
 
                     challenge = self._passport_challenge(page)
                     if challenge:
+                        step("bot_check_detected", page)
                         return challenge
 
                     if not self._has_session_cookie(context.cookies()) and _is_code_screen(page.url):
                         if request_code is None:
+                            step("code_required_no_channel", page)
                             return (
                                 SessionStatus.needs_manual_action,
                                 "Confirmation code required but no code channel was configured",
                             )
+                        step("code_requested", page)
                         code = request_code()
                         if not code:
+                            step("code_timed_out", page)
                             return SessionStatus.needs_manual_action, "Timed out waiting for the confirmation code"
 
                         self._fill_code(page, code)
                         page.get_by_role("button", name=self.CONTINUE_BUTTON_TEXT).first.click()
                         page.wait_for_timeout(self.SETTLE_MS)
+                        step("code_submitted", page)
 
                         challenge = self._passport_challenge(page)
                         if challenge:
+                            step("bot_check_detected", page)
                             return challenge
 
                     if self._has_session_cookie(context.cookies()):
                         context.storage_state(path=str(path))
+                        step("session_cookie_saved", page)
                         return SessionStatus.valid, "Login successful"
 
+                    step("no_session_cookie", page)
                     return SessionStatus.needs_manual_action, "Login did not complete — no session cookie was issued"
                 finally:
                     browser.close()
         except Exception as exc:
+            step("exception")
             return SessionStatus.needs_manual_action, f"Automated login failed: {exc}"
 
     def login_manual(

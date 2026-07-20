@@ -11,6 +11,9 @@ class SessionStatusResponse(BaseModel):
     last_checked_at: datetime | None = None
     storage_state_path: str | None = None
     message: str | None = None
+    # Step-by-step trace of the last login, surfaced to the operator's browser
+    # console — the Playwright run has no other visible output.
+    progress: list[dict] | None = None
 
 
 class LoginResponse(BaseModel):

@@ -34,7 +34,7 @@ def _no_real_background(monkeypatch, db_session):
 
 
 class _StubAuth:
-    def login_with_password(self, login, password, path, request_code=None):
+    def login_with_password(self, login, password, path, request_code=None, on_step=None):
         return SessionStatus.valid, "ok"
 
     def check_session(self, path):

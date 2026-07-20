@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import JSON, DateTime, Enum, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -28,6 +28,11 @@ class ScraperSession(Base):
     # while status == awaiting_code; consumed (cleared to None) the instant
     # the background login picks it up. Never returned by any API response.
     pending_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Why the last login/check ended as it did, and the step-by-step trace of
+    # how it got there — the only diagnostics an operator gets, since the
+    # Playwright run happens in a background task with no UI attached.
+    last_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress: Mapped[list | None] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

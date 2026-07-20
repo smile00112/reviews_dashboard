@@ -392,17 +392,31 @@ class ScrapeService:
 
     def login_operator(self) -> tuple[SessionStatus, str]:
         session = self._get_or_create_session_record()
+        # Each attempt starts a fresh trace; committing per step means the UI
+        # can watch the login advance instead of staring at "pending".
+        steps: list[dict] = []
+        session.progress = []
+        session.last_message = None
+        self.db.commit()
+
+        def on_step(name: str, url: str | None = None) -> None:
+            steps.append({"at": datetime.now(timezone.utc).isoformat(), "step": name, "url": url})
+            session.progress = list(steps)
+            self.db.commit()
+
         try:
             status, message = self.auth_scraper.login_with_password(
                 settings.yandex_operator_login,
                 settings.yandex_operator_password,
                 session.storage_state_path,
                 request_code=self._request_code,
+                on_step=on_step,
             )
         except Exception as exc:  # pending must always reach a terminal state
             logger.exception("operator login failed")
             status, message = SessionStatus.needs_manual_action, f"Login failed: {exc}"
         session.status = status
+        session.last_message = message
         if status == SessionStatus.valid:
             session.last_login_at = datetime.now(timezone.utc)
         session.last_checked_at = datetime.now(timezone.utc)
