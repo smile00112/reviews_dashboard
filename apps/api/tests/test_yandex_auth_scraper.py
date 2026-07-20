@@ -70,22 +70,27 @@ def test_missing_storage_state_short_circuits(tmp_path):
     assert result.error_code == "missing_session"
 
 
-from app.scraper.yandex_auth import _looks_like_code_screen
+from app.scraper.yandex_auth import _is_code_screen
+
+# URLs captured from a live Passport run on 2026-07-20. The previous
+# HTML-marker detector was replaced because "код из"/"введите код"/"пароль"
+# all appear in the bundled JS of *every* Passport screen — the markers hit
+# 6-26 times on the plain login screen, so they never discriminated anything.
 
 
-def test_looks_like_code_screen_detects_push_code_heading():
-    html = "<html><h1>Введите код из пуш-уведомления</h1></html>"
-    assert _looks_like_code_screen(html) is True
+def test_is_code_screen_detects_the_push_code_step():
+    url = "https://passport.yandex.ru/pwl-yandex/auth/push-code?cause=auth&process_uuid=db054be9"
+    assert _is_code_screen(url) is True
 
 
-def test_looks_like_code_screen_detects_generic_confirmation_wording():
-    html = "<html><p>Введите код подтверждения, который мы отправили</p></html>"
-    assert _looks_like_code_screen(html) is True
+def test_is_code_screen_false_for_the_login_step():
+    url = "https://passport.yandex.ru/pwl-yandex/auth/add?cause=auth&process_uuid=db054be9"
+    assert _is_code_screen(url) is False
 
 
-def test_looks_like_code_screen_false_for_password_screen():
-    html = "<html><h1>Введите пароль</h1></html>"
-    assert _looks_like_code_screen(html) is False
+def test_is_code_screen_false_for_missing_url():
+    assert _is_code_screen("") is False
+    assert _is_code_screen(None) is False
 
 
 def test_login_with_password_without_credentials_short_circuits(tmp_path):

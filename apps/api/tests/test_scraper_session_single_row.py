@@ -40,3 +40,25 @@ def test_marking_pending_does_not_orphan_the_row(db_session):
 
     assert ScrapeService(db_session).get_session_record().id == pending.id
     assert db_session.query(ScraperSession).filter(ScraperSession.provider == "yandex").count() == 1
+
+
+def test_get_session_status_does_not_upgrade_a_failed_login(db_session, tmp_path):
+    """A stale storage-state file must not repaint a failed login as valid.
+
+    The file heuristic exists for the case where nobody has checked yet — but
+    it used to run after every terminal write, so a login that ended in
+    needs_manual_action showed up in the UI as "Подключено" a second later,
+    with cookies from days earlier.
+    """
+    from app.models.enums import SessionStatus
+
+    stale = tmp_path / "state.json"
+    stale.write_text('{"cookies": []}', encoding="utf-8")
+
+    service = ScrapeService(db_session)
+    session = service.get_session_record()
+    session.storage_state_path = str(stale)
+    session.status = SessionStatus.needs_manual_action
+    db_session.commit()
+
+    assert ScrapeService(db_session).get_session_status().status == SessionStatus.needs_manual_action

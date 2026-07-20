@@ -337,9 +337,15 @@ class ScrapeService:
         if session.status in (SessionStatus.pending, SessionStatus.awaiting_code):
             return session
         path = Path(session.storage_state_path)
-        if not path.exists():
+        has_state = path.exists() and path.stat().st_size > 0
+        if session.status == SessionStatus.valid and not has_state:
+            # The state file backing this verdict is gone.
             session.status = SessionStatus.missing
-        elif path.stat().st_size > 0:
+        elif session.status == SessionStatus.missing and has_state:
+            # Bootstrap only: a file appeared without this app writing it
+            # (scripts/ run login_manual). Never applied to needs_manual_action
+            # or expired — those are verdicts from a real attempt, and a stale
+            # file must not repaint a failed login as valid.
             session.status = SessionStatus.valid
         self.db.commit()
         return session
