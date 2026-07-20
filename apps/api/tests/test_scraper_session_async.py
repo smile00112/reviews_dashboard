@@ -34,7 +34,7 @@ def _no_real_background(monkeypatch, db_session):
 
 
 class _StubAuth:
-    def login(self, login, password, path):
+    def login_with_password(self, login, password, path, request_code=None):
         return SessionStatus.valid, "ok"
 
     def check_session(self, path):
@@ -104,7 +104,7 @@ def test_get_session_does_not_clobber_pending(client, db_session, tmp_path, monk
 
 def test_login_exception_reaches_terminal_state(db_session):
     class _BoomAuth:
-        def login(self, *a):
+        def login_with_password(self, *a, **kw):
             raise RuntimeError("browser died")
 
     service = ScrapeService(db_session)
