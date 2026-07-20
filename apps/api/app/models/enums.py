@@ -50,6 +50,9 @@ class SessionStatus(str, enum.Enum):
     needs_manual_action = "needs_manual_action"
     # Background login/check scheduled but not finished (feature 010).
     pending = "pending"
+    # Playwright is paused mid-login waiting for the operator to submit the
+    # push/SMS confirmation code (Yandex password+confirmation-code login).
+    awaiting_code = "awaiting_code"
 
 
 class JobKind(str, enum.Enum):

@@ -20,6 +20,10 @@ class ScraperSession(Base):
         nullable=False,
         default=SessionStatus.missing,
     )
+    # One-time confirmation code the operator submits via POST /session/code
+    # while status == awaiting_code; consumed (cleared to None) the instant
+    # the background login picks it up. Never returned by any API response.
+    pending_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
