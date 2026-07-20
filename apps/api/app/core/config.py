@@ -1,8 +1,22 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Absolute, so settings no longer depend on the process working directory:
+# running uvicorn from apps/api used to read only apps/api/.env and miss the
+# operator credentials that live in the repo-root .env.
+_API_DIR = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _API_DIR.parents[1]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # Later files win, so the repo-root .env (docker compose's env_file, and
+    # where the Yandex operator credentials are kept) overrides the per-app one.
+    model_config = SettingsConfigDict(
+        env_file=(_API_DIR / ".env", _REPO_ROOT / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/yandex_reviews"
     yandex_operator_login: str = ""
