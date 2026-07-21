@@ -1617,6 +1617,13 @@ class DashboardService:
         if gran == "week":
             if self.db.get_bind().dialect.name == "sqlite":
                 # Mirrors _week_key_expr's strftime('%Y-W%W', ...) on SQLite.
+                # NOTE: %W is calendar week-of-year (weeks start Monday, week 00
+                # is the partial week before the first Monday), not ISO week —
+                # it can diverge from the isocalendar() branch below at a year
+                # boundary, so a weekly custom range spanning Jan 1 could split
+                # a week across two columns in SQLite-backed tests only.
+                # Production (Postgres, to_char(..., 'IYYY-IW')) is pure ISO
+                # and unaffected.
                 return d.strftime("%Y-W%W")
             iso_year, iso_week, _ = d.isocalendar()
             return f"{iso_year:04d}-W{iso_week:02d}"
@@ -1732,25 +1739,30 @@ class DashboardService:
         return {
             "columns": columns,
             "rows": grid_rows,
-            "insight": self._weekday_grid_insight(grid_rows),
+            "insight": self._weekday_grid_insight(grid_rows, columns),
         }
 
     @staticmethod
-    def _weekday_grid_insight(grid_rows: list[dict]) -> str | None:
+    def _weekday_grid_insight(grid_rows: list[dict], columns: list[dict]) -> str | None:
+        """"Worst cell / best cell" sentence naming both the weekday AND the
+        period column, since a grid cell is one (weekday, period) pair, not a
+        whole weekday's aggregate — attributing it to the weekday alone would
+        misrepresent which period the extreme rating came from."""
         rated = [
-            (row["label"], c["avg_rating"])
-            for row in grid_rows for c in row["cells"]
+            (row["label"], columns[i]["label"], c["avg_rating"])
+            for row in grid_rows
+            for i, c in enumerate(row["cells"])
             if c["avg_rating"] is not None
         ]
         if len(rated) < 2:
             return None
-        worst = min(rated, key=lambda t: t[1])
-        best = max(rated, key=lambda t: t[1])
-        if worst[1] == best[1]:
+        worst = min(rated, key=lambda t: t[2])
+        best = max(rated, key=lambda t: t[2])
+        if worst[2] == best[2]:
             return None
         return (
-            f"Худшие оценки — {worst[0]} (средняя {worst[1]:.2f}). "
-            f"Лучшие — {best[0]} ({best[1]:.2f})."
+            f"Худшие оценки — {worst[0]}, {worst[1]} (средняя {worst[2]:.2f}). "
+            f"Лучшие — {best[0]}, {best[1]} ({best[2]:.2f})."
         )
 
     @staticmethod

@@ -8,6 +8,29 @@ function ratingColor(rating: number): string {
   return "#f87171";
 }
 
+const HEATMAP_SURFACE = "#1c2130";
+
+/**
+ * Blend a rating colour over the dark cell surface at the given alpha, returning
+ * a flat rgb() string. Used so volume intensity tints only the cell background
+ * (via alpha blending done in JS) instead of CSS `opacity`, which would also
+ * fade the rating number drawn on top and hurt legibility on low-volume cells.
+ */
+function withAlpha(hex: string, alpha: number, surface: string = HEATMAP_SURFACE): string {
+  const parse = (h: string) => {
+    const n = h.replace("#", "");
+    return [
+      parseInt(n.substring(0, 2), 16),
+      parseInt(n.substring(2, 4), 16),
+      parseInt(n.substring(4, 6), 16),
+    ];
+  };
+  const [fr, fg, fb] = parse(hex);
+  const [sr, sg, sb] = parse(surface);
+  const mix = (f: number, s: number) => Math.round(f * alpha + s * (1 - alpha));
+  return `rgb(${mix(fr, sr)}, ${mix(fg, sg)}, ${mix(fb, sb)})`;
+}
+
 const LEGEND = [
   { label: "≤ 4.0", color: "#f87171" },
   { label: "4.0–4.5", color: "#fbbf24" },
@@ -55,8 +78,9 @@ function WeekdayHeatmap({ grid }: { grid: WeekdayGrid }) {
             </div>
             {row.cells.map((cell, i) => {
               const empty = cell.avg_rating === null;
-              // Intensity by volume: darker/stronger = more reviews.
-              const intensity = empty ? 0 : 0.2 + 0.8 * (cell.count / maxCount);
+              // Intensity by volume: stronger tint = more reviews. Floored at 0.25
+              // so the dark rating digit stays legible even on low-volume cells.
+              const intensity = empty ? 0 : 0.25 + 0.75 * (cell.count / maxCount);
               return (
                 <div
                   key={grid.columns[i].key}
@@ -69,8 +93,10 @@ function WeekdayHeatmap({ grid }: { grid: WeekdayGrid }) {
                         )} отз., ${cell.avg_rating!.toFixed(2)} ★`
                   }
                   style={{
-                    background: empty ? "#1c2130" : ratingColor(cell.avg_rating!),
-                    opacity: empty ? 0.4 : intensity,
+                    background: empty
+                      ? HEATMAP_SURFACE
+                      : withAlpha(ratingColor(cell.avg_rating!), intensity),
+                    opacity: empty ? 0.4 : 1,
                     color: empty ? "#4b5163" : "#0b0e14",
                   }}
                 >
