@@ -189,3 +189,56 @@ def test_ratings_query_count_does_not_scale_with_reviews(db_session, query_count
 
     q_small, q_large = measure(20), measure(60)
     assert q_large == q_small, f"ratings SELECT count scales with review count: {q_small} -> {q_large}"
+
+
+def test_ratings_custom_period_query_count_does_not_scale_with_orgs(db_session, query_counter):
+    """Feature: weekday x date-period heatmap. Custom-range mode runs the bars
+    query AND the new grid query (an accepted, flat-cost addition) — but the
+    total SELECT count must still be constant across org/review volume, same
+    as preset-period mode."""
+
+    date_from = date(2026, 6, 1)
+    date_to = date(2026, 6, 27)
+
+    def measure(n_orgs: int) -> int:
+        db_session.query(Organization).delete()
+        db_session.commit()
+        orgs = _seed_orgs(db_session, n_orgs)
+        service = ReviewService(db_session)
+        dash = DashboardService(db_session)
+        now = datetime.now(timezone.utc)
+        for i, org in enumerate(orgs):
+            service.upsert_reviews(org.id, [_parsed(i * 10 + j) for j in range(3)], ScrapeMode.public)
+            dash.capture_snapshot(org.id, ReviewPlatform.yandex, now=now - timedelta(days=5))
+
+        query_counter["selects"] = 0
+        dash.ratings(period="custom", platform="all", date_from=date_from, date_to=date_to)
+        return query_counter["selects"]
+
+    q2, q5 = measure(2), measure(5)
+    assert q5 == q2, f"custom-mode ratings SELECT count scales with org count: {q2} -> {q5}"
+
+
+def test_ratings_custom_period_query_count_does_not_scale_with_reviews(db_session, query_counter):
+    """Same invariant as above, varying review volume instead of org count —
+    proves the extra weekday-grid GROUP BY scan is O(1), not one row per review."""
+
+    date_from = date(2026, 6, 1)
+    date_to = date(2026, 6, 27)
+    orgs = _seed_orgs(db_session, 2)
+    service = ReviewService(db_session)
+    dash = DashboardService(db_session)
+
+    def measure(extra_reviews: int) -> int:
+        for org in orgs:
+            service.upsert_reviews(
+                org.id, [_parsed(i) for i in range(extra_reviews)], ScrapeMode.public
+            )
+        query_counter["selects"] = 0
+        dash.ratings(period="custom", platform="all", date_from=date_from, date_to=date_to)
+        return query_counter["selects"]
+
+    q_small, q_large = measure(20), measure(60)
+    assert q_large == q_small, (
+        f"custom-mode ratings SELECT count scales with review count: {q_small} -> {q_large}"
+    )

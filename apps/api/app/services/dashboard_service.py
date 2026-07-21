@@ -1716,7 +1716,7 @@ class DashboardService:
             for _ in range(7)
         ]
         for r in rows:
-            ci = col_index.get(str(r.bucket))
+            ci = col_index.get(r.bucket)
             wi = int(r.weekday)
             if ci is None or not (0 <= wi <= 6):
                 continue
