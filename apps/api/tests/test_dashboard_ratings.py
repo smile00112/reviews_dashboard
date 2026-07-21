@@ -553,4 +553,4 @@ def test_ratings_response_serializes_weekday_grid(db_session):
     assert model.weekday.grid is not None
     assert len(model.weekday.grid.rows) == 7
     assert model.weekday.grid.columns[0].key
-    assert model.weekday.grid.insight is not None or model.weekday.grid.insight is None
+    assert len(model.weekday.grid.rows[0].cells) == len(model.weekday.grid.columns)
