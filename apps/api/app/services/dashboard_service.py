@@ -1602,7 +1602,156 @@ class DashboardService:
                     round(float(row.avg_rating), 2) if row.avg_rating is not None else None
                 )
 
-        return {"days": days, "insight": self._weekday_insight(days)}
+        result = {"days": days, "insight": self._weekday_insight(days)}
+
+        if cutoff is not None and until is not None:
+            result["grid"] = self._weekday_grid(filters, cutoff, until)
+        return result
+
+    def _bucket_key_for_date(self, gran: str, d: date) -> str:
+        """Format a bucket key for ``d`` so it matches the SQL group-by key
+        produced by ``_weekday_grid_bucket_expr`` for the same granularity,
+        on whichever dialect is active."""
+        if gran == "day":
+            return d.isoformat()
+        if gran == "week":
+            if self.db.get_bind().dialect.name == "sqlite":
+                # Mirrors _week_key_expr's strftime('%Y-W%W', ...) on SQLite.
+                return d.strftime("%Y-W%W")
+            iso_year, iso_week, _ = d.isocalendar()
+            return f"{iso_year:04d}-W{iso_week:02d}"
+        return f"{d.year:04d}-{d.month:02d}"
+
+    @staticmethod
+    def _weekday_grid_granularity(start: date, end: date) -> str:
+        span_days = (end - start).days + 1  # inclusive
+        if span_days <= 14:
+            return "day"
+        if span_days <= 92:
+            return "week"
+        return "month"
+
+    _RU_MONTHS_SHORT = [
+        "янв", "фев", "мар", "апр", "май", "июн",
+        "июл", "авг", "сен", "окт", "ноя", "дек",
+    ]
+
+    def _weekday_grid_columns(self, gran: str, start: date, end: date) -> list[dict]:
+        """Ordered ``[{"key", "label"}]`` covering the whole range, including
+        empty periods. Keys are derived via ``_bucket_key_for_date`` so they
+        are guaranteed to match the SQL group-by keys on both dialects."""
+        cols: list[dict] = []
+        if gran == "day":
+            cur = start
+            while cur <= end:
+                cols.append({
+                    "key": self._bucket_key_for_date(gran, cur),
+                    "label": f"{cur.day} {self._RU_MONTHS_SHORT[cur.month - 1]}",
+                })
+                cur += timedelta(days=1)
+        elif gran == "week":
+            # Bucket by week; walk week-by-week from the Monday of `start`.
+            cur = start - timedelta(days=start.weekday())
+            while cur <= end:
+                iso_year, iso_week, _ = cur.isocalendar()
+                cols.append({
+                    "key": self._bucket_key_for_date(gran, cur),
+                    "label": f"нед. {iso_week}",
+                })
+                cur += timedelta(days=7)
+        else:  # month
+            y, m = start.year, start.month
+            cur = date(y, m, 1)
+            while (cur.year, cur.month) <= (end.year, end.month):
+                cols.append({
+                    "key": self._bucket_key_for_date(gran, cur),
+                    "label": self._RU_MONTHS_SHORT[cur.month - 1].capitalize(),
+                })
+                if cur.month == 12:
+                    cur = date(cur.year + 1, 1, 1)
+                else:
+                    cur = date(cur.year, cur.month + 1, 1)
+        return cols
+
+    def _weekday_grid_bucket_expr(self, gran: str):
+        """SQL expression whose grouped values equal the column ``key``s from
+        ``_weekday_grid_columns``/``_bucket_key_for_date``, on both dialects."""
+        if gran == "day":
+            if self.db.get_bind().dialect.name == "sqlite":
+                return func.strftime("%Y-%m-%d", Review.review_date)
+            return func.to_char(Review.review_date, "YYYY-MM-DD")
+        if gran == "week":
+            return self._week_key_expr(Review.review_date)
+        return self._month_key_expr(Review.review_date)
+
+    def _weekday_grid(self, scope_filters: list, cutoff: datetime, until: date) -> dict:
+        """Weekday x date-period heatmap for a custom range.
+
+        Reuses ``scope_filters`` already assembled by ``_weekday_stats``
+        (scope, ``removed_at IS NULL``, ``review_date IS NOT NULL``, and the
+        published-range bounds) so this stays a single additional GROUP BY
+        scan replacing, not adding to, the bars query's cost profile.
+        """
+        start, end = cutoff.date(), until
+        gran = self._weekday_grid_granularity(start, end)
+        columns = self._weekday_grid_columns(gran, start, end)
+        col_index = {c["key"]: i for i, c in enumerate(columns)}
+
+        weekday = self._weekday_expr(Review.review_date)
+        bucket = self._weekday_grid_bucket_expr(gran)
+        rows = (
+            self.db.query(
+                weekday.label("weekday"),
+                bucket.label("bucket"),
+                func.count().label("count"),
+                func.avg(Review.rating).label("avg_rating"),
+            )
+            .filter(*scope_filters)
+            .group_by(weekday, bucket)
+            .all()
+        )
+
+        cells = [
+            [{"count": 0, "avg_rating": None} for _ in columns]
+            for _ in range(7)
+        ]
+        for r in rows:
+            ci = col_index.get(str(r.bucket))
+            wi = int(r.weekday)
+            if ci is None or not (0 <= wi <= 6):
+                continue
+            cells[wi][ci] = {
+                "count": int(r.count),
+                "avg_rating": round(float(r.avg_rating), 2) if r.avg_rating is not None else None,
+            }
+
+        grid_rows = [
+            {"weekday": i, "label": _WEEKDAY_LABELS[i], "cells": cells[i]}
+            for i in range(7)
+        ]
+        return {
+            "columns": columns,
+            "rows": grid_rows,
+            "insight": self._weekday_grid_insight(grid_rows),
+        }
+
+    @staticmethod
+    def _weekday_grid_insight(grid_rows: list[dict]) -> str | None:
+        rated = [
+            (row["label"], c["avg_rating"])
+            for row in grid_rows for c in row["cells"]
+            if c["avg_rating"] is not None
+        ]
+        if len(rated) < 2:
+            return None
+        worst = min(rated, key=lambda t: t[1])
+        best = max(rated, key=lambda t: t[1])
+        if worst[1] == best[1]:
+            return None
+        return (
+            f"Худшие оценки — {worst[0]} (средняя {worst[1]:.2f}). "
+            f"Лучшие — {best[0]} ({best[1]:.2f})."
+        )
 
     @staticmethod
     def _weekday_insight(days: list[dict]) -> str | None:
