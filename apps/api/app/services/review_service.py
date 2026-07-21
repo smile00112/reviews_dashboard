@@ -2,7 +2,7 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import desc, func
+from sqlalchemy import and_, case, desc, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -355,8 +355,13 @@ class ReviewService:
         is_paid: bool | None = None,
         aspect: str | None = None,
     ) -> dict:
-        """Tab counters over the secondary-filtered set. Python aggregation keeps
-        the aspect filter consistent with list_global (same in-memory matching)."""
+        """Tab counters over the secondary-filtered set.
+
+        Aggregated in a single SQL pass (conditional counts) so the endpoint never
+        materializes review rows — the same rule feature 012 imposes on the dashboard
+        overview. The `aspect` filter needs Python-side JSONB matching (SQLite tests
+        have no JSONB operators), so it keeps the row-loading path; every other filter
+        is SQL-expressible and takes the fast path."""
         query = self.db.query(Review)
         if organization_id:
             query = query.filter(Review.organization_id == organization_id)
@@ -364,23 +369,45 @@ class ReviewService:
         query = self._apply_feed_filters(
             query, status_tab=None, platform=platform, tone=tone, period=period, is_paid=is_paid
         )
-        rows = [r for r in query.all() if not aspect or has_aspect(r, aspect)]
 
         now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
         day_ago = now - timedelta(hours=24)
-        return {
-            "total": len(rows),
-            "new_count": sum(1 for r in rows if _aware(r.first_seen_at) >= week_ago),
-            "unanswered": sum(1 for r in rows if r.response_text is None),
-            "in_progress": sum(1 for r in rows if r.status == ReviewStatus.in_progress),
-            "escalated": sum(1 for r in rows if r.status == ReviewStatus.escalated),
-            "answered": sum(1 for r in rows if r.response_text is not None),
-            "overdue_24h": sum(
-                1 for r in rows if r.response_text is None and _aware(r.first_seen_at) < day_ago
-            ),
-            "negative": sum(1 for r in rows if r.rating <= 3),
-        }
+
+        if aspect:
+            rows = [r for r in query.all() if has_aspect(r, aspect)]
+            return {
+                "total": len(rows),
+                "new_count": sum(1 for r in rows if _aware(r.first_seen_at) >= week_ago),
+                "unanswered": sum(1 for r in rows if r.response_text is None),
+                "in_progress": sum(1 for r in rows if r.status == ReviewStatus.in_progress),
+                "escalated": sum(1 for r in rows if r.status == ReviewStatus.escalated),
+                "answered": sum(1 for r in rows if r.response_text is not None),
+                "overdue_24h": sum(
+                    1 for r in rows if r.response_text is None and _aware(r.first_seen_at) < day_ago
+                ),
+                "negative": sum(1 for r in rows if r.rating <= 3),
+            }
+
+        def _count(cond):
+            return func.coalesce(func.sum(case((cond, 1), else_=0)), 0)
+
+        unanswered = Review.response_text.is_(None)
+        keys = (
+            "total", "new_count", "unanswered", "in_progress",
+            "escalated", "answered", "overdue_24h", "negative",
+        )
+        row = query.with_entities(
+            func.count(Review.id),
+            _count(Review.first_seen_at >= week_ago),
+            _count(unanswered),
+            _count(Review.status == ReviewStatus.in_progress),
+            _count(Review.status == ReviewStatus.escalated),
+            _count(Review.response_text.isnot(None)),
+            _count(and_(unanswered, Review.first_seen_at < day_ago)),
+            _count(Review.rating <= 3),
+        ).one()
+        return {k: int(v) for k, v in zip(keys, row)}
 
     def aspects(
         self,

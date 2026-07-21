@@ -6,7 +6,7 @@ const META: Record<string, { name: string; logo: string; bg: string; fg: string 
   gis2: { name: "2ГИС", logo: "2", bg: "#2ecc71", fg: "#fff" },
 };
 
-const ORDER = ["yandex", "google", "gis2"];
+const ORDER = ["yandex", "gis2", "google"];
 
 function Metric({ label, children }: { label: string; children: React.ReactNode }) {
   return (

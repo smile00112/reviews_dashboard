@@ -1,0 +1,79 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e21] [cursor=pointer]
+  - alert [ref=e25]
+  - generic [ref=e26]:
+    - complementary [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]: SERM Dashboard
+        - generic [ref=e31]: Digital Marketing By SM
+      - navigation [ref=e32]:
+        - generic [ref=e33]:
+          - generic [ref=e34]: Обзор
+          - link "⚡ Обзор сети" [ref=e35] [cursor=pointer]:
+            - /url: /overview
+            - generic [ref=e36]: ⚡
+            - text: Обзор сети
+          - link "⭐ Рейтинги" [ref=e37] [cursor=pointer]:
+            - /url: /ratings
+            - generic [ref=e38]: ⭐
+            - text: Рейтинги
+        - generic [ref=e39]:
+          - generic [ref=e40]: Управление
+          - link "🏢 Организации" [ref=e41] [cursor=pointer]:
+            - /url: /companies
+            - generic [ref=e42]: 🏢
+            - text: Организации
+          - link "📍 Все филиалы" [ref=e43] [cursor=pointer]:
+            - /url: /organizations
+            - generic [ref=e44]: 📍
+            - text: Все филиалы
+        - generic [ref=e45]:
+          - generic [ref=e46]: Аналитика
+          - link "💬 Отзывы" [ref=e47] [cursor=pointer]:
+            - /url: /reviews
+            - generic [ref=e48]: 💬
+            - text: Отзывы
+          - link "🗂 История сборов" [ref=e49] [cursor=pointer]:
+            - /url: /scrape-runs
+            - generic [ref=e50]: 🗂
+            - text: История сборов
+          - link "⏱ Фоновые задачи" [ref=e51] [cursor=pointer]:
+            - /url: /jobs
+            - generic [ref=e52]: ⏱
+            - text: Фоновые задачи
+          - link "⚡ Правила внимания" [ref=e53] [cursor=pointer]:
+            - /url: /attention-rules
+            - generic [ref=e54]: ⚡
+            - text: Правила внимания
+          - link "🔧 HTTP-парсер" [ref=e55] [cursor=pointer]:
+            - /url: /http-scraper
+            - generic [ref=e56]: 🔧
+            - text: HTTP-парсер
+        - generic [ref=e57]:
+          - generic [ref=e58]: Система
+          - link "⚙ Настройки" [ref=e59] [cursor=pointer]:
+            - /url: /settings
+            - generic [ref=e60]: ⚙
+            - text: Настройки
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]: A
+          - generic [ref=e64]:
+            - generic [ref=e65]: Admin
+            - generic [ref=e66]: Админ · полный доступ
+        - button "Выйти" [ref=e67] [cursor=pointer]
+    - main [ref=e68]:
+      - generic [ref=e70]:
+        - link "сеть" [ref=e71] [cursor=pointer]:
+          - /url: /overview
+        - text: / организации
+      - generic [ref=e73]:
+        - generic [ref=e75]:
+          - heading "Организации" [level=1] [ref=e76]
+          - paragraph [ref=e77]: Компании и их филиалы по городам. Филиал — точка сбора отзывов с карт.
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - generic [ref=e81]: Название организации
+            - textbox "Например, Coffee Co" [ref=e82]
+          - button "+ Организация" [ref=e83] [cursor=pointer]
+        - paragraph [ref=e84]: Загрузка…

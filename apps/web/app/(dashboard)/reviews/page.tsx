@@ -100,24 +100,34 @@ function ReviewsContent() {
     let cancelled = false;
     setLoading(true);
     requestGen.current += 1;
-    Promise.all([
-      listReviews(feedParams(0)),
-      getReviewsSummary({
-        tone, period, platform, organization_id: organizationId, is_paid: paidOnly, aspect, rating,
-      }),
-      getReviewAspects({ period: period ?? "30d", organization_id: organizationId, platform, aspect }),
-      listOrganizations(),
-    ])
-      .then(([feed, sum, asp, organizations]) => {
+
+    // The feed is the primary content — render it as soon as it arrives instead of
+    // blocking on the slower summary/aspects aggregates. They hydrate the counters
+    // and the side panel independently, so a slow aggregate never leaves the feed
+    // stuck on "Загрузка…".
+    listReviews(feedParams(0))
+      .then((feed) => {
         if (cancelled) return;
         setReviews(feed.items);
         setTotal(feed.total);
-        setSummary(sum);
-        setAspects(asp);
-        setOrgs(organizations);
       })
       .catch(console.error)
       .finally(() => !cancelled && setLoading(false));
+
+    getReviewsSummary({
+      tone, period, platform, organization_id: organizationId, is_paid: paidOnly, aspect, rating,
+    })
+      .then((sum) => !cancelled && setSummary(sum))
+      .catch(console.error);
+
+    getReviewAspects({ period: period ?? "30d", organization_id: organizationId, platform, aspect })
+      .then((asp) => !cancelled && setAspects(asp))
+      .catch(console.error);
+
+    listOrganizations()
+      .then((organizations) => !cancelled && setOrgs(organizations))
+      .catch(console.error);
+
     return () => {
       cancelled = true;
     };

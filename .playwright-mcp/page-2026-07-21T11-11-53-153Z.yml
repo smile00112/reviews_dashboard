@@ -1,0 +1,12 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]: SERM Dashboard
+    - generic [ref=e7]: Панель управления
+  - generic [ref=e8]:
+    - heading "Вход" [level=1] [ref=e9]
+    - paragraph [ref=e10]: Войдите, чтобы управлять организациями и филиалами.
+    - generic [ref=e11]: Email
+    - textbox "admin@example.com" [active] [ref=e12]
+    - generic [ref=e13]: Пароль
+    - textbox "••••••••" [ref=e14]
+    - button "Войти" [ref=e15] [cursor=pointer]

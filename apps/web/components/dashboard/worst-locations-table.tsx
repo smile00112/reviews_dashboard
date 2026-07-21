@@ -61,8 +61,8 @@ export function WorstLocationsTable({ rows }: { rows: WorstLocation[] }) {
                       <span className="text-text-faint">• 0</span>
                     ) : (
                       <span className={r.rating_delta < 0 ? "text-bad" : "text-good"}>
-                        {r.rating_delta < 0 ? "▼ " : "▲ +"}
-                        {r.rating_delta}
+                        {r.rating_delta < 0 ? "▼ −" : "▲ +"}
+                        {Math.abs(r.rating_delta).toFixed(1)}
                       </span>
                     )}
                   </td>
