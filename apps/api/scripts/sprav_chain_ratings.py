@@ -37,6 +37,10 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_MANUAL = 2
 
+# Stop the run after this many throttled responses in a row — past this the
+# account is walled and every further request is wasted (and provocative).
+THROTTLE_ABORT_STREAK = 10
+
 
 def _load_organizations(company_name: str):
     """Organizations of one company — the pool the branches are matched against."""
@@ -58,12 +62,32 @@ def _load_organizations(company_name: str):
         session.close()
 
 
-def build_document(chain_id: str, chain_name: str | None, matches: list[BranchMatch], histories: dict) -> dict:
-    """Assemble the output document. Pure — takes already-collected data."""
+def build_document(
+    chain_id: str,
+    chain_name: str | None,
+    matches: list[BranchMatch],
+    histories: dict,
+    prior_history: dict | None = None,
+) -> dict:
+    """Assemble the output document. Pure — takes already-collected data.
+
+    ``prior_history`` (permalink -> serialized history list) carries forward
+    histories from an earlier --fill-missing run so a resumed run does not drop
+    what it already had.
+    """
+    prior_history = prior_history or {}
     records = []
     for match in matches:
         branch = match.branch
         history = histories.get(branch.permanent_id)
+        carried = prior_history.get(branch.permanent_id)
+        if history is not None:
+            history_points = [
+                {"week": p.week.isoformat(), "rating": p.rating, "opponents": p.opponents}
+                for p in history.history
+            ]
+        else:
+            history_points = carried or []
         records.append(
             {
                 **dataclasses.asdict(branch),
@@ -72,14 +96,11 @@ def build_document(chain_id: str, chain_name: str | None, matches: list[BranchMa
                 "org_name": match.organization.name if match.organization else None,
                 "match_method": match.method,
                 "match_confidence": round(match.confidence, 2),
-                "history": [
-                    {"week": p.week.isoformat(), "rating": p.rating, "opponents": p.opponents}
-                    for p in (history.history if history else [])
-                ],
+                "history": history_points,
                 "stars": history.stars if history else {},
                 "card_strength": history.card_strength if history else None,
                 "factors": history.factors if history else [],
-                "history_error": None if history else "not_collected",
+                "history_error": None if history_points else "not_collected",
             }
         )
     return {
@@ -97,6 +118,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--company", default=None, help="Company name to match branches against.")
     parser.add_argument("--out", default=None, help="Where to write the JSON.")
     parser.add_argument("--branches-only", action="store_true", help="Skip the per-branch rating history.")
+    parser.add_argument("--fill-missing", action="store_true",
+                        help="Only fetch history for branches whose history is absent in --out. "
+                             "Cheap resume after throttling — collected histories are kept.")
     parser.add_argument("--delay", type=float, default=settings.http_scrape_delay_seconds,
                         help="Seconds between rating-history requests.")
     args = parser.parse_args(argv)
@@ -135,27 +159,58 @@ def main(argv: list[str] | None = None) -> int:
         matched = sum(1 for m in matches if m.organization)
         print(f"matched {matched}/{len(matches)} branches to organizations", file=sys.stderr)
 
+    # --fill-missing keeps histories already collected in a previous run, so a
+    # throttled tail can be topped up without re-fetching everything.
+    already: dict = {}
+    if args.fill_missing and out.exists():
+        prior = json.loads(out.read_text(encoding="utf-8")).get("records", [])
+        already = {str(r["permanent_id"]): r["history"] for r in prior if r.get("history")}
+        print(f"fill-missing: {len(already)} branches already have history", file=sys.stderr)
+
     # --- per-branch rating history
     histories: dict = {}
-    failures = 0
+    failures = throttled = consecutive_throttled = 0
+    aborted = False
     if not args.branches_only:
-        for i, branch in enumerate(listing.branches, 1):
+        todo = [b for b in listing.branches if b.permanent_id not in already]
+        print(f"fetching history for {len(todo)}/{len(listing.branches)} branches", file=sys.stderr)
+        for i, branch in enumerate(todo, 1):
             history, error = reader.rating_history(branch.permanent_id)
             if error == "session_expired":
                 print("error:   session expired mid-run", file=sys.stderr)
                 return EXIT_MANUAL
-            if error:
+            if error == "throttled":
+                # Retries inside the reader are already spent; a long run of
+                # these means the account is anti-bot walled — stop burning
+                # requests and keep what we have.
+                throttled += 1
+                consecutive_throttled += 1
+                if consecutive_throttled >= THROTTLE_ABORT_STREAK:
+                    print(f"aborting: {consecutive_throttled} consecutive throttled responses — "
+                          f"cabinet anti-bot wall. Resume later with --fill-missing.", file=sys.stderr)
+                    aborted = True
+                    break
+            elif error:
                 failures += 1
+                consecutive_throttled = 0
             else:
                 histories[branch.permanent_id] = history
-            if i % 20 == 0 or i == len(listing.branches):
-                print(f"{i}/{len(listing.branches)} rating histories, {failures} failed", file=sys.stderr)
+                consecutive_throttled = 0
+            if i % 20 == 0 or i == len(todo):
+                print(f"{i}/{len(todo)} rating histories, {failures} missing, {throttled} throttled",
+                      file=sys.stderr)
             time.sleep(args.delay)
 
-    document = build_document(args.chain, listing.chain_name, matches, histories)
+    document = build_document(args.chain, listing.chain_name, matches, histories, prior_history=already)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"wrote {document['branches']} branches ({failures} without history) to {out}", file=sys.stderr)
+    with_history = sum(1 for r in document["records"] if r["history"])
+    print(f"wrote {document['branches']} branches, {with_history} with history "
+          f"({throttled} throttled, {failures} genuinely missing) to {out}", file=sys.stderr)
+    # Throttling is not a data error — the run is resumable. Signal it so a
+    # caller can decide to wait and retry, distinct from a hard failure.
+    if aborted:
+        return EXIT_MANUAL
     return EXIT_OK
 
 

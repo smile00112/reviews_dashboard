@@ -23,6 +23,7 @@ publish one. Callers must keep that as ``None`` rather than inventing a zero.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -287,6 +288,8 @@ class SpravChainReader:
     """
 
     REQUEST_TIMEOUT_SECONDS = 60
+    MAX_RETRIES = 4
+    RETRY_BACKOFF_SECONDS = 5.0
 
     def __init__(self, storage_state_path: str | None = None) -> None:
         self.storage_state_path = storage_state_path or settings.yandex_storage_state_path
@@ -317,22 +320,46 @@ class SpravChainReader:
         return None
 
     def _fetch(self, url: str) -> tuple[object | None, str | None]:
-        """GET one cabinet page and return (preload, error_code)."""
+        """GET one cabinet page and return (preload, error_code).
+
+        Anti-bot throttling on the /p/edit/ pages does not look like a hard
+        failure: under load the cabinet answers 200 with an **empty** preload,
+        or bounces the request through Passport and back, even while the same
+        cookies still serve the branch list fine. Both are transient, so they
+        are reported as ``throttled`` (retryable) rather than ``session_expired``
+        — the caller backs off and retries instead of aborting the whole run.
+        A genuinely expired session simply throttles on every retry and is
+        escalated by the caller once its budget is spent.
+        """
         try:
             response = self.session.get(url, timeout=self.REQUEST_TIMEOUT_SECONDS)
         except requests.RequestException as exc:
             return None, f"request_failed:{type(exc).__name__}"
 
-        # A redirect to Passport means the saved session no longer authenticates.
         if "passport.yandex" in response.url:
-            return None, "session_expired"
+            return None, "throttled"
         if response.status_code != 200:
             return None, f"http_{response.status_code}"
 
         lowered = response.text.lower()
         if any(marker.lower() in lowered for marker in BOT_MARKERS):
             return None, "access_challenge"
-        return extract_preload_data(response.text), None
+
+        preload = extract_preload_data(response.text)
+        # An empty initialState is the cabinet's throttle stub, not a real page.
+        if not (isinstance(preload, dict) and preload.get("initialState")):
+            return None, "throttled"
+        return preload, None
+
+    def _fetch_with_retry(self, url: str) -> tuple[object | None, str | None]:
+        """_fetch, retrying transient throttling with exponential backoff."""
+        preload, error = self._fetch(url)
+        for attempt in range(self.MAX_RETRIES):
+            if error != "throttled":
+                break
+            time.sleep(self.RETRY_BACKOFF_SECONDS * (2**attempt))
+            preload, error = self._fetch(url)
+        return preload, error
 
     def list_branches(self, chain_id: str, max_pages: int = 100) -> ChainFetchResult:
         """Page through a chain's branch list until the cabinet's total is reached."""
@@ -348,11 +375,13 @@ class SpravChainReader:
         seen: set[str] = set()
         for page in range(1, max_pages + 1):
             url = f"https://yandex.ru/sprav/chain/{chain_id}/branches?page={page}"
-            preload, error = self._fetch(url)
+            preload, error = self._fetch_with_retry(url)
             if error:
                 result.error_code = error
                 result.error_message = f"Failed on page {page} of chain {chain_id}"
-                result.needs_manual_action = error in ("session_expired", "access_challenge", "missing_session")
+                result.needs_manual_action = error in (
+                    "session_expired", "throttled", "access_challenge", "missing_session",
+                )
                 return result
 
             result.chain_name = result.chain_name or parse_chain_name(preload)
@@ -373,7 +402,7 @@ class SpravChainReader:
         error = self._authenticate()
         if error:
             return None, error
-        preload, error = self._fetch(f"https://yandex.ru/sprav/{permanent_id}/p/edit/rating-history/")
+        preload, error = self._fetch_with_retry(f"https://yandex.ru/sprav/{permanent_id}/p/edit/rating-history/")
         if error:
             return None, error
         history = parse_rating_history(preload)

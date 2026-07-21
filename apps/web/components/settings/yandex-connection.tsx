@@ -108,6 +108,9 @@ export function YandexConnection() {
     try {
       const info = await checkSession();
       setSession(info);
+      if (info.status === "pending" || info.status === "awaiting_code") {
+        startPolling();
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
