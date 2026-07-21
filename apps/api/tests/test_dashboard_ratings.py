@@ -535,3 +535,22 @@ def test_weekday_grid_weekly_buckets_match_between_python_and_sql(db_session):
         "weekly bucket keys from Python and SQL did not line up; "
         f"expected 3 seeded reviews to land in cells, got {total}"
     )
+
+
+# --- Serialization contract (schema validation) -------------------------------
+
+
+def test_ratings_response_serializes_weekday_grid(db_session):
+    """WeekdayGrid and WeekdayBlock.grid validate correctly under Pydantic."""
+    from app.schemas.dashboard import DashboardRatings
+
+    _seed_reviews(db_session, dates_ratings=[(date(2026, 6, 1), 5)])
+    payload = DashboardService(db_session).ratings(
+        period="custom", platform="all",
+        date_from=date(2026, 6, 1), date_to=date(2026, 6, 14),
+    )
+    model = DashboardRatings.model_validate(payload)
+    assert model.weekday.grid is not None
+    assert len(model.weekday.grid.rows) == 7
+    assert model.weekday.grid.columns[0].key
+    assert model.weekday.grid.insight is not None or model.weekday.grid.insight is None

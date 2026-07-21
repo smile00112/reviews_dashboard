@@ -186,9 +186,32 @@ class WeekdayStat(BaseModel):
     avg_rating: float | None
 
 
+class WeekdayGridColumn(BaseModel):
+    key: str
+    label: str
+
+
+class WeekdayGridCell(BaseModel):
+    count: int
+    avg_rating: float | None  # None = нет данных (never 0)
+
+
+class WeekdayGridRow(BaseModel):
+    weekday: int  # 0 = Monday .. 6 = Sunday
+    label: str
+    cells: list[WeekdayGridCell]  # index-aligned with WeekdayGrid.columns
+
+
+class WeekdayGrid(BaseModel):
+    columns: list[WeekdayGridColumn]
+    rows: list[WeekdayGridRow]
+    insight: str | None
+
+
 class WeekdayBlock(BaseModel):
     days: list[WeekdayStat]
     insight: str | None
+    grid: WeekdayGrid | None = None  # present only for custom date ranges
 
 
 class DashboardRatings(BaseModel):
