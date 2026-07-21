@@ -114,6 +114,9 @@ class ReviewService:
                 review_date=parsed.review_date,
                 response_text=parsed.response_text,
                 response_first_seen_at=now if parsed.response_text else None,
+                # Real platform date of the reply (feature: response_date); synced
+                # with response_text, never feeds content_hash.
+                response_date=parsed.response_date if parsed.response_text else None,
                 content_hash=content_hash,
                 first_seen_at=now,
                 last_seen_at=now,
@@ -201,9 +204,12 @@ class ReviewService:
             # Response first appears on this run: record text + first-observed time (once).
             existing.response_text = parsed.response_text
             existing.response_first_seen_at = now
+            existing.response_date = parsed.response_date
         elif parsed.response_text:
-            # Response already recorded: refresh text (e.g. business edit), keep the timestamp.
+            # Response already recorded: refresh text + platform date (e.g. business
+            # edit moved the date), keep the first-observed timestamp.
             existing.response_text = parsed.response_text
+            existing.response_date = parsed.response_date
         if existing.analyzed_at is None:
             self._apply_analysis(existing, now)
 

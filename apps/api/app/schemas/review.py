@@ -29,6 +29,8 @@ class ReviewResponse(BaseModel):
     platform: ReviewPlatform | None = None
     # Time we first observed a response on this review (feature 007); null when none seen.
     response_first_seen_at: datetime | None = None
+    # Real platform publication day of the business reply; null when no reply / no date.
+    response_date: date | None = None
     first_seen_at: datetime
     last_seen_at: datetime
     # Feature 011: null = present on platform; set = no longer seen by a full pass.

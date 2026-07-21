@@ -14,6 +14,12 @@ function stars(rating: number): string {
   return "★".repeat(rating) + "☆".repeat(5 - rating);
 }
 
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 function relTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   const h = Math.floor(ms / 3_600_000);
@@ -132,7 +138,11 @@ export function ReviewCard({
         <div className="mt-3 rounded-lg border-l-2 border-accent/50 bg-surface-2 p-3 text-[12.5px]">
           <div className="mb-1 flex justify-between text-[11px] text-text-faint">
             <span>↪ Ответ компании</span>
-            {review.response_first_seen_at && <span>замечен {relTime(review.response_first_seen_at)}</span>}
+            {review.response_date ? (
+              <span>ответ от {formatDate(review.response_date)}</span>
+            ) : (
+              review.response_first_seen_at && <span>замечен {relTime(review.response_first_seen_at)}</span>
+            )}
           </div>
           <div className="text-text-dim">{review.response_text}</div>
         </div>

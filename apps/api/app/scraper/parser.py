@@ -12,7 +12,7 @@ import re
 
 from bs4 import BeautifulSoup, Tag
 
-from app.scraper.normalize import normalize_review_date
+from app.scraper.normalize import iso_datetime_to_local_date, normalize_review_date
 from app.scraper.types import ParsedOrganization, ParsedReview
 
 # Phrases that mark a block as a business/owner response rather than a guest review.
@@ -65,8 +65,9 @@ def _business_comments_from_state(soup: BeautifulSoup) -> list[dict]:
     организации" — the reply text is NOT in the review DOM at all. It only
     exists in the ``<script class="state-view">`` JSON under
     ``reviewResults.reviews[].businessComment``. Returns a list of
-    ``{author, text, comment}`` dicts (normalized author/text for matching).
-    Malformed or absent state JSON yields ``[]`` — never raises.
+    ``{author, text, comment, comment_date}`` dicts (normalized author/text for
+    matching; ``comment_date`` is the reply's ``updatedTime`` resolved to the MSK
+    day, or None). Malformed or absent state JSON yields ``[]`` — never raises.
     """
     entries: list[dict] = []
     for script in soup.find_all("script", attrs={"type": "application/json"}):
@@ -93,6 +94,7 @@ def _business_comments_from_state(soup: BeautifulSoup) -> list[dict]:
                     "author": _normalize_match_text(author.get("name") if isinstance(author, dict) else None),
                     "text": _normalize_match_text(item.get("text")),
                     "comment": comment_text.strip(),
+                    "comment_date": iso_datetime_to_local_date(comment.get("updatedTime")),
                 }
             )
     return entries
@@ -162,21 +164,23 @@ def _find_nested_key(obj, key: str, depth: int = 0):
     return None
 
 
-def _match_state_comment(entries: list[dict], author: str | None, body: str) -> str | None:
-    """Pick the reply for a DOM review: author must match; among an author's
+def _match_state_comment(entries: list[dict], author: str | None, body: str) -> dict | None:
+    """Pick the reply entry for a DOM review: author must match; among an author's
     entries the review texts must agree (prefix match — the DOM body may be a
-    truncated version of the full JSON text, or vice versa)."""
+    truncated version of the full JSON text, or vice versa). Returns the matched
+    ``{comment, comment_date, ...}`` entry so the caller gets both the reply text
+    and its date."""
     norm_author = _normalize_match_text(author)
     norm_body = _normalize_match_text(body).rstrip("…").rstrip(".")
     candidates = [e for e in entries if e["author"] == norm_author]
     if not candidates:
         return None
     if len(candidates) == 1:
-        return candidates[0]["comment"]
+        return candidates[0]
     for entry in candidates:
         text = entry["text"].rstrip("…").rstrip(".")
         if text.startswith(norm_body) or norm_body.startswith(text):
-            return entry["comment"]
+            return entry
     return None
 
 
@@ -260,10 +264,16 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
             or block.select_one(".business-review-view__comment .spoiler-view__text")
         )
         response_text = _text(response_node) or None
+        # The reply date lives only in the state-view JSON (updatedTime); the DOM
+        # bubble carries no reliable date node, so response_date stays None there.
+        response_date = None
         # Live pages keep the reply collapsed ("Посмотреть ответ организации"):
         # no bubble node exists, so fall back to the state-view JSON.
         if response_text is None and state_comments:
-            response_text = _match_state_comment(state_comments, author, body)
+            matched = _match_state_comment(state_comments, author, body)
+            if matched is not None:
+                response_text = matched["comment"]
+                response_date = matched["comment_date"]
 
         reviews.append(
             ParsedReview(
@@ -273,6 +283,7 @@ def parse_reviews_from_html(html: str) -> tuple[ParsedOrganization, list[ParsedR
                 review_date_text=date_text,
                 review_date=normalize_review_date(date_text),
                 response_text=response_text,
+                response_date=response_date,
             )
         )
 

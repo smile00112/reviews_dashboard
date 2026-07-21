@@ -103,6 +103,8 @@ export interface Review {
   // null = present on platform; set = no longer seen by a full scrape pass (feature 011)
   removed_at: string | null;
   response_first_seen_at: string | null;
+  // real platform publication day of the business reply (ISO date), null when unknown
+  response_date: string | null;
   status: ReviewStatus | null;
   is_paid: boolean;
   paid_cost: number | null;

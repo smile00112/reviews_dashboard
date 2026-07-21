@@ -64,6 +64,11 @@ class Review(Base):
     # Observation-time proxy: set once when response_text first goes absent->present, immutable
     # thereafter, NULL while a review has no stored response. Never feeds content_hash (feature 007).
     response_first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Real publication day of the business reply on the platform (MSK), parsed from the
+    # source (Yandex businessComment.updatedTime / 2GIS official_answer date). NULL when
+    # no reply or the date is unparseable. Synced with response_text on re-scrape; never
+    # feeds content_hash. Distinct from response_first_seen_at (our observation time).
+    response_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

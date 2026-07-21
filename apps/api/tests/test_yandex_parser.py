@@ -109,3 +109,29 @@ def test_dom_bubble_wins_over_state_json(parsed_stateview):
     _, reviews = parsed_stateview
     maria = next(r for r in reviews if r.author_name == "Мария С.")
     assert maria.response_text == "Спасибо за отзыв! Будем рады видеть вас снова."
+
+
+def test_response_date_from_state_json_updated_time(parsed_stateview):
+    """businessComment.updatedTime is the reply's real publication instant; it is
+    resolved to the MSK calendar day (05:34Z -> 08:34 MSK, same day)."""
+    _, reviews = parsed_stateview
+    olga_first = next(r for r in reviews if r.author_name == "Ольга Петровская" and r.rating == 5)
+    assert olga_first.response_date == date(2026, 2, 16)
+    sofya = next(r for r in reviews if r.author_name == "Sofya.m.0807")
+    assert sofya.response_date == date(2026, 2, 8)
+    olga_second = next(r for r in reviews if r.author_name == "Ольга Петровская" and r.rating == 4)
+    assert olga_second.response_date == date(2026, 3, 2)
+
+
+def test_response_date_none_without_business_comment(parsed_stateview):
+    _, reviews = parsed_stateview
+    semen = next(r for r in reviews if r.author_name == "Семен Pidjr")
+    assert semen.response_date is None
+
+
+def test_response_date_none_for_dom_bubble_reply(parsed_stateview):
+    """The DOM bubble carries no date node, so a reply taken from the DOM (not the
+    state JSON) has no response_date even though the JSON entry has updatedTime."""
+    _, reviews = parsed_stateview
+    maria = next(r for r in reviews if r.author_name == "Мария С.")
+    assert maria.response_date is None

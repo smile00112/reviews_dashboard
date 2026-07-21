@@ -16,6 +16,10 @@ class ParsedReview:
     review_date_text: str | None = None
     review_date: date | None = None
     response_text: str | None = None
+    # Real publication day of the business reply on the platform (MSK), when the
+    # source carries it. None with no reply / unparseable date. Never feeds the
+    # content_hash. Distinct from response_first_seen_at (our observation time).
+    response_date: date | None = None
     external_review_id: str | None = None
 
 

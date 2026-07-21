@@ -80,6 +80,34 @@ def test_map_review_maps_all_fields():
     assert pr.review_date is not None and pr.review_date.isoformat() == "2026-07-01"
     assert pr.response_text == "Спасибо за отзыв!"
     assert pr.external_review_id == "r1"
+    # official_answer without a date leaves response_date None (still a real reply).
+    assert pr.response_date is None
+
+
+def test_map_review_reads_official_answer_date():
+    """The official reply's own date (MSK day) is captured on response_date;
+    date_edited (amended reply) wins over date_created."""
+    created = TwogisApiScraper._map_review(
+        {
+            "id": "a1", "user": {"name": "A"}, "rating": 5, "text": "x",
+            "date_created": "2026-07-01 10:00:00",
+            "official_answer": {"text": "Спасибо!", "date_created": "2026-07-03T09:00:00+03:00"},
+        }
+    )
+    assert created.response_date is not None and created.response_date.isoformat() == "2026-07-03"
+
+    edited = TwogisApiScraper._map_review(
+        {
+            "id": "a2", "user": {"name": "B"}, "rating": 5, "text": "y",
+            "date_created": "2026-07-01 10:00:00",
+            "official_answer": {
+                "text": "Обновили ответ",
+                "date_created": "2026-07-03T09:00:00+03:00",
+                "date_edited": "2026-07-05T09:00:00+03:00",
+            },
+        }
+    )
+    assert edited.response_date.isoformat() == "2026-07-05"
 
 
 def test_map_review_excludes_invalid_ratings():

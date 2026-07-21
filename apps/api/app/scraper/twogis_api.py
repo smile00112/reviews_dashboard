@@ -378,6 +378,18 @@ class TwogisApiScraper:
             # a real rating never reaches persistence or rating math (FR-010).
             return None
         review_id = raw.get("id")
+        # The official reply's own publication date. The live reviews API returns
+        # only `date_created` on official_answer (verified 2026-07-21 against a real
+        # org); `date_edited` is a defensive fallback in case an amended-reply field
+        # appears. Resolved to the MSK day like review_date.
+        response_text = None
+        response_date = None
+        if isinstance(official, dict):
+            response_text = official.get("text")
+            answer_date = official.get("date_edited") or official.get("date_created")
+            response_date = iso_datetime_to_local_date(answer_date) or normalize_review_date(
+                answer_date[:10] if answer_date else None
+            )
         return ParsedReview(
             author_name=user.get("name"),
             rating=rating,
@@ -390,7 +402,8 @@ class TwogisApiScraper:
                 iso_datetime_to_local_date(date_created)
                 or normalize_review_date(date_created[:10] if date_created else None)
             ),
-            response_text=official.get("text") if isinstance(official, dict) else None,
+            response_text=response_text,
+            response_date=response_date,
             external_review_id=str(review_id) if review_id is not None else None,
         )
 
