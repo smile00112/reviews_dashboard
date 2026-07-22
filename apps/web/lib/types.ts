@@ -424,6 +424,12 @@ export interface AttentionRule {
   scope_type: AttentionScopeType;
   company_id: string | null;
   organization_ids: string[];
+  // Feature 015: крон-модель.
+  period_days: number;
+  window_started_at: string;
+  latched_at: string | null;
+  is_latched: boolean;
+  period_ends_at: string;
   created_at: string;
   updated_at: string;
 }
@@ -437,9 +443,27 @@ export interface AttentionRuleCreatePayload {
   scope_type?: AttentionScopeType;
   company_id?: string | null;
   organization_ids?: string[];
+  period_days?: number;
 }
 
 export type AttentionRuleUpdatePayload = Partial<Omit<AttentionRuleCreatePayload, "rule_type">>;
+
+export interface AttentionEvent {
+  id: string;
+  rule_id: string;
+  fired_at: string;
+  type: AttentionRuleType;
+  severity: AttentionSeverity;
+  title: string;
+  subtitle: string | null;
+  value: number;
+  link: string;
+}
+
+export interface AttentionRuleRestartResult {
+  rule: AttentionRule;
+  events: AttentionEvent[];
+}
 
 // --- Фоновые задачи ---
 export type JobKind = "org_metrics" | "reviews";

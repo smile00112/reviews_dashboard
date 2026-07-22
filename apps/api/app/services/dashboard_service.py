@@ -20,8 +20,7 @@ from sqlalchemy import Date, Float, Integer, and_, case, cast, func, literal
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.attention_rule import AttentionRule
-from app.models.enums import AttentionRuleType, AttentionScope, ReviewPlatform, ReviewStatus
+from app.models.enums import ReviewPlatform
 from app.models.organization import Organization
 from app.models.rating_snapshot import RatingSnapshot
 from app.models.review import Review
@@ -516,14 +515,6 @@ class DashboardService:
             .all()
         )
 
-    def _scoped_count(self, org_ids: list[UUID], platform: str, *criteria) -> int:
-        query = (
-            self.db.query(func.count())
-            .select_from(Review)
-            .filter(*self._scoped_filters(org_ids, platform), *criteria)
-        )
-        return int(query.scalar() or 0)
-
     # ------------------------------------------------------------------ #
     # Overview                                                           #
     # ------------------------------------------------------------------ #
@@ -597,7 +588,12 @@ class DashboardService:
         sentiment = self._sentiment(sentiment_counts)
         platform_breakdown = self._platform_breakdown(orgs)
         platform_cards = self._platform_cards(orgs, snaps, rating_counts, response_stats)
-        attention = self._attention(orgs, platform, snaps, now, aspect_rows, scope)
+        # Feature 015: блок больше не считается вживую — читаем latched-снапшоты,
+        # которые пишет крон-свип. Импорт ленивый: attention_evaluator импортирует
+        # этот модуль на верхнем уровне (разрыв цикла).
+        from app.services.attention_evaluator import AttentionEvaluator
+
+        attention = AttentionEvaluator(self.db).current_block_items()
         worst_locations = self._worst_locations(orgs, platform, snaps, unanswered_by_org)
         trending_aspects = self._trending_aspects(aspect_rows, now)
 
@@ -827,201 +823,6 @@ class DashboardService:
                 }
             )
         return cards
-
-    # ------------------------------------------------------------------ #
-    # Attention feed — управляется правилами attention_rules              #
-    # ------------------------------------------------------------------ #
-    _SEVERITY_ORDER = {"urgent": 0, "warn": 1, "info": 2}
-
-    def _attention(self, orgs, platform, snaps, now, aspect_rows, scope) -> list[dict]:
-        rules = (
-            self.db.query(AttentionRule)
-            .filter(AttentionRule.is_enabled.is_(True))
-            .order_by(AttentionRule.created_at, AttentionRule.id)
-            .all()
-        )
-        items: list[dict] = []
-        for rule in rules:
-            scope_ids = self._rule_scope_ids(rule, orgs)
-            if not scope_ids:
-                continue  # скоуп не пересекается с фильтрами страницы
-            rule_orgs = [o for o in orgs if o.id in scope_ids]
-            # A rule covering the whole page selection inherits the page's scope,
-            # so an unfiltered page keeps issuing IN-clause-free counts.
-            rule_scope = scope if len(scope_ids) == len(orgs) else list(scope_ids)
-            items.extend(
-                self._evaluate_rule(
-                    rule, rule_orgs, scope_ids, rule_scope, platform, snaps, now, aspect_rows
-                )
-            )
-        # Внутри severity — по модулю value: у rating_drop value отрицательный,
-        # худшее падение должно стоять первым, как и самый большой счётчик.
-        items.sort(key=lambda i: (self._SEVERITY_ORDER.get(i["severity"], 9), -abs(i["value"])))
-        return items
-
-    @staticmethod
-    def _rule_scope_ids(rule: AttentionRule, orgs) -> set[UUID]:
-        if rule.scope_type == AttentionScope.company:
-            if rule.company_id is None:
-                return set()
-            return {o.id for o in orgs if o.company_id == rule.company_id}
-        selected = {o.id for o in orgs}
-        if rule.scope_type == AttentionScope.organizations:
-            wanted: set[UUID] = set()
-            for raw in rule.organization_ids or []:
-                try:
-                    wanted.add(UUID(str(raw)))
-                except ValueError:
-                    continue  # мусорный id (организация удалена) — игнорируем
-            return selected & wanted
-        return selected
-
-    def _evaluate_rule(
-        self, rule, rule_orgs, scope_ids, rule_scope, platform, snaps, now, aspect_rows
-    ) -> list[dict]:
-        params = rule.params or {}
-        scope_list = rule_scope
-        if rule.rule_type == AttentionRuleType.unanswered_overdue:
-            hours = int(params.get("hours", 24))
-            overdue = self._scoped_count(
-                scope_list,
-                platform,
-                Review.response_text.is_(None),
-                Review.first_seen_at <= self._dt_param(now - timedelta(hours=hours)),
-            )
-            found = self._eval_unanswered(overdue, hours=hours)
-        elif rule.rule_type == AttentionRuleType.fresh_negative:
-            window_hours = int(params.get("window_hours", 2))
-            max_rating = int(params.get("max_rating", 2))
-            fresh = self._scoped_count(
-                scope_list,
-                platform,
-                Review.rating <= max_rating,
-                Review.first_seen_at >= self._dt_param(now - timedelta(hours=window_hours)),
-            )
-            found = self._eval_fresh_negative(fresh, window_hours=window_hours, max_rating=max_rating)
-        elif rule.rule_type == AttentionRuleType.escalated:
-            escalated = self._scoped_count(scope_list, platform, Review.status == ReviewStatus.escalated)
-            found = self._eval_escalated(escalated)
-        elif rule.rule_type == AttentionRuleType.rating_drop:
-            found = self._rating_drops(
-                rule_orgs, platform, snaps,
-                threshold=float(params.get("threshold", -0.2)),
-                top=int(params.get("top", 3)),
-            )
-        else:  # aspect_spike
-            found = self._aspect_spikes(
-                [r for r in aspect_rows if r.organization_id in scope_ids], now,
-                min_recent=int(params.get("min_recent", 3)),
-                top=int(params.get("top", 3)),
-            )
-
-        severity = rule.severity.value if hasattr(rule.severity, "value") else str(rule.severity)
-        for item in found:
-            item["severity"] = severity
-            item["rule_id"] = rule.id
-            item["rule_name"] = rule.name
-            if rule.name:
-                item["subtitle"] = f"{rule.name} · {item['subtitle']}"
-        return found
-
-    @staticmethod
-    def _eval_unanswered(overdue: int, *, hours: int) -> list[dict]:
-        if not overdue:
-            return []
-        return [{
-            "type": "unanswered_overdue",
-            "title": f"{overdue} {_ru_plural(overdue, 'отзыв', 'отзыва', 'отзывов')} без ответа > {hours}ч",
-            "subtitle": "SLA нарушен · риск эскалации",
-            "value": overdue,
-            "link": "/reviews",
-        }]
-
-    @staticmethod
-    def _eval_fresh_negative(fresh: int, *, window_hours: int, max_rating: int) -> list[dict]:
-        if not fresh:
-            return []
-        return [{
-            "type": "fresh_negative",
-            "title": f"{fresh} "
-            + _ru_plural(fresh, "новый негативный отзыв", "новых негативных отзыва", "новых негативных отзывов")
-            + f" (1–{max_rating}★)",
-            "subtitle": f"Поступили за последние {window_hours} "
-            + _ru_plural(window_hours, "час", "часа", "часов"),
-            "value": fresh,
-            "link": "/reviews?rating=1",
-        }]
-
-    @staticmethod
-    def _eval_escalated(escalated: int) -> list[dict]:
-        if not escalated:
-            return []
-        return [{
-            "type": "escalated",
-            "title": f"{escalated} "
-            + _ru_plural(escalated, "эскалированный отзыв ждёт", "эскалированных отзыва ждут", "эскалированных отзывов ждут")
-            + " реакции",
-            "subtitle": "Назначены маркетологу головного офиса",
-            "value": escalated,
-            "link": "/reviews?status=escalated",
-        }]
-
-    def _aspect_spikes(self, aspect_rows, now, *, min_recent: int = 3, top: int = 3) -> list[dict]:
-        recent_start = (now - timedelta(days=7)).date()
-        prev_start = (now - timedelta(days=14)).date()
-        recent: dict[str, int] = {}
-        prev: dict[str, int] = {}
-        for r in aspect_rows:
-            if not r.review_date or not r.problems:
-                continue
-            if r.review_date >= recent_start:
-                bucket = recent
-            elif r.review_date >= prev_start:
-                bucket = prev
-            else:
-                continue
-            for p in r.problems:
-                cat = p.get("category")
-                if cat:
-                    bucket[cat] = bucket.get(cat, 0) + 1
-
-        spikes = []
-        for cat, rc in recent.items():
-            pc = prev.get(cat, 0)
-            if rc >= min_recent and rc > pc:
-                change = round((rc - pc) / pc * 100) if pc else 100
-                spikes.append((change, cat, rc))
-        spikes.sort(reverse=True)
-        return [
-            {
-                "type": "aspect_spike",
-                "title": f"Рост упоминаний аспекта «{cat}»",
-                "subtitle": f"+{change}% за 7 дней · {rc} {_ru_plural(rc, 'упоминание', 'упоминания', 'упоминаний')}",
-                "value": change,
-                "link": "/reviews",
-            }
-            for change, cat, rc in spikes[:top]
-        ]
-
-    def _rating_drops(self, orgs, platform, snaps, *, threshold: float = -0.2, top: int = 3) -> list[dict]:
-        p = ReviewPlatform(platform) if platform != "all" else ReviewPlatform.yandex
-        drops = []
-        for org in orgs:
-            delta = self._delta_for(org, p, snaps)
-            if delta is not None and delta <= threshold:
-                drops.append((delta, org))
-        drops.sort(key=lambda d: d[0])
-        return [
-            {
-                "type": "rating_drop",
-                "title": f"Падение рейтинга: {org.name or 'без названия'}"
-                + (f" ({org.city})" if org.city else ""),
-                "subtitle": f"{round(delta, 2)} за период",
-                "value": round(delta, 2),
-                "link": f"/organizations/{org.id}",
-            }
-            for delta, org in drops[:top]
-        ]
 
     # ------------------------------------------------------------------ #
     # Worst locations + trending aspects                                 #

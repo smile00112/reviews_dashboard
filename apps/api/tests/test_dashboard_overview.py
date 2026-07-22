@@ -51,6 +51,22 @@ def _seed_rules(db):
     AttentionRuleService(db).seed_defaults()
 
 
+def _seed_arm_sweep(db, *, window_days=10, period_days=60):
+    """Feature 015: seed the default rules, open their window over the seeded
+    reviews, and run one sweep so the block has latched snapshots to read."""
+    from app.services.attention_evaluator import AttentionEvaluator
+    from app.services.attention_rule_service import AttentionRuleService
+
+    svc = AttentionRuleService(db)
+    svc.seed_defaults()
+    for rule in svc.list_rules():
+        rule.window_started_at = NOW - timedelta(days=window_days)
+        rule.period_days = period_days
+        rule.latched_at = None
+    db.commit()
+    AttentionEvaluator(db).sweep(now=NOW)
+
+
 # --- Auth / validation -------------------------------------------------------
 
 def test_unauthenticated_returns_401(client):
@@ -279,12 +295,12 @@ def test_platform_cards_google_has_no_per_review_data(admin_client, db_session):
 # --- US3 attention feed ------------------------------------------------------
 
 def test_attention_urgent_and_escalated(admin_client, db_session):
-    _seed_rules(db_session)
     org = _org(db_session)
     _review(db_session, org, rating=4, first_seen=NOW - timedelta(hours=48), hash_="over")  # overdue unanswered
     _review(db_session, org, rating=1, first_seen=NOW - timedelta(hours=1), hash_="neg")    # fresh negative
     _review(db_session, org, rating=2, first_seen=NOW - timedelta(days=3),
             status=ReviewStatus.escalated, hash_="esc")
+    _seed_arm_sweep(db_session, window_days=5, period_days=30)
 
     items = admin_client.get("/api/dashboard/overview?period=30d").json()["attention"]
     types = [i["type"] for i in items]
@@ -297,7 +313,6 @@ def test_attention_urgent_and_escalated(admin_client, db_session):
 
 
 def test_attention_aspect_spike(admin_client, db_session):
-    _seed_rules(db_session)
     org = _org(db_session)
     today = NOW.date()
     # 4 recent mentions of "опоздание", 1 in the prior window -> spike
@@ -306,6 +321,8 @@ def test_attention_aspect_spike(admin_client, db_session):
                 review_date=today - timedelta(days=2), problems=[{"category": "опоздание"}], hash_=f"r{i}")
     _review(db_session, org, rating=3, first_seen=NOW - timedelta(days=10),
             review_date=today - timedelta(days=10), problems=[{"category": "опоздание"}], hash_="p0")
+    # window [NOW-3d, NOW] recent; [NOW-10d, NOW-3d] previous.
+    _seed_arm_sweep(db_session, window_days=3, period_days=7)
 
     items = admin_client.get("/api/dashboard/overview?period=all").json()["attention"]
     spikes = [i for i in items if i["type"] == "aspect_spike"]
@@ -316,13 +333,15 @@ def test_attention_rating_drop_needs_history(admin_client, db_session):
     from app.models.enums import ReviewPlatform
     from app.services.dashboard_service import DashboardService
 
-    _seed_rules(db_session)
+    from app.services.attention_evaluator import AttentionEvaluator
+
     org = _org(db_session, rating=4.2)
-    # No snapshot yet -> no rating_drop item.
+    # Arm the rules with an open window, then sweep: no snapshot yet -> no drop.
+    _seed_arm_sweep(db_session, window_days=15, period_days=60)
     body = admin_client.get("/api/dashboard/overview?period=30d").json()
     assert not any(i["type"] == "rating_drop" for i in body["attention"])
 
-    # Snapshot 30d ago at 4.5, current 4.2 -> delta -0.3 -> drop appears.
+    # Snapshot 29d ago at 4.5, current 4.2 -> delta -0.3 -> drop appears after re-sweep.
     old = datetime(NOW.year, NOW.month, NOW.day, tzinfo=timezone.utc) - timedelta(days=29)
     org.rating = 4.5
     db_session.commit()
@@ -330,6 +349,7 @@ def test_attention_rating_drop_needs_history(admin_client, db_session):
     org.rating = 4.2
     db_session.commit()
 
+    AttentionEvaluator(db_session).sweep(now=NOW)  # rule still armed -> re-evaluates
     body = admin_client.get("/api/dashboard/overview?period=30d").json()
     drops = [i for i in body["attention"] if i["type"] == "rating_drop"]
     assert drops and drops[0]["value"] <= -0.2
@@ -480,12 +500,13 @@ def test_dates_ignored_for_preset_period(admin_client, db_session):
 
 
 def test_custom_range_does_not_move_reaction_windows(admin_client, db_session):
-    """2h/attention windows key off ``now``, not the selected range (FR-003)."""
-    _seed_rules(db_session)
+    """2h header window keys off ``now``, not the selected range (FR-003); the
+    attention block (feature 015) is latched state, identical across any range."""
     org = _org(db_session)
     _review(db_session, org, rating=1, first_seen=NOW - timedelta(minutes=30),
             review_date=_d(0), sentiment="negative", hash_="fresh")
     _review(db_session, org, rating=5, first_seen=NOW - timedelta(days=8), review_date=_d(8), hash_="old")
+    _seed_arm_sweep(db_session, window_days=5, period_days=30)
 
     preset = admin_client.get("/api/dashboard/overview?period=30d").json()
     ranged = admin_client.get(_range_url(_d(10), _d(5))).json()

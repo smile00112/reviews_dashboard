@@ -5,13 +5,12 @@ alwaysApply: true
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/014-ratings-page/plan.md
+specs/015-attention-rules-cron/plan.md
 
 Also available:
-- Feature spec: specs/014-ratings-page/spec.md
-- Data model: specs/014-ratings-page/data-model.md
-- Contracts: specs/014-ratings-page/contracts/ (dashboard-ratings)
-- Quickstart: specs/014-ratings-page/quickstart.md
-- Tasks: specs/014-ratings-page/tasks.md
-- Research notes: specs/014-ratings-page/research.md
+- Feature spec: specs/015-attention-rules-cron/spec.md
+- Data model: specs/015-attention-rules-cron/data-model.md
+- Contracts: specs/015-attention-rules-cron/contracts/ (attention-rules-api, evaluator-interface)
+- Quickstart: specs/015-attention-rules-cron/quickstart.md
+- Research notes: specs/015-attention-rules-cron/research.md
 <!-- SPECKIT END -->

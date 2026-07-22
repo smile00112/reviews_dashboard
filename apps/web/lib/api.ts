@@ -1,7 +1,9 @@
 import type {
   AspectsResponse,
+  AttentionEvent,
   AttentionRule,
   AttentionRuleCreatePayload,
+  AttentionRuleRestartResult,
   AttentionRuleUpdatePayload,
   Company,
   CompanyBranches,
@@ -396,6 +398,19 @@ export async function updateAttentionRule(
 
 export async function deleteAttentionRule(id: string): Promise<void> {
   await request<void>(`/api/attention-rules/${id}`, { method: "DELETE" });
+}
+
+export async function restartAttentionRule(id: string): Promise<AttentionRuleRestartResult> {
+  return request<AttentionRuleRestartResult>(`/api/attention-rules/${id}/restart`, {
+    method: "POST",
+  });
+}
+
+export async function getAttentionRuleEvents(id: string, limit = 50): Promise<AttentionEvent[]> {
+  const data = await request<{ items: AttentionEvent[] }>(
+    `/api/attention-rules/${id}/events?limit=${limit}`,
+  );
+  return data.items;
 }
 
 // --- Settings ---

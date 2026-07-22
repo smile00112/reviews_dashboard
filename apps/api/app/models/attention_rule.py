@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, JSON, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, JSON, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.enums import AttentionRuleType, AttentionScope, AttentionSeverity
@@ -41,9 +41,28 @@ class AttentionRule(Base):
     organization_ids: Mapped[list] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=list
     )
+    # Feature 015 — крон-модель. period_days = длительность одного периода
+    # срабатывания; window_started_at = начало текущего периода («время начала
+    # работы»); latched_at = момент срабатывания в текущем периоде (NULL = не
+    # сработало, «armed»). Свип каждые 30 минут делает ролловер по истечении
+    # периода и защёлкивает правило при выполнении условия.
+    period_days: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    window_started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    latched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # История срабатываний. ORM-каскад удаляет события вместе с правилом даже там,
+    # где FK ON DELETE CASCADE не применяется (SQLite в тестах без включённой прагмы).
+    events: Mapped[list["AttentionEvent"]] = relationship(  # noqa: F821
+        "AttentionEvent", cascade="all, delete-orphan"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+    @property
+    def is_latched(self) -> bool:
+        return self.latched_at is not None

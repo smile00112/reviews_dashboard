@@ -12,28 +12,29 @@ import type {
 } from "@/lib/types";
 import { RULE_TYPE_LABEL } from "./rules-table";
 
-// Дефолты параметров = сиды бэкенда.
+// Дефолты параметров = сиды бэкенда (feature 015: окно = период правила,
+// поэтому чисто-временные параметры убраны, добавлен min_count).
 const PARAM_DEFAULTS: Record<AttentionRuleType, Record<string, number>> = {
-  unanswered_overdue: { hours: 24 },
-  fresh_negative: { window_hours: 2, max_rating: 2 },
-  escalated: {},
+  unanswered_overdue: { min_count: 1 },
+  fresh_negative: { max_rating: 2, min_count: 1 },
+  escalated: { min_count: 1 },
   rating_drop: { threshold: -0.2, top: 3 },
   aspect_spike: { min_recent: 3, top: 3 },
 };
 
 const PARAM_FIELDS: Record<AttentionRuleType, { key: string; label: string; step?: string }[]> = {
-  unanswered_overdue: [{ key: "hours", label: "Часов без ответа" }],
+  unanswered_overdue: [{ key: "min_count", label: "Мин. отзывов без ответа за период" }],
   fresh_negative: [
-    { key: "window_hours", label: "Окно, часов" },
     { key: "max_rating", label: "Макс. рейтинг (звёзд)" },
+    { key: "min_count", label: "Мин. негативных за период" },
   ],
-  escalated: [],
+  escalated: [{ key: "min_count", label: "Мин. эскалированных" }],
   rating_drop: [
     { key: "threshold", label: "Порог падения (отрицательный)", step: "0.05" },
     { key: "top", label: "Максимум точек в списке" },
   ],
   aspect_spike: [
-    { key: "min_recent", label: "Мин. упоминаний за 7 дней" },
+    { key: "min_recent", label: "Мин. упоминаний за период" },
     { key: "top", label: "Максимум аспектов в списке" },
   ],
 };
@@ -62,6 +63,7 @@ export function RuleForm({
   const [params, setParams] = useState<Record<string, number>>(
     initial?.params ?? PARAM_DEFAULTS[initial?.rule_type ?? "unanswered_overdue"],
   );
+  const [periodDays, setPeriodDays] = useState<number>(initial?.period_days ?? 1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -83,6 +85,7 @@ export function RuleForm({
         scope_type: scopeType,
         company_id: scopeType === "company" ? companyId || null : null,
         organization_ids: scopeType === "organizations" ? orgIds : [],
+        period_days: periodDays,
       });
     } catch (err) {
       const status = (err as { status?: number }).status;
@@ -171,6 +174,22 @@ export function RuleForm({
           </select>
         </label>
       </div>
+
+      <label className="block text-xs sm:max-w-[50%]">
+        Период срабатывания (дней)
+        <input
+          type="number"
+          min={1}
+          step="1"
+          className="mt-1 w-full rounded border border-border bg-transparent px-2 py-1.5"
+          value={periodDays}
+          onChange={(e) => setPeriodDays(Math.max(1, Number(e.target.value) || 1))}
+          data-testid="rule-period-days"
+        />
+        <span className="mt-1 block text-[11px] text-text-faint">
+          Сработав, правило не проверяется до конца периода или ручного перезапуска
+        </span>
+      </label>
 
       {scopeType === "company" && (
         <label className="block text-xs">
