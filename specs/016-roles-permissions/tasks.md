@@ -114,8 +114,8 @@ and `/api/auth/me` payload — everything all four stories build on.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T029 [P] Update the sqladmin gate to slug-based admin: `apps/api/app/admin/auth.py` and `apps/api/app/admin/views.py` use `role.slug == "admin"` (via `role_id`); update `apps/api/tests/test_admin_rbac.py` / `test_admin_auth.py` accordingly.
-- [ ] T030 [P] Update `CLAUDE.md` Architecture section with a short "Roles & permissions (feature 016)" subsection (catalog, require_permission, admin immutable, migration 0024, contracts).
+- [X] T029 [P] Update the sqladmin gate to slug-based admin: `apps/api/app/admin/auth.py` and `apps/api/app/admin/views.py` use `role.slug == "admin"` (via `role_id`); update `apps/api/tests/test_admin_rbac.py` / `test_admin_auth.py` accordingly.
+- [X] T030 [P] Update `CLAUDE.md` Architecture section with a short "Roles & permissions (feature 016)" subsection (catalog, require_permission, admin immutable, migration 0024, contracts).
 - [ ] T031 Run the quickstart.md validation end-to-end: `pytest -v` (api) then `npm run lint && npm run test:e2e` (web); fix any gaps. Confirm the catalog exposes no reply permission and the sqladmin panel admits only admin-slug users.
 
 ---
