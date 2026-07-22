@@ -104,13 +104,12 @@ Hard rules — do not violate without a constitution amendment:
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/012-dashboard-overview-perf/plan.md
+specs/016-roles-permissions/plan.md
 
 Also available:
-- Feature spec: specs/012-dashboard-overview-perf/spec.md
-- Data model: specs/012-dashboard-overview-perf/data-model.md
-- API contracts: specs/012-dashboard-overview-perf/contracts/
-- Quickstart: specs/012-dashboard-overview-perf/quickstart.md
-- Tasks: specs/012-dashboard-overview-perf/tasks.md
-- Research notes: specs/012-dashboard-overview-perf/research.md
+- Feature spec: specs/016-roles-permissions/spec.md
+- Data model: specs/016-roles-permissions/data-model.md
+- API contracts: specs/016-roles-permissions/contracts/ (roles-api, auth-me)
+- Quickstart: specs/016-roles-permissions/quickstart.md
+- Research notes: specs/016-roles-permissions/research.md
 <!-- SPECKIT END -->
