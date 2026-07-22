@@ -26,6 +26,10 @@ RETENTION_JOB_ID = "job-run-retention"
 # Очистка ночью, после всех сборов: они начинаются в 04:00 и 05:00.
 RETENTION_CRON = "15 3 * * *"
 
+# Feature 015: свип attention-правил каждые полчаса (ролловер периода + защёлка).
+ATTENTION_SWEEP_JOB_ID = "attention-sweep"
+ATTENTION_SWEEP_CRON = "*/30 * * * *"
+
 
 def _default_session_factory() -> Session:
     from app.core.database import SessionLocal
@@ -67,6 +71,12 @@ class JobScheduler:
             self.purge_old_runs,
             CronTrigger.from_crontab(RETENTION_CRON, timezone="Europe/Moscow"),
             id=RETENTION_JOB_ID,
+            replace_existing=True,
+        )
+        self._scheduler.add_job(
+            self.run_attention_sweep,
+            CronTrigger.from_crontab(ATTENTION_SWEEP_CRON, timezone="Europe/Moscow"),
+            id=ATTENTION_SWEEP_JOB_ID,
             replace_existing=True,
         )
         for job in JobService(db).list_jobs():
@@ -132,6 +142,19 @@ class JobScheduler:
         try:
             deleted = JobService(db).purge_old_runs(now=datetime.now(timezone.utc))
             logger.info("purged %s job runs past retention", deleted)
+        finally:
+            db.close()
+
+    def run_attention_sweep(self) -> None:
+        from app.services.attention_evaluator import AttentionEvaluator
+
+        db = _default_session_factory()
+        try:
+            fired = AttentionEvaluator(db).sweep(now=datetime.now(timezone.utc))
+            if fired:
+                logger.info("attention sweep latched %s rule(s)", fired)
+        except Exception:
+            logger.error("attention sweep failed", exc_info=True)
         finally:
             db.close()
 

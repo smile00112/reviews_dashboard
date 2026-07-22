@@ -7,6 +7,7 @@ import {
   listAttentionRules,
   listCompanies,
   listOrganizations,
+  restartAttentionRule,
   updateAttentionRule,
 } from "@/lib/api";
 import type { AttentionRule, AttentionRuleCreatePayload, Company, Organization } from "@/lib/types";
@@ -47,6 +48,7 @@ export default function AttentionRulesPage() {
         scope_type: payload.scope_type,
         company_id: payload.company_id,
         organization_ids: payload.organization_ids,
+        period_days: payload.period_days,
       });
     } else {
       await createAttentionRule(payload);
@@ -72,6 +74,17 @@ export default function AttentionRulesPage() {
     setPageError(null);
     try {
       await deleteAttentionRule(rule.id);
+      await refresh();
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      setPageError(status === 401 || status === 403 ? "Нужны права администратора" : (err as Error).message);
+    }
+  }
+
+  async function handleRestart(rule: AttentionRule) {
+    setPageError(null);
+    try {
+      await restartAttentionRule(rule.id);
       await refresh();
     } catch (err) {
       const status = (err as { status?: number }).status;
@@ -126,6 +139,7 @@ export default function AttentionRulesPage() {
           setFormOpen(true);
         }}
         onDelete={handleDelete}
+        onRestart={handleRestart}
       />
     </div>
   );

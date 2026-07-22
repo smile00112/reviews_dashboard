@@ -1,4 +1,5 @@
 from app.models.app_setting import AppSetting
+from app.models.attention_event import AttentionEvent
 from app.models.attention_rule import AttentionRule
 from app.models.company import Company
 from app.models.job import Job
@@ -13,6 +14,7 @@ from app.models.user import User
 
 __all__ = [
     "AppSetting",
+    "AttentionEvent",
     "AttentionRule",
     "Company",
     "Job",

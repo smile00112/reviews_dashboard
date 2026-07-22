@@ -18,6 +18,7 @@ from app.models.enums import ReviewPlatform, ScrapeMode
 from app.models.organization import Organization
 from app.models.rating_snapshot import RatingSnapshot
 from app.models.review import Review
+from app.services.dashboard_service import DashboardService
 
 NOW = datetime.now(timezone.utc)
 
@@ -84,6 +85,21 @@ def _row(body, platform):
     return next(
         (r for r in body["platform_distribution"] if r["platform"] == platform), None
     )
+
+
+def _seed_reviews(db, dates_ratings, *, org=None, platform=ReviewPlatform.yandex):
+    """Seed one org (unless given) with a review per (review_date, rating) pair."""
+    org = org or _org(db, name="WeekdayGrid", rating=4.0, review_count=len(dates_ratings))
+    for i, (review_date, rating) in enumerate(dates_ratings):
+        _review(
+            db,
+            org,
+            rating=rating,
+            hash_=f"grid-{review_date.isoformat()}-{i}",
+            review_date=review_date,
+            platform=platform,
+        )
+    return org
 
 
 # --- Auth / validation (T007) ------------------------------------------------
@@ -441,3 +457,100 @@ def test_weekday_respects_org_filter(admin_client, db_session):
     days = body["weekday"]["days"]
     assert days[0]["count"] == 1
     assert days[0]["avg_rating"] == 5.0
+
+
+# --- Weekday grid (custom range only) -----------------------------------------
+
+
+def test_weekday_grid_present_only_for_custom_range(db_session):
+    # Seed a handful of yandex reviews across two dates/weekdays.
+    _seed_reviews(db_session, dates_ratings=[
+        (date(2026, 6, 1), 5),   # Monday
+        (date(2026, 6, 2), 3),   # Tuesday
+        (date(2026, 6, 8), 4),   # Monday
+    ])
+    svc = DashboardService(db_session)
+
+    preset = svc.ratings(period="30d", platform="all")
+    assert preset["weekday"].get("grid") is None  # bars mode only
+
+    custom = svc.ratings(
+        period="custom", platform="all",
+        date_from=date(2026, 6, 1), date_to=date(2026, 6, 14),
+    )
+    grid = custom["weekday"]["grid"]
+    assert grid is not None
+    assert len(grid["rows"]) == 7
+    # 14-day range -> daily buckets
+    assert len(grid["columns"]) == 14
+    for row in grid["rows"]:
+        assert len(row["cells"]) == len(grid["columns"])
+
+
+def test_weekday_grid_granularity_thresholds(db_session):
+    _seed_reviews(db_session, dates_ratings=[(date(2026, 1, 5), 5)])
+    svc = DashboardService(db_session)
+
+    day = svc.ratings(period="custom", platform="all",
+                      date_from=date(2026, 1, 1), date_to=date(2026, 1, 14))
+    assert len(day["weekday"]["grid"]["columns"]) == 14  # daily
+
+    week = svc.ratings(period="custom", platform="all",
+                       date_from=date(2026, 1, 1), date_to=date(2026, 3, 1))
+    # ~60 days -> weekly buckets, far fewer than 60 columns
+    assert 0 < len(week["weekday"]["grid"]["columns"]) <= 10
+
+    month = svc.ratings(period="custom", platform="all",
+                        date_from=date(2026, 1, 1), date_to=date(2026, 12, 31))
+    # 365 days -> monthly buckets
+    assert len(month["weekday"]["grid"]["columns"]) == 12
+
+
+def test_weekday_grid_empty_cell_avg_is_null(db_session):
+    # Single review on Monday 2026-06-01; every other weekday/period empty.
+    _seed_reviews(db_session, dates_ratings=[(date(2026, 6, 1), 5)])
+    svc = DashboardService(db_session)
+    grid = svc.ratings(period="custom", platform="all",
+                       date_from=date(2026, 6, 1), date_to=date(2026, 6, 14))["weekday"]["grid"]
+    # Find a cell with count 0 -> avg_rating must be None, never 0.
+    empties = [c for row in grid["rows"] for c in row["cells"] if c["count"] == 0]
+    assert empties, "expected empty cells in a sparse grid"
+    assert all(c["avg_rating"] is None for c in empties)
+
+
+def test_weekday_grid_weekly_buckets_match_between_python_and_sql(db_session):
+    """Regression: SQLite week-bucket keys built in Python must match the SQL
+    GROUP BY key produced by ``_week_key_expr`` — otherwise the grid silently
+    drops every review into "no matching column" and every cell reads empty."""
+    _seed_reviews(db_session, dates_ratings=[
+        (date(2026, 1, 5), 5),
+        (date(2026, 1, 20), 3),
+        (date(2026, 2, 10), 4),
+    ])
+    svc = DashboardService(db_session)
+    grid = svc.ratings(period="custom", platform="all",
+                       date_from=date(2026, 1, 1), date_to=date(2026, 3, 1))["weekday"]["grid"]
+    total = sum(c["count"] for row in grid["rows"] for c in row["cells"])
+    assert total == 3, (
+        "weekly bucket keys from Python and SQL did not line up; "
+        f"expected 3 seeded reviews to land in cells, got {total}"
+    )
+
+
+# --- Serialization contract (schema validation) -------------------------------
+
+
+def test_ratings_response_serializes_weekday_grid(db_session):
+    """WeekdayGrid and WeekdayBlock.grid validate correctly under Pydantic."""
+    from app.schemas.dashboard import DashboardRatings
+
+    _seed_reviews(db_session, dates_ratings=[(date(2026, 6, 1), 5)])
+    payload = DashboardService(db_session).ratings(
+        period="custom", platform="all",
+        date_from=date(2026, 6, 1), date_to=date(2026, 6, 14),
+    )
+    model = DashboardRatings.model_validate(payload)
+    assert model.weekday.grid is not None
+    assert len(model.weekday.grid.rows) == 7
+    assert model.weekday.grid.columns[0].key
+    assert len(model.weekday.grid.rows[0].cells) == len(model.weekday.grid.columns)

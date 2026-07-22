@@ -4,11 +4,13 @@
 строками attention_rules. Мутации дергаются из admin-only роутера.
 """
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.models.attention_event import AttentionEvent
 from app.models.attention_rule import AttentionRule
 from app.models.company import Company
 from app.models.enums import AttentionRuleType, AttentionScope, AttentionSeverity
@@ -17,16 +19,19 @@ from app.schemas.attention_rule import PARAM_MODELS, AttentionRuleCreate, Attent
 
 # Дефолты = сиды миграции 0015 (продублированы: миграции заморожены и не
 # импортируют app-код). Используются тестами и seed_defaults().
+# Feature 015: окно оценки = [window_started_at, now], поэтому чисто-временные
+# параметры ушли; min_count — порог счётчика в окне. period_days по умолчанию 1.
 DEFAULT_RULES: list[dict] = [
     {"rule_type": AttentionRuleType.unanswered_overdue, "severity": AttentionSeverity.urgent,
-     "params": {"hours": 24}},
+     "params": {"min_count": 1}, "period_days": 1},
     {"rule_type": AttentionRuleType.fresh_negative, "severity": AttentionSeverity.urgent,
-     "params": {"window_hours": 2, "max_rating": 2}},
-    {"rule_type": AttentionRuleType.escalated, "severity": AttentionSeverity.warn, "params": {}},
+     "params": {"max_rating": 2, "min_count": 1}, "period_days": 1},
+    {"rule_type": AttentionRuleType.escalated, "severity": AttentionSeverity.warn,
+     "params": {"min_count": 1}, "period_days": 1},
     {"rule_type": AttentionRuleType.rating_drop, "severity": AttentionSeverity.warn,
-     "params": {"threshold": -0.2, "top": 3}},
+     "params": {"threshold": -0.2, "top": 3}, "period_days": 1},
     {"rule_type": AttentionRuleType.aspect_spike, "severity": AttentionSeverity.warn,
-     "params": {"min_recent": 3, "top": 3}},
+     "params": {"min_recent": 3, "top": 3}, "period_days": 1},
 ]
 
 
@@ -44,6 +49,16 @@ class AttentionRuleService:
 
     def get(self, rule_id: UUID) -> AttentionRule | None:
         return self.db.get(AttentionRule, rule_id)
+
+    def list_events(self, rule_id: UUID, limit: int = 50) -> list[AttentionEvent]:
+        """Firing history of a rule, newest first (feature 015)."""
+        return (
+            self.db.query(AttentionEvent)
+            .filter(AttentionEvent.rule_id == rule_id)
+            .order_by(AttentionEvent.fired_at.desc(), AttentionEvent.id)
+            .limit(limit)
+            .all()
+        )
 
     # --- валидация ------------------------------------------------------- #
     def _normalize_params(self, rule_type: AttentionRuleType, params: dict) -> dict:
@@ -95,6 +110,11 @@ class AttentionRuleService:
             scope_type=payload.scope_type,
             company_id=company_id,
             organization_ids=org_ids,
+            period_days=payload.period_days,
+            # Новое правило стартует «armed»: период отсчитывается от создания,
+            # ближайший свип оценит его над [window_started_at, now].
+            window_started_at=datetime.now(timezone.utc),
+            latched_at=None,
         )
         self.db.add(rule)
         self.db.commit()
@@ -137,6 +157,8 @@ class AttentionRuleService:
             rule.is_enabled = data["is_enabled"]
         if data.get("severity") is not None:
             rule.severity = data["severity"]
+        if data.get("period_days") is not None:
+            rule.period_days = data["period_days"]
         if new_scope is not None:
             scope_type, company_id, org_ids = new_scope
             rule.scope_type = scope_type
