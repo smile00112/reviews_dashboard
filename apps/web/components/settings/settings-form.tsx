@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { updateSettings } from "@/lib/api";
 import type { Settings } from "@/lib/types";
+import { useCan } from "@/components/shell/user-context";
 
 export function SettingsForm({ initial }: { initial: Settings }) {
+  const canEdit = useCan("action:settings.edit");
   const [minutes, setMinutes] = useState<number>(initial.overview_sla_threshold_minutes);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -39,7 +41,8 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           min={1}
           value={minutes}
           onChange={(e) => setMinutes(Number(e.target.value))}
-          className="w-40 rounded border border-border bg-surface px-3 py-2 text-sm"
+          disabled={!canEdit}
+          className="w-40 rounded border border-border bg-surface px-3 py-2 text-sm disabled:opacity-60"
           data-testid="sla-minutes"
         />
         <p className="text-xs text-text-dim">
@@ -50,14 +53,16 @@ export function SettingsForm({ initial }: { initial: Settings }) {
       {message && <div className="text-sm text-good">{message}</div>}
       {error && <div className="text-sm text-bad">{error}</div>}
 
-      <button
-        type="submit"
-        disabled={saving || minutes < 1}
-        className="rounded bg-accent px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
-        data-testid="settings-save"
-      >
-        {saving ? "Сохранение…" : "Сохранить"}
-      </button>
+      {canEdit && (
+        <button
+          type="submit"
+          disabled={saving || minutes < 1}
+          className="rounded bg-accent px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
+          data-testid="settings-save"
+        >
+          {saving ? "Сохранение…" : "Сохранить"}
+        </button>
+      )}
     </form>
   );
 }

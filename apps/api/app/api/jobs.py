@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import require_permission
 from app.core.database import SessionLocal, get_db
 from app.models.enums import JobRunStatus, JobTrigger
 from app.schemas.job import (
@@ -50,7 +50,7 @@ def update_job(
     job_id: UUID,
     payload: JobUpdateRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:job.manage")),
 ) -> JobResponse:
     service = JobService(db)
     fields = payload.model_dump(exclude_unset=True)
@@ -81,7 +81,7 @@ def run_job_now(
     job_id: UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    admin=Depends(require_admin),
+    admin=Depends(require_permission("action:job.manage")),
 ) -> JobRunStartResponse:
     service = JobService(db)
     try:

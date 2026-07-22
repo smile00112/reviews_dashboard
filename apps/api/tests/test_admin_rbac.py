@@ -36,13 +36,17 @@ def rbac_engine():
 
 @pytest.fixture(scope="module")
 def rbac_session(rbac_engine):
+    from app.services.role_service import seed_default_roles
+
     Session = sessionmaker(bind=rbac_engine)
     db = Session()
+    roles = seed_default_roles(db)
     db.add_all([
         User(
             name="Admin",
             email="rbac_admin@test.com",
             role=UserRole.admin,
+            role_id=roles["admin"].id,
             password_hash=hash_password("adminpass"),
             is_active=True,
         ),
@@ -50,6 +54,7 @@ def rbac_session(rbac_engine):
             name="Operator",
             email="rbac_op@test.com",
             role=UserRole.review_operator,
+            role_id=roles["call_center"].id,
             password_hash=hash_password("oppass"),
             is_active=True,
         ),
@@ -161,8 +166,8 @@ def test_seed_idempotent():
     Session = sessionmaker(bind=engine)
 
     db = Session()
-    _seed(db, "seed@test.com", "Seeded", UserRole.admin, "seedpass")
-    _seed(db, "seed@test.com", "Seeded", UserRole.admin, "seedpass")  # idempotent
+    _seed(db, "seed@test.com", "Seeded", UserRole.admin, "admin", "seedpass")
+    _seed(db, "seed@test.com", "Seeded", UserRole.admin, "admin", "seedpass")  # idempotent
 
     count = db.query(User).filter(User.email == "seed@test.com").count()
     assert count == 1

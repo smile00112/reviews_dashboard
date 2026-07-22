@@ -17,9 +17,11 @@ import type {
   Organization,
   OverviewPeriod,
   OverviewPlatform,
+  PermissionCatalog,
   Review,
   ReviewStatus,
   ReviewsSummary,
+  Role,
   ScrapeMode,
   ScrapeRun,
   SessionInfo,
@@ -64,6 +66,41 @@ export async function logout(): Promise<void> {
 
 export async function getMe(): Promise<CurrentUser> {
   return request<CurrentUser>("/api/auth/me");
+}
+
+// --- Roles & permissions (feature 016) ---
+export async function getPermissionCatalog(): Promise<PermissionCatalog> {
+  return request<PermissionCatalog>("/api/roles/catalog");
+}
+
+export async function getRoles(): Promise<Role[]> {
+  return request<Role[]>("/api/roles");
+}
+
+export async function createRole(payload: {
+  name: string;
+  description?: string | null;
+  permissions?: string[];
+}): Promise<Role> {
+  return request<Role>("/api/roles", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateRole(
+  id: string,
+  payload: { name?: string; description?: string | null },
+): Promise<Role> {
+  return request<Role>(`/api/roles/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function updateRoleGrants(id: string, permissions: string[]): Promise<Role> {
+  return request<Role>(`/api/roles/${id}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify({ permissions }),
+  });
+}
+
+export async function deleteRole(id: string): Promise<void> {
+  await request<void>(`/api/roles/${id}`, { method: "DELETE" });
 }
 
 // --- Companies ---

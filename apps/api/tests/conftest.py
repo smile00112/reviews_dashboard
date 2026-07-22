@@ -82,19 +82,25 @@ ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "adminpass"
 OPERATOR_EMAIL = "op@test.com"
 OPERATOR_PASSWORD = "oppass"
+MANAGER_EMAIL = "manager@test.com"
+MANAGER_PASSWORD = "managerpass"
 
 
 @pytest.fixture()
 def seed_users(db_session):
-    """Seed one admin and one review_operator into the test DB."""
+    """Seed the default roles plus one admin and one call_center (operator) user."""
     from app.core.security import hash_password
     from app.models.enums import UserRole
     from app.models.user import User
+    from app.services.role_service import seed_default_roles
+
+    roles = seed_default_roles(db_session)
 
     admin = User(
         name="Admin User",
         email=ADMIN_EMAIL,
         role=UserRole.admin,
+        role_id=roles["admin"].id,
         password_hash=hash_password(ADMIN_PASSWORD),
         is_active=True,
     )
@@ -102,12 +108,22 @@ def seed_users(db_session):
         name="Op User",
         email=OPERATOR_EMAIL,
         role=UserRole.review_operator,
+        role_id=roles["call_center"].id,
         password_hash=hash_password(OPERATOR_PASSWORD),
         is_active=True,
     )
-    db_session.add_all([admin, operator])
+    # A manager: read/analytics pages, but NO review.edit_status / admin actions.
+    manager = User(
+        name="Manager User",
+        email=MANAGER_EMAIL,
+        role=None,
+        role_id=roles["manager"].id,
+        password_hash=hash_password(MANAGER_PASSWORD),
+        is_active=True,
+    )
+    db_session.add_all([admin, operator, manager])
     db_session.commit()
-    return {"admin": admin, "operator": operator}
+    return {"admin": admin, "operator": operator, "manager": manager}
 
 
 @pytest.fixture()
@@ -120,7 +136,15 @@ def admin_client(client, seed_users):
 
 @pytest.fixture()
 def operator_client(client, seed_users):
-    """TestClient authenticated as a read-only review_operator."""
+    """TestClient authenticated as a call_center user (reviews + edit status)."""
     resp = client.post("/api/auth/login", json={"email": OPERATOR_EMAIL, "password": OPERATOR_PASSWORD})
+    assert resp.status_code == 200, resp.text
+    return client
+
+
+@pytest.fixture()
+def manager_client(client, seed_users):
+    """TestClient authenticated as a manager (read/analytics, no write actions)."""
+    resp = client.post("/api/auth/login", json={"email": MANAGER_EMAIL, "password": MANAGER_PASSWORD})
     assert resp.status_code == 200, resp.text
     return client

@@ -1,5 +1,6 @@
-"""Internal triage mutations (status / paid flag). Admin-gated like every other
-mutation. Nothing is ever published to external platforms."""
+"""Internal triage mutations (status / paid flag). Gated by the
+``action:review.edit_status`` permission (feature 016). Nothing is ever published
+to external platforms."""
 
 import uuid
 from datetime import datetime, timezone
@@ -39,9 +40,17 @@ def test_patch_requires_auth(client, db_session):
     assert resp.status_code == 401
 
 
-def test_patch_requires_admin_role(operator_client, db_session):
+def test_patch_allowed_for_call_center(operator_client, db_session):
+    """call_center holds action:review.edit_status → PATCH succeeds."""
     r = _seed_review(db_session)
     resp = operator_client.patch(f"/api/reviews/{r.id}", json={"status": "escalated"})
+    assert resp.status_code == 200
+
+
+def test_patch_forbidden_without_permission(manager_client, db_session):
+    """manager lacks action:review.edit_status → 403."""
+    r = _seed_review(db_session)
+    resp = manager_client.patch(f"/api/reviews/{r.id}", json={"status": "escalated"})
     assert resp.status_code == 403
 
 

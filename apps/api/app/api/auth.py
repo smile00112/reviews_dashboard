@@ -1,4 +1,4 @@
-"""Auth API for the control panel (feature 008).
+"""Auth API for the control panel (feature 008 + RBAC feature 016).
 
 Session-cookie login reusing feature-004 users/bcrypt/SessionMiddleware.
 """
@@ -11,12 +11,24 @@ from app.core.database import get_db
 from app.core.security import verify_password
 from app.models.user import User
 from app.schemas.auth import LoginRequest, UserResponse
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def _user_response(user: User) -> UserResponse:
+    permissions = sorted(PermissionService().effective_permissions(user))
+    return UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role_ref,
+        permissions=permissions,
+    )
+
+
 @router.post("/login", response_model=UserResponse)
-def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)) -> User:
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)) -> UserResponse:
     user = db.query(User).filter(User.email == payload.email).first()
     # Same message for unknown email and wrong password (no account enumeration).
     if not user or not verify_password(payload.password, user.password_hash):
@@ -24,8 +36,7 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
     request.session["user_id"] = str(user.id)
-    request.session["role"] = user.role.value
-    return user
+    return _user_response(user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -35,5 +46,5 @@ def logout(request: Request) -> Response:
 
 
 @router.get("/me", response_model=UserResponse)
-def me(user: User = Depends(get_current_user)) -> User:
-    return user
+def me(user: User = Depends(get_current_user)) -> UserResponse:
+    return _user_response(user)

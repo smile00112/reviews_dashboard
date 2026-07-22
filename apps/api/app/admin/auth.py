@@ -29,7 +29,15 @@ class AdminAuth(AuthenticationBackend):
             return False
 
         request.session["user_id"] = str(user.id)
-        request.session["role"] = user.role.value
+        # Prefer the legacy enum value (feature 004 sqladmin views still gate on
+        # "admin"/"review_operator" strings); fall back to the new role slug so a
+        # user whose legacy column is NULL (feature 016) never crashes login.
+        if user.role is not None:
+            request.session["role"] = user.role.value
+        elif user.role_ref is not None:
+            request.session["role"] = user.role_ref.slug
+        else:
+            request.session["role"] = ""
         return True
 
     async def logout(self, request: Request) -> bool:

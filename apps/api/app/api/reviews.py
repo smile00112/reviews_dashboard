@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import require_permission
 from app.core.database import get_db
 from app.models.enums import ReviewPlatform
 from app.models.user import User
@@ -145,7 +145,7 @@ def patch_review(
     review_id: UUID,
     payload: ReviewPatchRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _perm: User = Depends(require_permission("action:review.edit_status")),
 ) -> ReviewResponse:
     review = ReviewService(db).update_triage(review_id, payload.model_dump(exclude_unset=True))
     if review is None:

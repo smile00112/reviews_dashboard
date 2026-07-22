@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
 from app.schemas.attention_rule import (
     AttentionEventListResponse,
@@ -33,7 +33,7 @@ def list_rules(
 def create_rule(
     payload: AttentionRuleCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:attention.manage")),
 ) -> AttentionRuleResponse:
     try:
         return AttentionRuleResponse.model_validate(AttentionRuleService(db).create(payload))
@@ -46,7 +46,7 @@ def update_rule(
     rule_id: UUID,
     payload: AttentionRuleUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:attention.manage")),
 ) -> AttentionRuleResponse:
     try:
         rule = AttentionRuleService(db).update(rule_id, payload)
@@ -61,7 +61,7 @@ def update_rule(
 def delete_rule(
     rule_id: UUID,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:attention.manage")),
 ) -> None:
     if not AttentionRuleService(db).delete(rule_id):
         raise HTTPException(status_code=404, detail="Правило не найдено")
@@ -71,7 +71,7 @@ def delete_rule(
 def restart_rule(
     rule_id: UUID,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:attention.manage")),
 ) -> AttentionRuleRestartResponse:
     """Сбросить окно правила и переоценить его синхронно (feature 015)."""
     result = AttentionEvaluator(db).restart(rule_id)

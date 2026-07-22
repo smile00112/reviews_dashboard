@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import require_permission
 from app.core.database import SessionLocal, get_db
 from app.models.enums import SessionStatus
 from app.schemas.scraper_session import CodeSubmission, CookieImport, LoginResponse, SessionStatusResponse
@@ -41,7 +41,7 @@ def _to_status_response(session) -> SessionStatusResponse:
 def yandex_login(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:scraper_session.manage")),
 ) -> LoginResponse:
     """Schedule the Playwright login in the background (feature 010): the 202 is
     truthful now — poll GET /session for the outcome."""
@@ -63,7 +63,7 @@ def get_session(db: Session = Depends(get_db)) -> SessionStatusResponse:
 def check_session(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:scraper_session.manage")),
 ) -> SessionStatusResponse:
     """Schedule the session check in the background; poll GET /session for the result."""
     service = ScrapeService(db)
@@ -78,7 +78,7 @@ def check_session(
 def import_session_cookies(
     payload: CookieImport,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:scraper_session.manage")),
 ) -> SessionStatusResponse:
     """Adopt a session from a browser the operator is already signed in to —
     the fallback when Passport's confirmation-code push cannot be delivered."""
@@ -93,7 +93,7 @@ def import_session_cookies(
 def submit_session_code(
     payload: CodeSubmission,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:scraper_session.manage")),
 ) -> SessionStatusResponse:
     """Deliver the operator's confirmation code to a login that's paused in
     awaiting_code, waiting on ScrapeService._request_code's poll loop."""

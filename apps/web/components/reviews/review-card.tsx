@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Review } from "@/lib/types";
 import { patchReview } from "@/lib/api";
+import { useCan } from "@/components/shell/user-context";
 
 const PLATFORM_TAG: Record<string, { label: string; cls: string }> = {
   yandex: { label: "Я", cls: "bg-[#fc3f1d]/15 text-[#ff6b4d]" },
@@ -59,6 +60,7 @@ export function ReviewCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cost, setCost] = useState<string>(review.paid_cost?.toString() ?? "");
+  const canEditStatus = useCan("action:review.edit_status");
 
   useEffect(() => {
     setCost(review.paid_cost?.toString() ?? "");
@@ -148,6 +150,7 @@ export function ReviewCard({
         </div>
       )}
 
+      {canEditStatus && (
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
         {review.status !== "in_progress" && review.status !== "escalated" && (
           <button
@@ -208,6 +211,7 @@ export function ReviewCard({
         )}
         {error && <span className="text-[11.5px] text-bad">{error}</span>}
       </div>
+      )}
     </div>
   );
 }

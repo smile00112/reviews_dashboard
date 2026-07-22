@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import require_permission
 from app.core.database import get_db
 from app.schemas.analytics import AnalyzeResult, OrganizationAnalyticsSummary
 from app.schemas.organization import (
@@ -35,7 +35,7 @@ def list_organizations(
 def create_organization(
     payload: OrganizationCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:org.manage")),
 ) -> OrganizationResponse:
     service = OrganizationService(db)
     try:
@@ -58,7 +58,7 @@ def update_organization(
     organization_id: UUID,
     payload: OrganizationUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:org.manage")),
 ) -> OrganizationResponse:
     try:
         org = OrganizationService(db).update(organization_id, payload)
@@ -73,7 +73,7 @@ def update_organization(
 def delete_organization(
     organization_id: UUID,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:org.manage")),
 ) -> None:
     deleted = OrganizationService(db).delete(organization_id)
     if not deleted:
