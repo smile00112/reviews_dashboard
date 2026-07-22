@@ -33,6 +33,26 @@ def test_create_update_delete_and_branch_count(db_session):
     assert service.branch_count(company.id) == 1
 
 
+def test_short_name_create_update_and_clear(db_session):
+    service = CompanyService(db_session)
+    company = service.create(CompanyCreate(name="Coffee Company", short_name="  Кофе  "))
+    assert company.short_name == "Кофе"  # trimmed
+
+    # Blank short_name still falls back to None on create.
+    plain = service.create(CompanyCreate(name="Plain"))
+    assert plain.short_name is None
+
+    # Update sets it, and an explicit blank clears it back to None.
+    service.update(plain.id, CompanyUpdate(short_name="Кратко"))
+    assert service.get(plain.id).short_name == "Кратко"
+    service.update(plain.id, CompanyUpdate(short_name=""))
+    assert service.get(plain.id).short_name is None
+
+    # Omitting short_name in a name-only update leaves it untouched.
+    service.update(company.id, CompanyUpdate(name="Renamed"))
+    assert service.get(company.id).short_name == "Кофе"
+
+
 def test_delete_company_detaches_branches(db_session):
     service = CompanyService(db_session)
     company = service.create(CompanyCreate(name="Coffee Co"))

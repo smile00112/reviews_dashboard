@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Company, Organization, OverviewPeriod, OverviewPlatform } from "@/lib/types";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
+import { branchLabel } from "@/lib/org-label";
 
 // «Всё время» is gone (feature 013) — its slot belongs to the custom range control.
 const PERIODS: { key: OverviewPeriod; label: string }[] = [
@@ -76,8 +77,13 @@ export function DashboardFilters({
   onClearOrgs: () => void;
 }) {
   const selected = new Set(orgIds);
+  const companyById = new Map(companies.map((c) => [c.id, c]));
+  const orgOptionLabel = (org: Organization) => branchLabel(org, companyById);
+  const sortedCompanies = [...companies].sort((a, b) => a.name.localeCompare(b.name, "ru"));
   // Picking a brand narrows the branch list to that brand's locations (FR-009).
-  const visibleOrgs = companyId ? orgs.filter((o) => o.company_id === companyId) : orgs;
+  const visibleOrgs = (companyId ? orgs.filter((o) => o.company_id === companyId) : orgs)
+    .slice()
+    .sort((a, b) => orgOptionLabel(a).localeCompare(orgOptionLabel(b), "ru"));
 
   const companyRef = useRef<HTMLDetailsElement>(null);
   const orgRef = useRef<HTMLDetailsElement>(null);
@@ -107,9 +113,7 @@ export function DashboardFilters({
 
   const q = orgQuery.trim().toLowerCase();
   const filteredOrgs = q
-    ? visibleOrgs.filter((o) =>
-        `${o.name ?? ""} ${o.city ?? ""}`.toLowerCase().includes(q),
-      )
+    ? visibleOrgs.filter((o) => orgOptionLabel(o).toLowerCase().includes(q))
     : visibleOrgs;
   const orgLabel =
     orgIds.length === 0 ? "Все филиалы" : `Филиалов: ${orgIds.length}`;
@@ -153,7 +157,7 @@ export function DashboardFilters({
           >
             Сбросить · все бренды
           </button>
-          {companies.map((c) => (
+          {sortedCompanies.map((c) => (
             <label
               key={c.id}
               className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12.5px] hover:bg-surface-2"
@@ -183,7 +187,7 @@ export function DashboardFilters({
         >
           {orgLabel} ▾
         </summary>
-        <div className="absolute right-0 z-50 mt-1 flex max-h-80 w-64 flex-col rounded-lg border border-border bg-surface p-2 shadow-xl">
+        <div className="absolute right-0 z-50 mt-1 flex max-h-80 w-[399px] flex-col rounded-lg border border-border bg-surface p-2 shadow-xl">
           <input
             type="text"
             value={orgInput}
@@ -210,10 +214,7 @@ export function DashboardFilters({
                 checked={selected.has(o.id)}
                 onChange={() => onToggleOrg(o.id)}
               />
-              <span className="truncate">
-                {o.name ?? "без названия"}
-                {o.city && <span className="text-text-faint"> · {o.city}</span>}
-              </span>
+              <span className="truncate">{orgOptionLabel(o)}</span>
             </label>
           ))}
           {filteredOrgs.length === 0 && (

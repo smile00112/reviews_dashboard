@@ -8,11 +8,13 @@ from app.schemas.organization import OrganizationResponse
 
 class CompanyCreate(BaseModel):
     name: str = Field(min_length=1)
+    short_name: str | None = None
     is_active: bool = True
 
 
 class CompanyUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1)
+    short_name: str | None = None
     is_active: bool | None = None
 
 
@@ -21,6 +23,7 @@ class CompanyResponse(BaseModel):
 
     id: UUID
     name: str
+    short_name: str | None = None
     is_active: bool
     branch_count: int = 0
     created_at: datetime

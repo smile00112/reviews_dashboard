@@ -11,12 +11,14 @@ import {
 } from "@/lib/api";
 import type { Company, CompanyBranches, Organization } from "@/lib/types";
 import { BranchForm } from "@/components/branch-form";
+import { CompanyEditForm } from "@/components/company-edit-form";
 import { useCan } from "@/components/shell/user-context";
 
 export default function CompanyDetailPage() {
   const params = useParams<{ id: string }>();
   const companyId = params.id;
   const isAdmin = useCan("action:org.manage");
+  const canEditCompany = useCan("action:company.manage");
 
   const [company, setCompany] = useState<Company | null>(null);
   const [branches, setBranches] = useState<CompanyBranches | null>(null);
@@ -24,6 +26,7 @@ export default function CompanyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Organization | null>(null);
+  const [companyEditOpen, setCompanyEditOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,18 +87,32 @@ export default function CompanyDetailPage() {
         <div>
           <h1 className="font-display text-4xl font-medium tracking-tight">{company?.name ?? "…"}</h1>
           <p className="mt-1.5 text-[14px] text-text-dim">
+            {company?.short_name && (
+              <span className="text-text-faint">Кратко: {company.short_name} · </span>
+            )}
             {totalBranches} {totalBranches === 1 ? "филиал" : "филиалов"} · {branches?.groups.length ?? 0} городов
           </p>
         </div>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={openAdd}
-            className="rounded-lg bg-accent px-4 py-2.5 text-[13px] font-semibold text-bg hover:bg-accent-dim"
-          >
-            + Филиал
-          </button>
-        )}
+        <div className="flex gap-2">
+          {canEditCompany && company && (
+            <button
+              type="button"
+              onClick={() => setCompanyEditOpen(true)}
+              className="rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-[13px] font-semibold text-text hover:bg-surface-3"
+            >
+              Изменить
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={openAdd}
+              className="rounded-lg bg-accent px-4 py-2.5 text-[13px] font-semibold text-bg hover:bg-accent-dim"
+            >
+              + Филиал
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -175,6 +192,17 @@ export default function CompanyDetailPage() {
           onClose={() => setModalOpen(false)}
           onSaved={() => {
             setModalOpen(false);
+            load();
+          }}
+        />
+      )}
+
+      {companyEditOpen && company && (
+        <CompanyEditForm
+          company={company}
+          onClose={() => setCompanyEditOpen(false)}
+          onSaved={() => {
+            setCompanyEditOpen(false);
             load();
           }}
         />

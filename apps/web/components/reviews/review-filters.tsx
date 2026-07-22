@@ -10,6 +10,7 @@ import type {
   ReviewsSummary,
 } from "@/lib/types";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
+import { branchLabel } from "@/lib/org-label";
 
 export interface FeedFilterState {
   tone?: ReviewTone;
@@ -94,8 +95,15 @@ export function ReviewFilters({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  const sortedCompanies = [...companies].sort((a, b) => a.name.localeCompare(b.name, "ru"));
+
+  const companyById = new Map(companies.map((c) => [c.id, c]));
+  const orgLabel = (org: Organization) => branchLabel(org, companyById);
+
   // A brand narrows the location list to its own branches (like /overview).
-  const visibleOrgs = companyId ? orgs.filter((o) => o.company_id === companyId) : orgs;
+  const visibleOrgs = (companyId ? orgs.filter((o) => o.company_id === companyId) : orgs)
+    .slice()
+    .sort((a, b) => orgLabel(a).localeCompare(orgLabel(b), "ru"));
   const companyLabel = companies.find((c) => c.id === companyId)?.name ?? "Все бренды";
   const rangeActive = Boolean(dateFrom && dateTo);
 
@@ -168,7 +176,7 @@ export function ReviewFilters({
           >
             Сбросить · все бренды
           </button>
-          {companies.map((c) => (
+          {sortedCompanies.map((c) => (
             <label
               key={c.id}
               className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12.5px] hover:bg-surface-2"
@@ -199,7 +207,7 @@ export function ReviewFilters({
         <option value="">Все локации</option>
         {visibleOrgs.map((org) => (
           <option key={org.id} value={org.id}>
-            {org.name ?? org.yandex_url ?? org.gis2_url ?? org.id}
+            {orgLabel(org)}
           </option>
         ))}
       </select>

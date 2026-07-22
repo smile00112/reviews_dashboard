@@ -109,10 +109,12 @@ export async function listCompanies(): Promise<Company[]> {
   return data.items;
 }
 
-export async function createCompany(name: string, is_active = true): Promise<Company> {
+export async function createCompany(
+  payload: { name: string; short_name?: string | null; is_active?: boolean },
+): Promise<Company> {
   return request<Company>("/api/companies", {
     method: "POST",
-    body: JSON.stringify({ name, is_active }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -122,7 +124,7 @@ export async function getCompany(id: string): Promise<Company> {
 
 export async function updateCompany(
   id: string,
-  payload: { name?: string; is_active?: boolean },
+  payload: { name?: string; short_name?: string | null; is_active?: boolean },
 ): Promise<Company> {
   return request<Company>(`/api/companies/${id}`, {
     method: "PATCH",

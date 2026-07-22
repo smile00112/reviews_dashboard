@@ -99,6 +99,7 @@ export interface PermissionCatalog {
 export interface Company {
   id: string;
   name: string;
+  short_name: string | null;
   is_active: boolean;
   branch_count: number;
   created_at: string;

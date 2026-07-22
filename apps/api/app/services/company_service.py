@@ -21,7 +21,11 @@ class CompanyService:
         return self.db.query(Company).filter(Company.id == company_id).first()
 
     def create(self, data: CompanyCreate) -> Company:
-        company = Company(name=data.name.strip(), is_active=data.is_active)
+        company = Company(
+            name=data.name.strip(),
+            short_name=(data.short_name or "").strip() or None,
+            is_active=data.is_active,
+        )
         self.db.add(company)
         self.db.commit()
         self.db.refresh(company)
@@ -33,6 +37,9 @@ class CompanyService:
             return None
         if data.name is not None:
             company.name = data.name.strip()
+        # Explicit presence (not just non-None) so a blank value clears the field.
+        if "short_name" in data.model_fields_set:
+            company.short_name = (data.short_name or "").strip() or None
         if data.is_active is not None:
             company.is_active = data.is_active
         self.db.commit()
