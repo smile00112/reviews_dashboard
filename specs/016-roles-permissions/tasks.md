@@ -73,7 +73,7 @@ and `/api/auth/me` payload — everything all four stories build on.
 - [X] T014 [P] [US1] Test in `apps/api/tests/test_auth_me_permissions.py`: `/api/auth/me` returns the exact effective `permissions[]` per seeded role; admin returns full catalog. (Fail first.)
 - [X] T015 [US1] Sidebar page gating in `apps/web/components/shell/sidebar.tsx`: filter `NAV` items by `useCanPage(...)`; hide empty groups.
 - [X] T016 [US1] Server-side page entry guard for gated pages (`apps/web/app/(dashboard)/**/page.tsx` as needed): read `/api/auth/me`, redirect/404 when the page's `page:*` permission is absent. Start with the sensitive pages (settings, jobs, http_scraper, scrape_runs); apply the shared helper to the rest.
-- [ ] T017 [US1] E2E in `apps/web/tests/roles.spec.ts` (part 1): admin grants a role a page subset, sign in as that role, assert nav shows only granted pages and a direct URL to a non-granted page is refused. (Depends on US3 roles UI for the grant step — until then, seed grants via API/DB in the test setup.)
+- [X] T017 [US1] E2E in `apps/web/tests/roles.spec.ts` (part 1): admin grants a role a page subset, sign in as that role, assert nav shows only granted pages and a direct URL to a non-granted page is refused. (Depends on US3 roles UI for the grant step — until then, seed grants via API/DB in the test setup.)
 
 **Checkpoint**: Page access is gated by nav + entry guard, driven by effective permissions.
 
@@ -89,7 +89,7 @@ and `/api/auth/me` payload — everything all four stories build on.
 - [X] T019 [US2] Re-point endpoint guards to `require_permission(...)` per the data-model.md route map: `organizations.py`, `companies.py`, `scrape_runs.py`, `scraper_sessions.py`, `jobs.py`, `reviews.py` (PATCH), `attention_rules.py`, `settings.py` — replacing the current `require_admin`.
 - [X] T020 [US2] Update `apps/api/tests/test_scrape_endpoints_require_admin.py` and `apps/api/tests/test_rbac.py` to the permission model (rename/retarget assertions; keep coverage of the admin-allowed path).
 - [X] T021 [P] [US2] Frontend action gating: wrap mutating controls in `useCan(...)` — review status/escalate controls (`apps/web/app/(dashboard)/reviews/…` + components), scrape triggers, job run/update, attention-rule and settings write buttons.
-- [ ] T022 [US2] Extend `apps/web/tests/roles.spec.ts` (part 2): role with page but not action — control hidden and a direct mutating request is refused (403); after admin grants the action, control appears and succeeds.
+- [X] T022 [US2] Extend `apps/web/tests/roles.spec.ts` (part 2): role with page but not action — control hidden and a direct mutating request is refused (403); after admin grants the action, control appears and succeeds.
 
 **Checkpoint**: Actions are enforced server-side and mirrored in the UI.
 
@@ -101,12 +101,12 @@ and `/api/auth/me` payload — everything all four stories build on.
 
 **Independent Test**: Create a role, assign grants, rename, fail to delete while in use (409), reassign, delete.
 
-- [ ] T023 [P] [US3] Roles API tests in `apps/api/tests/test_roles_api.py`: catalog shape; list with user_count + admin `["*"]`; create (dup name→409, blank→422, unknown perm→422); PATCH rename (admin→403); PUT grants (admin→403, full replace); DELETE (admin→403, in-use→409, success→204). (Fail first.)
-- [ ] T024 [US3] Implement `apps/api/app/services/role_service.py`: create/rename/update-grants/delete with guards (is_system immutable, in-use 409, name unique/non-empty, slug derivation, catalog validation).
-- [ ] T025 [US3] Implement `apps/api/app/api/roles.py` router (prefix `/api/roles`, guarded by `require_permission("action:roles.manage")`): `GET /catalog`, `GET /`, `POST /`, `PATCH /{id}`, `PUT /{id}/permissions`, `DELETE /{id}`; register the router in `apps/api/app/main.py`.
-- [ ] T026 [P] [US3] Frontend API client in `apps/web/lib/api.ts`: `getPermissionCatalog`, `getRoles`, `createRole`, `updateRole`, `updateRoleGrants`, `deleteRole`.
-- [ ] T027 [US3] Build the Roles & Access page: `apps/web/app/(dashboard)/settings/roles/page.tsx` (guarded by `page:roles`) + components under `apps/web/components/settings/roles/` (`role-list.tsx`, `role-matrix.tsx` grouped Pages/Actions checkboxes, `role-form.tsx` create/rename). Admin row rendered fully-checked + disabled.
-- [ ] T028 [US3] Add the "Роли и доступ" nav entry (group «Система») in `apps/web/components/shell/sidebar.tsx`, gated by `page:roles`.
+- [X] T023 [P] [US3] Roles API tests in `apps/api/tests/test_roles_api.py`: catalog shape; list with user_count + admin `["*"]`; create (dup name→409, blank→422, unknown perm→422); PATCH rename (admin→403); PUT grants (admin→403, full replace); DELETE (admin→403, in-use→409, success→204). (Fail first.)
+- [X] T024 [US3] Implement `apps/api/app/services/role_service.py`: create/rename/update-grants/delete with guards (is_system immutable, in-use 409, name unique/non-empty, slug derivation, catalog validation).
+- [X] T025 [US3] Implement `apps/api/app/api/roles.py` router (prefix `/api/roles`, guarded by `require_permission("action:roles.manage")`): `GET /catalog`, `GET /`, `POST /`, `PATCH /{id}`, `PUT /{id}/permissions`, `DELETE /{id}`; register the router in `apps/api/app/main.py`.
+- [X] T026 [P] [US3] Frontend API client in `apps/web/lib/api.ts`: `getPermissionCatalog`, `getRoles`, `createRole`, `updateRole`, `updateRoleGrants`, `deleteRole`.
+- [X] T027 [US3] Build the Roles & Access page: `apps/web/app/(dashboard)/settings/roles/page.tsx` (guarded by `page:roles`) + components under `apps/web/components/settings/roles/` (`role-list.tsx`, `role-matrix.tsx` grouped Pages/Actions checkboxes, `role-form.tsx` create/rename). Admin row rendered fully-checked + disabled.
+- [X] T028 [US3] Add the "Роли и доступ" nav entry (group «Система») in `apps/web/components/shell/sidebar.tsx`, gated by `page:roles`.
 
 **Checkpoint**: Full role lifecycle works through the UI; guards enforced.
 
