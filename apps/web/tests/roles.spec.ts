@@ -26,13 +26,13 @@ test.describe("roles & access page", () => {
     await page.goto("/settings/roles");
 
     await expect(page.getByRole("heading", { name: "Роли и доступ" })).toBeVisible();
-    // seeded roles appear as matrix columns
-    await expect(page.getByText("Администратор")).toBeVisible();
-    await expect(page.getByText("Колл-центр")).toBeVisible();
-    await expect(page.getByText("Менеджер")).toBeVisible();
-    // permission group headers
-    await expect(page.getByText("Страницы")).toBeVisible();
-    await expect(page.getByText("Действия")).toBeVisible();
+    // seeded roles appear as matrix column headers
+    await expect(page.getByRole("columnheader", { name: /Администратор/ })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: /Колл-центр/ })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: /Менеджер/ })).toBeVisible();
+    // permission group headers (table cells, not the page description text)
+    await expect(page.getByRole("cell", { name: "Страницы" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Действия" })).toBeVisible();
   });
 
   test("admin can create a new role", async ({ page }) => {
