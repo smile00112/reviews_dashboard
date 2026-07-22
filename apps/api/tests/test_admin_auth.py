@@ -37,13 +37,17 @@ def admin_engine():
 @pytest.fixture(scope="module")
 def seeded_session(admin_engine):
     """Module-scoped SQLite session with seeded admin/operator/inactive users."""
+    from app.services.role_service import seed_default_roles
+
     Session = sessionmaker(bind=admin_engine)
     db = Session()
+    roles = seed_default_roles(db)
     db.add_all([
         User(
             name="Admin User",
             email="admin@test.com",
             role=UserRole.admin,
+            role_id=roles["admin"].id,
             password_hash=hash_password("adminpass"),
             is_active=True,
         ),
@@ -51,6 +55,7 @@ def seeded_session(admin_engine):
             name="Op User",
             email="op@test.com",
             role=UserRole.review_operator,
+            role_id=roles["call_center"].id,
             password_hash=hash_password("oppass"),
             is_active=True,
         ),
@@ -58,6 +63,7 @@ def seeded_session(admin_engine):
             name="Inactive",
             email="inactive@test.com",
             role=UserRole.admin,
+            role_id=roles["admin"].id,
             password_hash=hash_password("inactivepass"),
             is_active=False,
         ),

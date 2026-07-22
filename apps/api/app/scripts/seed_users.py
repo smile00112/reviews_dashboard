@@ -1,4 +1,7 @@
-"""Seed initial admin and operator users. Idempotent — skips existing emails."""
+"""Seed initial admin and operator users. Idempotent — skips existing emails.
+
+Also ensures the default roles exist (feature 016) and assigns users by role slug.
+"""
 
 import os
 import sys
@@ -7,23 +10,26 @@ from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.enums import UserRole
 from app.models.user import User
+from app.services.role_service import seed_default_roles
 
 
-def _seed(db, email: str, name: str, role: UserRole, password: str) -> None:
+def _seed(db, email: str, name: str, legacy_role: UserRole, role_slug: str, password: str) -> None:
     existing = db.query(User).filter(User.email == email).first()
     if existing:
         print(f"SKIP  {email} (already exists)")
         return
+    roles = seed_default_roles(db)
     user = User(
         name=name,
         email=email,
-        role=role,
+        role=legacy_role,  # legacy column retained for rollback
+        role_id=roles[role_slug].id,
         password_hash=hash_password(password),
         is_active=True,
     )
     db.add(user)
     db.commit()
-    print(f"OK    {email} ({role.value})")
+    print(f"OK    {email} ({role_slug})")
 
 
 def main() -> None:
@@ -43,8 +49,8 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        _seed(db, admin_email, "Admin", UserRole.admin, admin_password)
-        _seed(db, operator_email, "Operator", UserRole.review_operator, operator_password)
+        _seed(db, admin_email, "Admin", UserRole.admin, "admin", admin_password)
+        _seed(db, operator_email, "Operator", UserRole.review_operator, "call_center", operator_password)
     finally:
         db.close()
 

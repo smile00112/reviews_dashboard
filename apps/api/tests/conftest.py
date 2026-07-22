@@ -86,15 +86,19 @@ OPERATOR_PASSWORD = "oppass"
 
 @pytest.fixture()
 def seed_users(db_session):
-    """Seed one admin and one review_operator into the test DB."""
+    """Seed the default roles plus one admin and one call_center (operator) user."""
     from app.core.security import hash_password
     from app.models.enums import UserRole
     from app.models.user import User
+    from app.services.role_service import seed_default_roles
+
+    roles = seed_default_roles(db_session)
 
     admin = User(
         name="Admin User",
         email=ADMIN_EMAIL,
         role=UserRole.admin,
+        role_id=roles["admin"].id,
         password_hash=hash_password(ADMIN_PASSWORD),
         is_active=True,
     )
@@ -102,6 +106,7 @@ def seed_users(db_session):
         name="Op User",
         email=OPERATOR_EMAIL,
         role=UserRole.review_operator,
+        role_id=roles["call_center"].id,
         password_hash=hash_password(OPERATOR_PASSWORD),
         is_active=True,
     )

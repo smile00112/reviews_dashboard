@@ -16,7 +16,8 @@ function initials(name: string): string {
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Админ · полный доступ",
-  review_operator: "Оператор · только чтение",
+  call_center: "Колл-центр",
+  manager: "Менеджер",
 };
 
 const NAV: { group: string; items: { href: string; label: string; icon: string }[] }[] = [
@@ -106,7 +107,7 @@ export function Sidebar({ user }: { user: CurrentUser }) {
           </div>
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold leading-tight">{user.name}</div>
-            <div className="text-[11px] text-text-faint">{ROLE_LABEL[user.role] ?? user.role}</div>
+            <div className="text-[11px] text-text-faint">{ROLE_LABEL[user.role.slug] ?? user.role.name}</div>
           </div>
         </div>
         <button

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.enums import UserRole
@@ -15,10 +15,19 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     email: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
-    role: Mapped[UserRole] = mapped_column(
+    # Legacy column (feature 004). Retained nullable for rollback after feature 016
+    # moved RBAC to the roles table; superseded by role_id. Do not read at runtime.
+    role: Mapped[UserRole | None] = mapped_column(
         Enum(UserRole, name="user_role_enum", values_callable=lambda x: [e.value for e in x]),
-        nullable=False,
+        nullable=True,
     )
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("roles.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    role_ref: Mapped["Role"] = relationship("Role", back_populates="users")  # noqa: F821
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     default_location_id: Mapped[uuid.UUID | None] = mapped_column(

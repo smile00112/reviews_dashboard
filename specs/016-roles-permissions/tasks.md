@@ -25,7 +25,7 @@ Monorepo web app: backend `apps/api/app/…`, tests `apps/api/tests/…`; fronte
 
 **Purpose**: No new tooling needed — feature is additive to the existing stack. Confirm baseline.
 
-- [ ] T001 Confirm baseline green before changes: run `pytest -v` in `apps/api` and `npm run lint` in `apps/web`; note the current migration head is `0023` (next is `0024`).
+- [X] T001 Confirm baseline green before changes: run `pytest -v` in `apps/api` and `npm run lint` in `apps/web`; note the current migration head is `0023` (next is `0024`).
 
 ---
 
@@ -36,15 +36,15 @@ and `/api/auth/me` payload — everything all four stories build on.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Create the permission catalog in `apps/api/app/core/permissions.py`: `PAGE_PERMISSIONS` (11 keys), `ACTION_PERMISSIONS` (10 keys), `ALL_PERMISSIONS`, RU labels + category per key, and helper `is_valid_permission(key)`. NO reply/posting permission (FR-010).
-- [ ] T003 [P] Create ORM models in `apps/api/app/models/role.py`: `Role` (id, name unique, slug unique, is_system, description, created_at) and `RolePermission` (role_id FK, permission; `UNIQUE(role_id, permission)`); `Role.permissions` relationship with `cascade="all, delete-orphan"` (SQLite-safe per research D5).
-- [ ] T004 Modify `apps/api/app/models/user.py`: add `role_id` FK → `roles.id` (`ondelete="RESTRICT"`) + `role` relationship to `Role`; make legacy `role` enum column nullable (retained for rollback).
-- [ ] T005 Author migration `apps/api/alembic/versions/0024_roles_permissions.py` (down_revision `0023`): create `roles` + `role_permissions`; seed admin/call_center/manager with default grants (data-model.md); add `users.role_id` (nullable), backfill from `users.role` (`admin→admin`, `review_operator→call_center`), then set `role_id` NOT NULL; keep `users.role` nullable. Downgrade reverses (restore `users.role` from `role.slug`, drop tables/column).
-- [ ] T006 [P] Implement `apps/api/app/services/permission_service.py`: `PermissionService(db)` with `effective_permissions(user) -> set[str]` (admin `is_system` → `ALL_PERMISSIONS`, else grant rows) and `has_permission(user, perm)`.
-- [ ] T007 Add `require_permission(perm)` dependency factory in `apps/api/app/api/deps.py` (builds on `get_current_user`, 403 on deny via `PermissionService`); keep `require_admin` as a thin alias that maps to an admin-equivalent check so legacy imports still resolve. Drop reliance on `request.session["role"]` (resolve via `role_id`).
-- [ ] T008 [P] Add role schemas in `apps/api/app/schemas/role.py`: `RoleResponse` (id, slug, name, is_system, description, permissions[], user_count), `RoleCreate`, `RoleUpdate`, `GrantUpdate`, `PermissionCatalog`.
-- [ ] T009 Update `apps/api/app/schemas/auth.py` `UserResponse`: replace bare `role` enum with a role object (`id/slug/name/is_system`) + `permissions: list[str]`; update `apps/api/app/api/auth.py` `/login`, `/me` to populate them via `PermissionService`.
-- [ ] T010 [P] Frontend plumbing: extend `apps/web/lib/types.ts` (`Role`, `PermissionKey`, `CurrentUser.permissions[]`, `role` object) and `apps/web/components/shell/user-context.tsx` (`useCan(perm)`, `useCanPage(name)`); update `ROLE_LABEL`/user display in `sidebar.tsx` to read `role.name`.
+- [X] T002 [P] Create the permission catalog in `apps/api/app/core/permissions.py`: `PAGE_PERMISSIONS` (11 keys), `ACTION_PERMISSIONS` (10 keys), `ALL_PERMISSIONS`, RU labels + category per key, and helper `is_valid_permission(key)`. NO reply/posting permission (FR-010).
+- [X] T003 [P] Create ORM models in `apps/api/app/models/role.py`: `Role` (id, name unique, slug unique, is_system, description, created_at) and `RolePermission` (role_id FK, permission; `UNIQUE(role_id, permission)`); `Role.permissions` relationship with `cascade="all, delete-orphan"` (SQLite-safe per research D5).
+- [X] T004 Modify `apps/api/app/models/user.py`: add `role_id` FK → `roles.id` (`ondelete="RESTRICT"`) + `role` relationship to `Role`; make legacy `role` enum column nullable (retained for rollback).
+- [X] T005 Author migration `apps/api/alembic/versions/0024_roles_permissions.py` (down_revision `0023`): create `roles` + `role_permissions`; seed admin/call_center/manager with default grants (data-model.md); add `users.role_id` (nullable), backfill from `users.role` (`admin→admin`, `review_operator→call_center`), then set `role_id` NOT NULL; keep `users.role` nullable. Downgrade reverses (restore `users.role` from `role.slug`, drop tables/column).
+- [X] T006 [P] Implement `apps/api/app/services/permission_service.py`: `PermissionService(db)` with `effective_permissions(user) -> set[str]` (admin `is_system` → `ALL_PERMISSIONS`, else grant rows) and `has_permission(user, perm)`.
+- [X] T007 Add `require_permission(perm)` dependency factory in `apps/api/app/api/deps.py` (builds on `get_current_user`, 403 on deny via `PermissionService`); keep `require_admin` as a thin alias that maps to an admin-equivalent check so legacy imports still resolve. Drop reliance on `request.session["role"]` (resolve via `role_id`).
+- [X] T008 [P] Add role schemas in `apps/api/app/schemas/role.py`: `RoleResponse` (id, slug, name, is_system, description, permissions[], user_count), `RoleCreate`, `RoleUpdate`, `GrantUpdate`, `PermissionCatalog`.
+- [X] T009 Update `apps/api/app/schemas/auth.py` `UserResponse`: replace bare `role` enum with a role object (`id/slug/name/is_system`) + `permissions: list[str]`; update `apps/api/app/api/auth.py` `/login`, `/me` to populate them via `PermissionService`.
+- [X] T010 [P] Frontend plumbing: extend `apps/web/lib/types.ts` (`Role`, `PermissionKey`, `CurrentUser.permissions[]`, `role` object) and `apps/web/components/shell/user-context.tsx` (`useCan(perm)`, `useCanPage(name)`); update `ROLE_LABEL`/user display in `sidebar.tsx` to read `role.name`.
 
 **Checkpoint**: `alembic upgrade head` applies 0024; `GET /api/auth/me` returns role + permissions.
 
@@ -56,9 +56,9 @@ and `/api/auth/me` payload — everything all four stories build on.
 
 **Independent Test**: Seed pre-existing admin + review_operator users, run migration, assert mapping.
 
-- [ ] T011 [US4] Migration mapping test in `apps/api/tests/test_role_migration.py`: seed a user per legacy role, run upgrade, assert `admin→admin` role, `review_operator→call_center`, `role_id` NOT NULL for all, and seeded roles + default grants exist. (Write to fail first.)
-- [ ] T012 [US4] Update `apps/api/app/scripts/seed_users.py` to assign `role_id` (look up role by slug) instead of the enum; keep it idempotent.
-- [ ] T013 [US4] Update `apps/api/tests/conftest.py` and any fixtures that construct `User(role=...)` to use `role_id`/seeded roles so the suite boots on the new model.
+- [X] T011 [US4] Migration mapping test in `apps/api/tests/test_role_migration.py`: seed a user per legacy role, run upgrade, assert `admin→admin` role, `review_operator→call_center`, `role_id` NOT NULL for all, and seeded roles + default grants exist. (Write to fail first.)
+- [X] T012 [US4] Update `apps/api/app/scripts/seed_users.py` to assign `role_id` (look up role by slug) instead of the enum; keep it idempotent.
+- [X] T013 [US4] Update `apps/api/tests/conftest.py` and any fixtures that construct `User(role=...)` to use `role_id`/seeded roles so the suite boots on the new model.
 
 **Checkpoint**: Migration + suite bootstrap green; existing accounts preserved.
 

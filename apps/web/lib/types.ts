@@ -57,13 +57,43 @@ export interface Organization {
   updated_at: string;
 }
 
-export type UserRole = "admin" | "review_operator";
+// Permission keys mirror apps/api/app/core/permissions.py (page:* / action:*).
+export type PermissionKey = string;
+
+export interface RoleSummary {
+  id: string;
+  slug: string;
+  name: string;
+  is_system: boolean;
+}
 
 export interface CurrentUser {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: RoleSummary;
+  // Effective permission set; the frontend mirrors it for UX (nav/button gating).
+  permissions: PermissionKey[];
+}
+
+export interface Role {
+  id: string;
+  slug: string;
+  name: string;
+  is_system: boolean;
+  description: string | null;
+  permissions: PermissionKey[]; // ["*"] sentinel for the admin system role
+  user_count: number;
+}
+
+export interface PermissionItem {
+  key: string;
+  label: string;
+}
+
+export interface PermissionCatalog {
+  pages: PermissionItem[];
+  actions: PermissionItem[];
 }
 
 export interface Company {
