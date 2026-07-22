@@ -30,6 +30,7 @@ def _to_review_response(review, organization_name: str | None = None) -> ReviewR
 @router.get("/api/reviews", response_model=ReviewListResponse)
 def list_reviews(
     organization_id: UUID | None = None,
+    company_id: UUID | None = None,
     rating: int | None = Query(default=None, ge=1, le=5),
     date_from: date | None = None,
     date_to: date | None = None,
@@ -48,6 +49,7 @@ def list_reviews(
 ) -> ReviewListResponse:
     rows, total = ReviewService(db).list_global(
         organization_id=organization_id,
+        company_id=company_id,
         limit=limit,
         offset=offset,
         rating=rating,
@@ -102,6 +104,7 @@ def list_organization_reviews(
 @router.get("/api/reviews/summary", response_model=ReviewSummaryResponse)
 def reviews_summary(
     organization_id: UUID | None = None,
+    company_id: UUID | None = None,
     rating: int | None = Query(default=None, ge=1, le=5),
     date_from: date | None = None,
     date_to: date | None = None,
@@ -114,6 +117,7 @@ def reviews_summary(
 ) -> ReviewSummaryResponse:
     data = ReviewService(db).summary(
         organization_id=organization_id,
+        company_id=company_id,
         rating=rating,
         date_from=date_from,
         date_to=date_to,

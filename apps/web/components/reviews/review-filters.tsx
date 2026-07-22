@@ -1,12 +1,24 @@
 "use client";
 
-import type { Organization, ReviewPeriod, ReviewPlatform, ReviewTone, ReviewsSummary } from "@/lib/types";
+import { useEffect, useRef } from "react";
+import type {
+  Company,
+  Organization,
+  ReviewPeriod,
+  ReviewPlatform,
+  ReviewTone,
+  ReviewsSummary,
+} from "@/lib/types";
+import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 
 export interface FeedFilterState {
   tone?: ReviewTone;
   period?: ReviewPeriod;
   platform?: ReviewPlatform;
   organizationId?: string;
+  companyId?: string;
+  dateFrom?: string;
+  dateTo?: string;
   paidOnly?: boolean;
 }
 
@@ -52,17 +64,41 @@ export function ReviewFilters({
   period,
   platform,
   organizationId,
+  companyId,
+  dateFrom,
+  dateTo,
   paidOnly,
   orgs,
+  companies,
   summary,
   onChange,
   onReset,
 }: FeedFilterState & {
   orgs: Organization[];
+  companies: Company[];
   summary: ReviewsSummary | null;
   onChange: (patch: FeedFilterState) => void;
   onReset: () => void;
 }) {
+  const companyRef = useRef<HTMLDetailsElement>(null);
+
+  // Native <details> doesn't close on an outside click — do it ourselves.
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (companyRef.current && !companyRef.current.contains(target)) {
+        companyRef.current.open = false;
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // A brand narrows the location list to its own branches (like /overview).
+  const visibleOrgs = companyId ? orgs.filter((o) => o.company_id === companyId) : orgs;
+  const companyLabel = companies.find((c) => c.id === companyId)?.name ?? "Все бренды";
+  const rangeActive = Boolean(dateFrom && dateTo);
+
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-surface-1 p-3 text-[12px]">
       <div className="flex items-center gap-1.5">
@@ -81,12 +117,26 @@ export function ReviewFilters({
         {PERIODS.map((p) => (
           <Chip
             key={p.key}
-            active={period === p.key}
-            onClick={() => onChange({ period: period === p.key ? undefined : p.key })}
+            active={period === p.key && !rangeActive}
+            // Picking a preset drops any custom range.
+            onClick={() =>
+              onChange({
+                period: period === p.key ? undefined : p.key,
+                dateFrom: undefined,
+                dateTo: undefined,
+              })
+            }
           >
             {p.label}
           </Chip>
         ))}
+        <DateRangePicker
+          from={dateFrom ?? null}
+          to={dateTo ?? null}
+          active={rangeActive}
+          // Applying a range drops the preset period.
+          onApply={(from, to) => onChange({ period: undefined, dateFrom: from, dateTo: to })}
+        />
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-text-faint">Площадка:</span>
@@ -97,13 +147,57 @@ export function ReviewFilters({
           </Chip>
         ))}
       </div>
+      <details ref={companyRef} className="relative">
+        <summary
+          className={`inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] ${
+            companyId
+              ? "border-accent bg-surface-3 text-text"
+              : "border-border bg-surface-2 text-text-dim hover:text-text"
+          }`}
+        >
+          {companyLabel} ▾
+        </summary>
+        <div className="absolute left-0 z-50 mt-1 max-h-80 w-64 overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-xl">
+          <button
+            type="button"
+            onClick={() => {
+              onChange({ companyId: undefined });
+              if (companyRef.current) companyRef.current.open = false;
+            }}
+            className="mb-1 w-full rounded px-2 py-1.5 text-left text-[12px] text-text-dim hover:bg-surface-2"
+          >
+            Сбросить · все бренды
+          </button>
+          {companies.map((c) => (
+            <label
+              key={c.id}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[12.5px] hover:bg-surface-2"
+            >
+              <input
+                type="radio"
+                name="reviews-company"
+                className="accent-accent"
+                checked={companyId === c.id}
+                onChange={() => {
+                  onChange({ companyId: c.id });
+                  if (companyRef.current) companyRef.current.open = false;
+                }}
+              />
+              <span className="truncate">{c.name}</span>
+            </label>
+          ))}
+          {companies.length === 0 && (
+            <p className="px-2 py-1.5 text-[12px] text-text-faint">Брендов пока нет</p>
+          )}
+        </div>
+      </details>
       <select
         value={organizationId ?? ""}
         onChange={(e) => onChange({ organizationId: e.target.value || undefined })}
         className="rounded-lg border border-border bg-surface-2 px-2 py-1 text-[12px] text-text-dim"
       >
         <option value="">Все локации</option>
-        {orgs.map((org) => (
+        {visibleOrgs.map((org) => (
           <option key={org.id} value={org.id}>
             {org.name ?? org.yandex_url ?? org.gis2_url ?? org.id}
           </option>

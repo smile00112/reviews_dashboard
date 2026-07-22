@@ -2,7 +2,7 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import and_, case, desc, func
+from sqlalchemy import and_, case, desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -240,6 +240,7 @@ class ReviewService:
         self,
         *,
         organization_id: UUID | None = None,
+        company_id: UUID | None = None,
         limit: int = 50,
         offset: int = 0,
         rating: int | None = None,
@@ -258,6 +259,7 @@ class ReviewService:
         query = self.db.query(Review, Organization.name).join(Organization)
         if organization_id:
             query = query.filter(Review.organization_id == organization_id)
+        query = self._apply_company_filter(query, company_id)
         query = self._apply_removed_filter(query, removed)
         query = self._apply_filters(query, rating, date_from, date_to, new_only=new_only)
         query = self._apply_feed_filters(
@@ -273,6 +275,21 @@ class ReviewService:
         total = query.count()
         rows = ordered.offset(offset).limit(limit).all()
         return rows, total
+
+    @staticmethod
+    def _apply_company_filter(query, company_id: UUID | None):
+        """Scope reviews to a brand's organizations (feature: reviews filters).
+
+        Uses a scalar subquery on Organization rather than a join so it never
+        multiplies review rows — keeps `.count()` and the single-pass summary
+        exact."""
+        if company_id is None:
+            return query
+        return query.filter(
+            Review.organization_id.in_(
+                select(Organization.id).where(Organization.company_id == company_id)
+            )
+        )
 
     @staticmethod
     def _apply_removed_filter(query, removed: str):
@@ -346,6 +363,7 @@ class ReviewService:
         self,
         *,
         organization_id: UUID | None = None,
+        company_id: UUID | None = None,
         rating: int | None = None,
         date_from: date | None = None,
         date_to: date | None = None,
@@ -365,6 +383,7 @@ class ReviewService:
         query = self.db.query(Review)
         if organization_id:
             query = query.filter(Review.organization_id == organization_id)
+        query = self._apply_company_filter(query, company_id)
         query = self._apply_filters(query, rating, date_from, date_to, new_only=False)
         query = self._apply_feed_filters(
             query, status_tab=None, platform=platform, tone=tone, period=period, is_paid=is_paid

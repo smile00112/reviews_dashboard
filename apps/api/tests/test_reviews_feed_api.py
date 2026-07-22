@@ -7,6 +7,7 @@ problems JSONB in Python (SQLite backend has no JSONB operators).
 
 from datetime import datetime, timedelta, timezone
 
+from app.models.company import Company
 from app.models.enums import ReviewPlatform, ReviewStatus, ScrapeMode
 from app.models.organization import Organization
 from app.models.review import Review
@@ -90,6 +91,48 @@ def test_period_filter_uses_review_date_with_first_seen_fallback(client, db_sess
     assert str(dateless_fresh.id) in ids_30d
     assert str(old.id) not in ids_30d
     assert str(old.id) in _ids(client.get("/api/reviews?period=year"))
+
+
+def _company(db, name="Brand"):
+    c = Company(name=name)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return c
+
+
+def test_company_filter_scopes_to_brand_branches(client, db_session):
+    brand_a = _company(db_session, "A")
+    brand_b = _company(db_session, "B")
+    org_a = _org(db_session, name="Branch A", company_id=brand_a.id)
+    org_b = _org(db_session, name="Branch B", company_id=brand_b.id)
+    org_none = _org(db_session, name="No brand")
+
+    in_a = _review(db_session, org_a, hash_="h1")
+    in_b = _review(db_session, org_b, hash_="h2")
+    orphan = _review(db_session, org_none, hash_="h3")
+
+    ids = _ids(client.get(f"/api/reviews?company_id={brand_a.id}"))
+    assert ids == [str(in_a.id)]
+    assert str(in_b.id) not in ids
+    assert str(orphan.id) not in ids
+
+    # Summary counters honour the same scope.
+    summary = client.get(f"/api/reviews/summary?company_id={brand_a.id}").json()
+    assert summary["total"] == 1
+
+
+def test_company_and_date_range_combine(client, db_session):
+    brand = _company(db_session)
+    org = _org(db_session, name="Branch", company_id=brand.id)
+    inside = _review(db_session, org, hash_="h1", review_date=NOW.date())
+    outside = _review(db_session, org, hash_="h2", review_date=(NOW - timedelta(days=200)).date())
+
+    frm = (NOW - timedelta(days=30)).date().isoformat()
+    to = NOW.date().isoformat()
+    ids = _ids(client.get(f"/api/reviews?company_id={brand.id}&date_from={frm}&date_to={to}"))
+    assert ids == [str(inside.id)]
+    assert str(outside.id) not in ids
 
 
 def test_is_paid_filter(client, db_session):

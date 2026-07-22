@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   getReviewAspects,
   getReviewsSummary,
+  listCompanies,
   listOrganizations,
   listReviews,
 } from "@/lib/api";
 import type {
   AspectsResponse,
+  Company,
   Organization,
   Review,
   ReviewPeriod,
@@ -32,6 +34,13 @@ const PERIODS: readonly ReviewPeriod[] = ["24h", "7d", "30d", "year"];
 const PLATFORMS: readonly ReviewPlatform[] = ["yandex", "google", "gis2"];
 const SORTS: readonly ReviewSort[] = ["new", "criticality"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `YYYY-MM-DD` or undefined — anything malformed is dropped. */
+function isoDate(raw: string | null): string | undefined {
+  if (!raw || !ISO_DATE.test(raw) || Number.isNaN(Date.parse(raw))) return undefined;
+  return raw;
+}
 
 function pick<T extends string>(value: string | null, allowed: readonly T[]): T | undefined {
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : undefined;
@@ -45,10 +54,20 @@ function ReviewsContent() {
   // attention feed arrive as /reviews?rating=1, /reviews?status=escalated).
   const tab = pick(params.get("status"), STATUS_TABS) ?? "all";
   const tone = pick(params.get("tone"), TONES);
-  const period = pick(params.get("period"), PERIODS);
   const platform = pick(params.get("platform"), PLATFORMS);
   const rawOrg = params.get("organization_id");
   const organizationId = rawOrg && UUID_RE.test(rawOrg) ? rawOrg : undefined;
+  const rawCompany = params.get("company_id");
+  const companyId = rawCompany && UUID_RE.test(rawCompany) ? rawCompany : undefined;
+
+  // A valid, ordered pair activates the custom range; it then supersedes the
+  // preset period (never both at once).
+  const rawFrom = isoDate(params.get("date_from"));
+  const rawTo = isoDate(params.get("date_to"));
+  const rangeOk = rawFrom !== undefined && rawTo !== undefined && rawFrom <= rawTo;
+  const dateFrom = rangeOk ? rawFrom : undefined;
+  const dateTo = rangeOk ? rawTo : undefined;
+  const period = rangeOk ? undefined : pick(params.get("period"), PERIODS);
   const paidOnly = params.get("is_paid") === "true" || undefined;
   const aspect = params.get("aspect") ?? undefined;
   const sort = pick(params.get("sort"), SORTS) ?? "new";
@@ -61,6 +80,7 @@ function ReviewsContent() {
   const [summary, setSummary] = useState<ReviewsSummary | null>(null);
   const [aspects, setAspects] = useState<AspectsResponse | null>(null);
   const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const requestGen = useRef(0);
@@ -83,8 +103,11 @@ function ReviewsContent() {
       status: tab === "all" ? undefined : tab,
       tone,
       period,
+      date_from: dateFrom,
+      date_to: dateTo,
       platform,
       organization_id: organizationId,
+      company_id: companyId,
       is_paid: paidOnly,
       aspect,
       sort,
@@ -93,7 +116,7 @@ function ReviewsContent() {
       limit: PAGE_SIZE,
       offset,
     }),
-    [tab, tone, period, platform, organizationId, paidOnly, aspect, sort, rating, newOnly],
+    [tab, tone, period, dateFrom, dateTo, platform, organizationId, companyId, paidOnly, aspect, sort, rating, newOnly],
   );
 
   useEffect(() => {
@@ -115,7 +138,8 @@ function ReviewsContent() {
       .finally(() => !cancelled && setLoading(false));
 
     getReviewsSummary({
-      tone, period, platform, organization_id: organizationId, is_paid: paidOnly, aspect, rating,
+      tone, period, date_from: dateFrom, date_to: dateTo, platform,
+      organization_id: organizationId, company_id: companyId, is_paid: paidOnly, aspect, rating,
     })
       .then((sum) => !cancelled && setSummary(sum))
       .catch(console.error);
@@ -131,7 +155,13 @@ function ReviewsContent() {
     return () => {
       cancelled = true;
     };
-  }, [feedParams, tone, period, platform, organizationId, paidOnly, aspect, rating]);
+  }, [feedParams, tone, period, dateFrom, dateTo, platform, organizationId, companyId, paidOnly, aspect, rating]);
+
+  useEffect(() => {
+    listCompanies()
+      .then((items) => setCompanies(items.filter((c) => c.is_active)))
+      .catch(() => setCompanies([]));
+  }, []);
 
   async function loadMore() {
     const gen = requestGen.current;
@@ -149,11 +179,21 @@ function ReviewsContent() {
   }
 
   function onFilterChange(patch: FeedFilterState) {
+    // A brand switch may orphan the selected location — drop it if the org no
+    // longer belongs to the chosen brand.
+    let nextOrg = "organizationId" in patch ? patch.organizationId : organizationId;
+    if ("companyId" in patch && patch.companyId) {
+      const belongs = orgs.some((o) => o.id === nextOrg && o.company_id === patch.companyId);
+      if (!belongs) nextOrg = undefined;
+    }
     setParams({
       tone: "tone" in patch ? patch.tone : tone,
       period: "period" in patch ? patch.period : period,
+      date_from: "dateFrom" in patch ? patch.dateFrom : dateFrom,
+      date_to: "dateTo" in patch ? patch.dateTo : dateTo,
       platform: "platform" in patch ? patch.platform : platform,
-      organization_id: "organizationId" in patch ? patch.organizationId : organizationId,
+      organization_id: nextOrg,
+      company_id: "companyId" in patch ? patch.companyId : companyId,
       is_paid: "paidOnly" in patch ? (patch.paidOnly ? "true" : undefined) : paidOnly ? "true" : undefined,
     });
   }
@@ -180,8 +220,12 @@ function ReviewsContent() {
         period={period}
         platform={platform}
         organizationId={organizationId}
+        companyId={companyId}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
         paidOnly={paidOnly}
         orgs={orgs}
+        companies={companies}
         summary={summary}
         onChange={onFilterChange}
         onReset={() => router.replace("/reviews")}
