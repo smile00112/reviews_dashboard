@@ -82,6 +82,8 @@ ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "adminpass"
 OPERATOR_EMAIL = "op@test.com"
 OPERATOR_PASSWORD = "oppass"
+MANAGER_EMAIL = "manager@test.com"
+MANAGER_PASSWORD = "managerpass"
 
 
 @pytest.fixture()
@@ -110,9 +112,18 @@ def seed_users(db_session):
         password_hash=hash_password(OPERATOR_PASSWORD),
         is_active=True,
     )
-    db_session.add_all([admin, operator])
+    # A manager: read/analytics pages, but NO review.edit_status / admin actions.
+    manager = User(
+        name="Manager User",
+        email=MANAGER_EMAIL,
+        role=None,
+        role_id=roles["manager"].id,
+        password_hash=hash_password(MANAGER_PASSWORD),
+        is_active=True,
+    )
+    db_session.add_all([admin, operator, manager])
     db_session.commit()
-    return {"admin": admin, "operator": operator}
+    return {"admin": admin, "operator": operator, "manager": manager}
 
 
 @pytest.fixture()
@@ -125,7 +136,15 @@ def admin_client(client, seed_users):
 
 @pytest.fixture()
 def operator_client(client, seed_users):
-    """TestClient authenticated as a read-only review_operator."""
+    """TestClient authenticated as a call_center user (reviews + edit status)."""
     resp = client.post("/api/auth/login", json={"email": OPERATOR_EMAIL, "password": OPERATOR_PASSWORD})
+    assert resp.status_code == 200, resp.text
+    return client
+
+
+@pytest.fixture()
+def manager_client(client, seed_users):
+    """TestClient authenticated as a manager (read/analytics, no write actions)."""
+    resp = client.post("/api/auth/login", json={"email": MANAGER_EMAIL, "password": MANAGER_PASSWORD})
     assert resp.status_code == 200, resp.text
     return client

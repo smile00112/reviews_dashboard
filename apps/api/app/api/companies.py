@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
 from app.schemas.company import (
     BranchCityGroup,
@@ -44,7 +44,7 @@ def list_companies(
 def create_company(
     payload: CompanyCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:company.manage")),
 ) -> CompanyResponse:
     service = CompanyService(db)
     return _to_response(service, service.create(payload))
@@ -68,7 +68,7 @@ def update_company(
     company_id: UUID,
     payload: CompanyUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:company.manage")),
 ) -> CompanyResponse:
     service = CompanyService(db)
     company = service.update(company_id, payload)
@@ -81,7 +81,7 @@ def update_company(
 def delete_company(
     company_id: UUID,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:company.manage")),
 ) -> None:
     if not CompanyService(db).delete(company_id):
         raise HTTPException(status_code=404, detail="Company not found")

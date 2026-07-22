@@ -20,34 +20,39 @@ const ROLE_LABEL: Record<string, string> = {
   manager: "Менеджер",
 };
 
-const NAV: { group: string; items: { href: string; label: string; icon: string }[] }[] = [
+type NavItem = { href: string; label: string; icon: string; page: string };
+
+const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Обзор",
     items: [
-      { href: "/overview", label: "Обзор сети", icon: "⚡" },
-      { href: "/ratings", label: "Рейтинги", icon: "⭐" },
+      { href: "/overview", label: "Обзор сети", icon: "⚡", page: "overview" },
+      { href: "/ratings", label: "Рейтинги", icon: "⭐", page: "ratings" },
     ],
   },
   {
     group: "Управление",
     items: [
-      { href: "/companies", label: "Организации", icon: "🏢" },
-      { href: "/organizations", label: "Все филиалы", icon: "📍" },
+      { href: "/companies", label: "Организации", icon: "🏢", page: "companies" },
+      { href: "/organizations", label: "Все филиалы", icon: "📍", page: "organizations" },
     ],
   },
   {
     group: "Аналитика",
     items: [
-      { href: "/reviews", label: "Отзывы", icon: "💬" },
-      { href: "/scrape-runs", label: "История сборов", icon: "🗂" },
-      { href: "/jobs", label: "Фоновые задачи", icon: "⏱" },
-      { href: "/attention-rules", label: "Правила внимания", icon: "⚡" },
-      { href: "/http-scraper", label: "HTTP-парсер", icon: "🔧" },
+      { href: "/reviews", label: "Отзывы", icon: "💬", page: "reviews" },
+      { href: "/scrape-runs", label: "История сборов", icon: "🗂", page: "scrape_runs" },
+      { href: "/jobs", label: "Фоновые задачи", icon: "⏱", page: "jobs" },
+      { href: "/attention-rules", label: "Правила внимания", icon: "⚡", page: "attention_rules" },
+      { href: "/http-scraper", label: "HTTP-парсер", icon: "🔧", page: "http_scraper" },
     ],
   },
   {
     group: "Система",
-    items: [{ href: "/settings", label: "Настройки", icon: "⚙" }],
+    items: [
+      { href: "/settings", label: "Настройки", icon: "⚙", page: "settings" },
+      { href: "/settings/roles", label: "Роли и доступ", icon: "🔑", page: "roles" },
+    ],
   },
 ];
 
@@ -75,12 +80,17 @@ export function Sidebar({ user }: { user: CurrentUser }) {
         </div>
       </div>
       <nav className="flex-1 px-3 pt-5">
-        {NAV.map((group) => (
+        {NAV.map((group) => {
+          const items = group.items.filter((item) =>
+            user.permissions.includes(`page:${item.page}`),
+          );
+          if (items.length === 0) return null;
+          return (
           <div key={group.group} className="mb-6">
             <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-text-faint">
               {group.group}
             </div>
-            {group.items.map((item) => {
+            {items.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
@@ -98,7 +108,8 @@ export function Sidebar({ user }: { user: CurrentUser }) {
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </nav>
       <div className="mt-auto border-t border-border px-3 pt-4">
         <div className="mb-2 flex items-center gap-2.5 rounded-lg bg-surface-2 px-3 py-1.5">

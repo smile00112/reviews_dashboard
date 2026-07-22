@@ -11,12 +11,12 @@ import {
 } from "@/lib/api";
 import type { Company, CompanyBranches, Organization } from "@/lib/types";
 import { BranchForm } from "@/components/branch-form";
-import { useIsAdmin } from "@/components/shell/user-context";
+import { useCan } from "@/components/shell/user-context";
 
 export default function CompanyDetailPage() {
   const params = useParams<{ id: string }>();
   const companyId = params.id;
-  const isAdmin = useIsAdmin();
+  const isAdmin = useCan("action:org.manage");
 
   const [company, setCompany] = useState<Company | null>(null);
   const [branches, setBranches] = useState<CompanyBranches | null>(null);

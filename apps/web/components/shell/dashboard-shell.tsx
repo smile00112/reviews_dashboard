@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getMe } from "@/lib/api";
 import type { CurrentUser } from "@/lib/types";
+import { canAccessPage, firstAllowedPath, pageForPath } from "@/lib/pages";
 import { UserContext } from "./user-context";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -16,6 +17,7 @@ import { Topbar } from "./topbar";
  */
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "denied">("loading");
 
@@ -37,10 +39,31 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, [router]);
 
+  // Page-permission entry guard (feature 016): a user who lacks the current
+  // page's permission is bounced to their first allowed page. The backend still
+  // authoritatively gates every action; this keeps the UI coherent.
+  const requiredPage = pageForPath(pathname);
+  const pageDenied =
+    user !== null && requiredPage !== null && !canAccessPage(user, requiredPage);
+
+  useEffect(() => {
+    if (!pageDenied || !user) return;
+    const target = firstAllowedPath(user);
+    router.replace(target ?? "/login");
+  }, [pageDenied, user, router]);
+
   if (state !== "ready" || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center text-text-faint">
         {state === "denied" ? "Перенаправление…" : "Загрузка…"}
+      </div>
+    );
+  }
+
+  if (pageDenied) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-text-faint">
+        Нет доступа к этой странице…
       </div>
     );
   }

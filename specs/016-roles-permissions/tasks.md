@@ -70,9 +70,9 @@ and `/api/auth/me` payload — everything all four stories build on.
 
 **Independent Test**: Grant Call Center a page subset; that role's user sees only those nav items and is refused other pages.
 
-- [ ] T014 [P] [US1] Test in `apps/api/tests/test_auth_me_permissions.py`: `/api/auth/me` returns the exact effective `permissions[]` per seeded role; admin returns full catalog. (Fail first.)
-- [ ] T015 [US1] Sidebar page gating in `apps/web/components/shell/sidebar.tsx`: filter `NAV` items by `useCanPage(...)`; hide empty groups.
-- [ ] T016 [US1] Server-side page entry guard for gated pages (`apps/web/app/(dashboard)/**/page.tsx` as needed): read `/api/auth/me`, redirect/404 when the page's `page:*` permission is absent. Start with the sensitive pages (settings, jobs, http_scraper, scrape_runs); apply the shared helper to the rest.
+- [X] T014 [P] [US1] Test in `apps/api/tests/test_auth_me_permissions.py`: `/api/auth/me` returns the exact effective `permissions[]` per seeded role; admin returns full catalog. (Fail first.)
+- [X] T015 [US1] Sidebar page gating in `apps/web/components/shell/sidebar.tsx`: filter `NAV` items by `useCanPage(...)`; hide empty groups.
+- [X] T016 [US1] Server-side page entry guard for gated pages (`apps/web/app/(dashboard)/**/page.tsx` as needed): read `/api/auth/me`, redirect/404 when the page's `page:*` permission is absent. Start with the sensitive pages (settings, jobs, http_scraper, scrape_runs); apply the shared helper to the rest.
 - [ ] T017 [US1] E2E in `apps/web/tests/roles.spec.ts` (part 1): admin grants a role a page subset, sign in as that role, assert nav shows only granted pages and a direct URL to a non-granted page is refused. (Depends on US3 roles UI for the grant step — until then, seed grants via API/DB in the test setup.)
 
 **Checkpoint**: Page access is gated by nav + entry guard, driven by effective permissions.
@@ -85,10 +85,10 @@ and `/api/auth/me` payload — everything all four stories build on.
 
 **Independent Test**: A role with `page:reviews` but not `action:review.edit_status` reads reviews but cannot change status (control hidden; PATCH → 403).
 
-- [ ] T018 [P] [US2] RBAC enforcement tests in `apps/api/tests/test_rbac_permissions.py`: for each action gate (org.manage, company.manage, scrape.run, job.manage, review.edit_status, attention.manage, settings.edit, scraper_session.manage), assert allow (granted/admin), deny (403 without grant), and 401 unauthenticated. (Fail first.)
-- [ ] T019 [US2] Re-point endpoint guards to `require_permission(...)` per the data-model.md route map: `organizations.py`, `companies.py`, `scrape_runs.py`, `scraper_sessions.py`, `jobs.py`, `reviews.py` (PATCH), `attention_rules.py`, `settings.py` — replacing the current `require_admin`.
-- [ ] T020 [US2] Update `apps/api/tests/test_scrape_endpoints_require_admin.py` and `apps/api/tests/test_rbac.py` to the permission model (rename/retarget assertions; keep coverage of the admin-allowed path).
-- [ ] T021 [P] [US2] Frontend action gating: wrap mutating controls in `useCan(...)` — review status/escalate controls (`apps/web/app/(dashboard)/reviews/…` + components), scrape triggers, job run/update, attention-rule and settings write buttons.
+- [X] T018 [P] [US2] RBAC enforcement tests in `apps/api/tests/test_rbac_permissions.py`: for each action gate (org.manage, company.manage, scrape.run, job.manage, review.edit_status, attention.manage, settings.edit, scraper_session.manage), assert allow (granted/admin), deny (403 without grant), and 401 unauthenticated. (Fail first.)
+- [X] T019 [US2] Re-point endpoint guards to `require_permission(...)` per the data-model.md route map: `organizations.py`, `companies.py`, `scrape_runs.py`, `scraper_sessions.py`, `jobs.py`, `reviews.py` (PATCH), `attention_rules.py`, `settings.py` — replacing the current `require_admin`.
+- [X] T020 [US2] Update `apps/api/tests/test_scrape_endpoints_require_admin.py` and `apps/api/tests/test_rbac.py` to the permission model (rename/retarget assertions; keep coverage of the admin-allowed path).
+- [X] T021 [P] [US2] Frontend action gating: wrap mutating controls in `useCan(...)` — review status/escalate controls (`apps/web/app/(dashboard)/reviews/…` + components), scrape triggers, job run/update, attention-rule and settings write buttons.
 - [ ] T022 [US2] Extend `apps/web/tests/roles.spec.ts` (part 2): role with page but not action — control hidden and a direct mutating request is refused (403); after admin grants the action, control appears and succeeds.
 
 **Checkpoint**: Actions are enforced server-side and mirrored in the UI.

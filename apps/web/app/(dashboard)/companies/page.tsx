@@ -5,10 +5,10 @@ import Link from "next/link";
 import { deleteCompany, listCompanies } from "@/lib/api";
 import type { Company } from "@/lib/types";
 import { CompanyForm } from "@/components/company-form";
-import { useIsAdmin } from "@/components/shell/user-context";
+import { useCan } from "@/components/shell/user-context";
 
 export default function CompaniesPage() {
-  const isAdmin = useIsAdmin();
+  const isAdmin = useCan("action:company.manage");
   const [companies, setCompanies] = useState<Company[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

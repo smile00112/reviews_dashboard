@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
 from app.schemas.settings import SettingsResponse, SettingsUpdate
 from app.services.settings_service import SLA_KEY, SettingsService
@@ -25,7 +25,7 @@ def get_settings(
 def update_settings(
     payload: SettingsUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    _perm=Depends(require_permission("action:settings.edit")),
 ) -> SettingsResponse:
     svc = SettingsService(db)
     svc.set(SLA_KEY, payload.overview_sla_threshold_minutes)

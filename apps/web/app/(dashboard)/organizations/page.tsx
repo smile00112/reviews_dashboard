@@ -11,6 +11,7 @@ import type { Organization, ScrapeMode, SessionInfo } from "@/lib/types";
 import { ModeSelect } from "@/components/mode-select";
 import { OrganizationForm } from "@/components/organization-form";
 import { OrganizationsTable } from "@/components/organizations-table";
+import { useCan } from "@/components/shell/user-context";
 
 const PAGE_SIZE = 25;
 
@@ -24,6 +25,9 @@ function plural(n: number, one: string, few: string, many: string): string {
 }
 
 export default function OrganizationsPage() {
+  const canScrape = useCan("action:scrape.run");
+  const canManageSession = useCan("action:scraper_session.manage");
+  const canManageOrg = useCan("action:org.manage");
   const [items, setItems] = useState<Organization[]>([]);
   const [total, setTotal] = useState(0);
   const [bulkMode, setBulkMode] = useState<ScrapeMode>("public");
@@ -110,19 +114,22 @@ export default function OrganizationsPage() {
             {total} {plural(total, "точка", "точки", "точек")} в мониторинге
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <ModeSelect value={bulkMode} onChange={setBulkMode} />
-          <button
-            type="button"
-            onClick={handleScrapeAll}
-            disabled={loading || total === 0}
-            className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-bg transition-colors hover:bg-accent-dim disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-          >
-            {loading ? "Обновление…" : "Обновить все"}
-          </button>
-        </div>
+        {canScrape && (
+          <div className="flex items-center gap-2">
+            <ModeSelect value={bulkMode} onChange={setBulkMode} />
+            <button
+              type="button"
+              onClick={handleScrapeAll}
+              disabled={loading || total === 0}
+              className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-bg transition-colors hover:bg-accent-dim disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            >
+              {loading ? "Обновление…" : "Обновить все"}
+            </button>
+          </div>
+        )}
       </div>
 
+      {canManageSession && (
       <section className="rounded-2xl border border-border bg-surface p-[22px]">
         <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-text-faint">
           Сессия Yandex (operator_auth)
@@ -144,8 +151,9 @@ export default function OrganizationsPage() {
         </button>
         {sessionMessage && <p className="mt-2 text-sm text-text-dim">{sessionMessage}</p>}
       </section>
+      )}
 
-      <OrganizationForm onCreated={refresh} />
+      {canManageOrg && <OrganizationForm onCreated={refresh} />}
       <OrganizationsTable
         items={items}
         total={total}
