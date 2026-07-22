@@ -1,23 +1,32 @@
 <!--
 Sync Impact Report
-Version change: 1.3.0 → 1.4.0
+Version change: 1.4.0 → 1.5.0
 Modified principles:
-  - I. MVP Scope Discipline — custom Next.js control panel + Company parent entity
-    added as in-scope (v1.4.0)
-  - VII. Admin Panel Security — extended to cover a custom Next.js control panel that
-    MUST reuse the same feature-004 auth (users/roles/bcrypt/session) and RBAC; no
-    second auth system
+  - VII. Admin Panel Security → Admin Panel Security & Configurable RBAC — the fixed
+    two-role model (admin/review_operator) is replaced by an admin-managed configurable
+    role system: a `roles` table + `role_permissions` grant matrix + `users.role_id` FK.
+    Backend is the enforcement source of truth (a `require_permission` dependency, 403 on
+    deny); the frontend mirrors permissions from `/api/auth/me` for UX only. `admin` is an
+    immutable `is_system` role with full access that cannot be deleted or downgraded.
+    Both page-level and action-level permissions are in scope. Single shared auth system
+    preserved (users/bcrypt/ADMIN_SECRET_KEY session cookie) — no second auth system.
+  - III. Critical-Path Testing — "role-based access per view" generalized to
+    "permission-based access per page and per action"; role CRUD guards must be tested.
 Added sections:
-  - MVP Scope Boundaries — "Company" additive parent entity above organizations;
-    custom authenticated Next.js control panel (login + admin cabinet + Company/Branch
-    management) added to in-scope
-Modified sections: None (dedup contract build_review_hash / uq_review_org_hash unchanged)
+  - MVP Scope Boundaries — configurable roles/permissions (feature 016) added to in-scope.
+Modified sections: None (dedup contract build_review_hash / uq_review_org_hash unchanged;
+  Read-Only Principle II unchanged — posting replies stays out of scope)
 Removed sections: None
 Templates requiring updates:
   ✅ .specify/templates/plan-template.md — Constitution Check section aligns (no changes needed)
   ✅ .specify/templates/spec-template.md — scope alignment verified (no changes needed)
   ✅ .specify/templates/tasks-template.md — task categorization aligns (no changes needed)
-Follow-up TODOs: Feature 008 (admin-dashboard) spec/plan to cite Principles I & VII.
+Follow-up TODOs: Feature 016 (roles-permissions) spec/plan to cite Principles III & VII.
+
+Prior report (1.3.0 → 1.4.0):
+  - I. MVP Scope Discipline — custom Next.js control panel + Company parent entity added.
+  - VII. Admin Panel Security — extended to cover a custom Next.js control panel reusing
+    the feature-004 auth; no second auth system.
 -->
 
 # ReviewsDashboard Constitution
@@ -36,7 +45,8 @@ Principle VII) is in scope as of v1.2.0. 2GIS review collection via its public r
 API (see Principle VIII) is in scope as of v1.3.0; Google Maps remains excluded. A custom
 authenticated Next.js control panel (login + admin cabinet + Company/Branch management)
 and a `Company` additive parent entity above organizations (see Principle VII) are in
-scope as of v1.4.0.
+scope as of v1.4.0. An admin-managed configurable role/permission system (custom roles +
+page/action permission matrix, see Principle VII) is in scope as of v1.5.0.
 
 **Rationale**: The product is an internal read-only review collector; scope creep delays
 the first working vertical slice.
@@ -55,9 +65,11 @@ page or provider API, but the product MUST NOT act as a reply management tool.
 Business-critical logic MUST have automated tests before merge: review deduplication,
 review content normalization/hash generation, organization and scrape-run API contracts,
 and scraper result persistence. UI smoke tests SHOULD cover the primary dashboard flows.
-Admin panel RBAC rules MUST be covered by automated tests (auth success/failure,
-role-based access per view). Full TDD for every file is NOT required; tests MUST cover
-logic that would cause data loss, duplicate reviews, or silent scrape failures.
+RBAC rules MUST be covered by automated tests: auth success/failure, permission-based
+access per page and per action (allow/deny/403), and role-management guards (a system role
+cannot be deleted or downgraded; a role bound to users cannot be deleted). Full TDD for
+every file is NOT required; tests MUST cover logic that would cause data loss, duplicate
+reviews, silent scrape failures, or RBAC bypasses.
 
 **Rationale**: Duplicate reviews, lost scrape results, and RBAC bypasses are the
 highest-impact failure modes for this product.
@@ -94,34 +106,47 @@ scraped review text, rating, or dedup hash inputs.
 **Rationale**: Rule-based analytics give operators actionable insight with no new
 infrastructure, no per-call cost, and no platform/ToS risk.
 
-### VII. Admin Panel Security
+### VII. Admin Panel Security & Configurable RBAC
 
 The internal admin panel (sqladmin, mounted at `/admin`) MUST enforce authentication
 before any view is accessible. Passwords MUST be stored only as bcrypt hashes; plaintext
 passwords MUST NOT appear in code, logs, or API responses. The session secret key MUST
-come from an environment variable (`ADMIN_SECRET_KEY`) and MUST NOT be hardcoded.
-RBAC MUST be enforced at the view layer via `is_accessible`/`is_visible` and
-`can_create`/`can_edit`/`can_delete` on every `ModelView`. Two roles are defined for
-this iteration: `admin` (full CRUD everywhere) and `review_operator` (read-only on
-organizations, read+edit on reviews, no access to user management). The admin panel is
-additive: it MUST NOT modify existing API routes, scraper logic, or ORM models beyond
-additive column additions. The application MUST start cleanly after each implementation
-phase.
+come from an environment variable (`ADMIN_SECRET_KEY`) and MUST NOT be hardcoded. The
+sqladmin panel's own view-layer RBAC (`is_accessible`/`can_create`/`can_edit`/`can_delete`)
+gates on whether the signed-in user holds the `admin` role. The admin panel is additive:
+it MUST NOT modify existing API routes, scraper logic, or ORM models beyond additive
+column additions. The application MUST start cleanly after each implementation phase.
 
-As of v1.4.0 a custom Next.js control panel (login + admin cabinet + Company/Branch
-management) is permitted. It MUST reuse the SAME authentication system as the sqladmin
-panel — the existing `users` table, `UserRole` roles, bcrypt hashes, and the session
-cookie signed with `ADMIN_SECRET_KEY`; introducing a second auth system (e.g. a parallel
-JWT identity store) is FORBIDDEN. It MUST enforce the same RBAC: `admin` = full CRUD,
-`review_operator` = read-only. Management (write) API routes it consumes MUST be guarded
-by a server-side authentication dependency; unauthenticated requests MUST receive 401.
-The control panel and its `Company` parent entity are additive: ORM changes stay
-additive-only, and the reviews deduplication contract (`build_review_hash`,
-`uq_review_org_hash`) MUST remain unchanged — `organizations` stays the scrape/dedup unit.
+**Configurable roles & permissions (v1.5.0).** Roles are no longer a fixed two-value
+enum. They live in a `roles` table (admin-managed) with a `role_permissions` grant matrix
+and a `users.role_id` foreign key. Two permission granularities are defined and both are
+in scope: **page** permissions (access to a control-panel page) and **action**
+permissions (performing a specific operation, e.g. running a scrape or editing a review's
+status). Posting/editing replies on any provider remains out of scope (Principle II) and
+MUST NOT be introduced as an action permission. The following invariants are
+NON-NEGOTIABLE:
+
+- **Backend is the source of truth.** Every protected route MUST be guarded by a
+  server-side permission dependency (`require_permission(<permission>)`) that returns 403
+  on deny and 401 when unauthenticated. The frontend MAY hide navigation items, buttons,
+  and other UI elements it lacks permission for, but this is UX only and MUST NOT be the
+  sole enforcement — the API MUST reject the request regardless of what the UI shows.
+- **`admin` is immutable.** A single `is_system` role named `admin` always resolves to
+  full access, and MUST NOT be deletable, renamable, or have any permission revoked.
+  A role bound to one or more users MUST NOT be deletable.
+- **One shared auth system.** Roles reuse the existing `users` table, bcrypt hashes, and
+  the `ADMIN_SECRET_KEY`-signed session cookie. Introducing a second auth system (e.g. a
+  parallel JWT identity store) is FORBIDDEN. `/api/auth/me` MUST expose the caller's role
+  and effective permission set so the frontend can mirror access decisions.
+- **Additive & dedup-frozen.** ORM changes stay additive-only; the reviews deduplication
+  contract (`build_review_hash`, `uq_review_org_hash`) MUST remain unchanged —
+  `organizations` stays the scrape/dedup unit.
 
 **Rationale**: The panel exposes all collected data and scrape controls; authentication
-and RBAC protect it from unauthorized access in a shared internal environment. Reusing one
-auth system and keeping the dedup contract frozen makes the richer UI additive and low-risk.
+and server-enforced permissions protect it from unauthorized access in a shared internal
+environment. A configurable matrix lets a small operator team shape access (admin, call
+center, manager, …) without code changes, while an immutable `admin` role and a single
+auth system keep the system recoverable and low-risk.
 
 ### VIII. Multi-Provider Collection
 
@@ -150,11 +175,15 @@ panel with authentication and role-based access control (admin + review_operator
 Principle VII, 2GIS review collection via its public reviews API (catalog + reviews
 endpoints) per Principle VIII, a `Company` additive parent entity grouping organizations
 (branches) by city, and a custom authenticated Next.js control panel (login + admin
-cabinet + Company/Branch CRUD) reusing the Principle VII auth per v1.4.0.
+cabinet + Company/Branch CRUD) reusing the Principle VII auth per v1.4.0. An admin-managed
+configurable role/permission system (custom roles, page + action permission matrix,
+`/settings/roles` management UI, `require_permission` backend enforcement) per Principle
+VII is in scope as of v1.5.0.
 
-**Out of scope**: Posting replies, Google Maps and other map providers (except Yandex
-and 2GIS), LLM/external-ML analysis, real-time notifications, TimescaleDB, forced
-captcha bypass, a second/parallel authentication system, and changes to the review
+**Out of scope**: Posting replies (including as an action permission), Google Maps and
+other map providers (except Yandex and 2GIS), LLM/external-ML analysis, real-time
+notifications, TimescaleDB, forced captcha bypass, a second/parallel authentication
+system, per-organization/per-record row-level permissions, and changes to the review
 deduplication contract.
 
 **Scale assumption**: Internal tool for a small operator team tracking on the order of
@@ -194,4 +223,4 @@ This constitution supersedes ad-hoc implementation choices. Amendments require:
 Compliance review: every plan MUST include a Constitution Check gate; violations MUST be
 documented in Complexity Tracking with rejected simpler alternatives.
 
-**Version**: 1.4.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-07-07
+**Version**: 1.5.0 | **Ratified**: 2026-06-14 | **Last Amended**: 2026-07-22
