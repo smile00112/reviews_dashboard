@@ -373,9 +373,12 @@ export interface TrendSeries {
   points: (number | null)[];
 }
 
+export type TrendGranularity = "day" | "week" | "month";
+
 export interface TrendBlock {
   labels: string[];
   series: TrendSeries[];
+  granularity?: TrendGranularity;
 }
 
 export interface ResponseSpeedBlock {

@@ -6,6 +6,7 @@ be computed (rendered as "—" / "нет данных" by the frontend).
 """
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -170,6 +171,7 @@ class TrendSeries(BaseModel):
 class TrendBlock(BaseModel):
     labels: list[str]
     series: list[TrendSeries]
+    granularity: Literal["day", "week", "month"] = "month"
 
 
 class ResponseSpeedBlock(BaseModel):

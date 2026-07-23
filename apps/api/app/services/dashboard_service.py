@@ -1009,6 +1009,28 @@ class DashboardService:
             return func.strftime("%Y-W%W", column)
         return func.to_char(column, 'IYYY"-W"IW')
 
+    def _day_key_expr(self, column):
+        """``YYYY-MM-DD`` bucket key for a date column, per dialect."""
+        if self.db.get_bind().dialect.name == "sqlite":
+            return func.strftime("%Y-%m-%d", column)
+        return func.to_char(column, "YYYY-MM-DD")
+
+    @staticmethod
+    def _trend_granularity(days: int | None) -> str:
+        """Bucket width for the snapshot trend charts, scaled to the window.
+
+        A fixed monthly bucket looks fine over a year but collapses a 90-day
+        (or shorter) selection into 1-3 bars. ``days is None`` means an
+        open-ended range (``all``/unbounded custom) -> stay monthly.
+        """
+        if days is None:
+            return "month"
+        if days <= 14:
+            return "day"
+        if days <= 180:
+            return "week"
+        return "month"
+
     def _weekday_expr(self, column):
         """Weekday index normalized to 0 = Monday .. 6 = Sunday, per dialect."""
         if self.db.get_bind().dialect.name == "sqlite":
@@ -1062,7 +1084,7 @@ class DashboardService:
             "platform_distribution": self._platform_distribution(
                 orgs, scope, page_platforms, cutoff, until
             ),
-            **self._snapshot_trends(selected_ids, page_platforms, cutoff, until),
+            **self._snapshot_trends(selected_ids, page_platforms, cutoff, until, days),
             "response_speed": self._response_speed_weekly(
                 scope, platform, cutoff, until, sla_minutes
             ),
@@ -1200,19 +1222,27 @@ class DashboardService:
         page_platforms: list[ReviewPlatform],
         cutoff: datetime | None,
         until: date | None,
+        days: int | None = None,
     ) -> dict:
-        """Monthly average-rating and review-volume series per platform.
+        """Average-rating and review-volume series per platform, bucketed by period length.
 
         Sourced from ``rating_snapshot``, not from live review counts: a bulk
         import stamps the whole backlog with one ``first_seen_at``, which would
         distort a review-derived volume trend (the same reason
-        ``_published_expr`` exists). Within a month the **latest** snapshot per
-        (organization, platform) is the month's reading; those are then
+        ``_published_expr`` exists). Bucket width scales with the selected
+        window (``_trend_granularity``) so a 90-day range isn't squashed into
+        1-3 monthly bars. Within a bucket the **latest** snapshot per
+        (organization, platform) is the bucket's reading; those are then
         aggregated across the selected organizations — volume summed, rating
-        weighted by review_count. Months with no snapshot for a platform stay
+        weighted by review_count. Buckets with no snapshot for a platform stay
         ``None`` (a gap in the line), never 0.
         """
-        month = self._month_key_expr(RatingSnapshot.captured_on)
+        granularity = self._trend_granularity(days)
+        bucket_expr = {
+            "day": self._day_key_expr,
+            "week": self._week_key_expr,
+            "month": self._month_key_expr,
+        }[granularity](RatingSnapshot.captured_on)
         filters = [
             RatingSnapshot.organization_id.in_(org_ids),
             RatingSnapshot.platform.in_(page_platforms),
@@ -1222,25 +1252,25 @@ class DashboardService:
         if until is not None:
             filters.append(RatingSnapshot.captured_on <= until)
 
-        # Latest capture day per (org, platform, month) ...
+        # Latest capture day per (org, platform, bucket) ...
         latest = (
             self.db.query(
                 RatingSnapshot.organization_id.label("org_id"),
                 RatingSnapshot.platform.label("platform"),
-                month.label("month"),
+                bucket_expr.label("bucket"),
                 func.max(RatingSnapshot.captured_on).label("last_day"),
             )
             .filter(*filters)
-            .group_by(RatingSnapshot.organization_id, RatingSnapshot.platform, month)
+            .group_by(RatingSnapshot.organization_id, RatingSnapshot.platform, bucket_expr)
             .subquery()
         )
-        # ... folded to one row per (month, platform) so the result set stays
-        # bounded by months x platforms regardless of organization count.
+        # ... folded to one row per (bucket, platform) so the result set stays
+        # bounded by buckets x platforms regardless of organization count.
         weight = func.coalesce(RatingSnapshot.review_count, 1)
         rated = RatingSnapshot.rating.isnot(None)
         rows = (
             self.db.query(
-                latest.c.month.label("month"),
+                latest.c.bucket.label("bucket"),
                 RatingSnapshot.platform.label("platform"),
                 func.sum(case((rated, RatingSnapshot.rating * weight))).label("rating_num"),
                 func.sum(case((rated, weight))).label("rating_den"),
@@ -1254,25 +1284,25 @@ class DashboardService:
                     RatingSnapshot.captured_on == latest.c.last_day,
                 ),
             )
-            .group_by(latest.c.month, RatingSnapshot.platform)
+            .group_by(latest.c.bucket, RatingSnapshot.platform)
             .all()
         )
 
         ratings: dict[tuple[str, ReviewPlatform], float] = {}
         volumes: dict[tuple[str, ReviewPlatform], int] = {}
-        months: set[str] = set()
+        buckets: set[str] = set()
         for row in rows:
-            months.add(row.month)
+            buckets.add(row.bucket)
             den = float(row.rating_den or 0)
             if den:
-                ratings[(row.month, row.platform)] = round(float(row.rating_num) / den, 2)
-            volumes[(row.month, row.platform)] = int(row.volume or 0)
+                ratings[(row.bucket, row.platform)] = round(float(row.rating_num) / den, 2)
+            volumes[(row.bucket, row.platform)] = int(row.volume or 0)
 
-        labels = sorted(months)
+        labels = sorted(buckets)
         if not labels:
             return {
-                "rating_trend": {"labels": [], "series": []},
-                "volume_trend": {"labels": [], "series": []},
+                "rating_trend": {"labels": [], "series": [], "granularity": granularity},
+                "volume_trend": {"labels": [], "series": [], "granularity": granularity},
             }
 
         # Only platforms that actually have history get a series — an all-None
@@ -1292,8 +1322,8 @@ class DashboardService:
             return series
 
         return {
-            "rating_trend": {"labels": labels, "series": build(ratings)},
-            "volume_trend": {"labels": labels, "series": build(volumes)},
+            "rating_trend": {"labels": labels, "series": build(ratings), "granularity": granularity},
+            "volume_trend": {"labels": labels, "series": build(volumes), "granularity": granularity},
         }
 
     def _response_speed_weekly(
