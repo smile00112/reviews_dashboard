@@ -134,14 +134,24 @@ export function OrganizationsTable({
           </thead>
           <tbody>
             {items.map((org) => (
-              <tr key={org.id} className="transition-colors hover:bg-surface-2">
+              <tr
+                key={org.id}
+                className={`transition-colors ${
+                  org.is_active ? "hover:bg-surface-2" : "bg-warn/[0.07] hover:bg-warn/10"
+                }`}
+              >
                 <td className="border-b border-border px-3 py-3">
                   <Link
                     href={`/organizations/${org.id}`}
-                    className="font-medium text-text hover:text-accent"
+                    className={`font-medium hover:text-accent ${org.is_active ? "text-text" : "text-text-dim"}`}
                   >
                     {org.name ?? "—"}
                   </Link>
+                  {!org.is_active && (
+                    <span className="ml-2 rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warn">
+                      Неактивна
+                    </span>
+                  )}
                 </td>
                 <td className="border-b border-border px-3 py-3">
                   <PlatformCell

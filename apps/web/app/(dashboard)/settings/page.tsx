@@ -5,6 +5,7 @@ import { getSettings } from "@/lib/api";
 import type { Settings } from "@/lib/types";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { YandexConnection } from "@/components/settings/yandex-connection";
+import { TwogisConnection } from "@/components/settings/twogis-connection";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -26,6 +27,7 @@ export default function SettingsPage() {
       {error && <div className="text-sm text-bad">{error}</div>}
       {settings && <SettingsForm initial={settings} />}
       <YandexConnection />
+      <TwogisConnection />
     </div>
   );
 }

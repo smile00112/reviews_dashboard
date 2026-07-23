@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     twogis_page_size: int = 50
     twogis_request_delay_seconds: float = 0.3
 
+    # 2GIS business-cabinet session (feature 017). The cabinet API authenticates with
+    # an `Authorization: Bearer <access token>` header plus a static `x-api-key` (the
+    # web client's `lkApiKeyWeb`) — not cookies. The operator pastes the Bearer token
+    # (from a DevTools request to api.account.2gis.com); it is stored like the Yandex
+    # session and verified against GET /users. Not consumed by any scraper/job yet.
+    twogis_storage_state_path: str = ".local/twogis-storage-state.json"
+    twogis_lk_api_key: str = "accweb96f8"
+
     # Rotating HTTP proxy pool (feature: 2GIS proxy rotation). Replaces the exhausted
     # ScrapeOps proxy for the requests-based 2GIS transport. Credentials live only in
     # .env (constitution VIII) — never commit a populated value. Comma-separated list

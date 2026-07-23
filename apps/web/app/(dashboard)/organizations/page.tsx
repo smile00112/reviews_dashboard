@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   checkSession,
+  listCompanies,
   listOrganizationsPage,
   loginYandex,
   scrapeAll,
 } from "@/lib/api";
-import type { Organization, ScrapeMode, SessionInfo } from "@/lib/types";
+import type { Company, Organization, ScrapeMode, SessionInfo } from "@/lib/types";
 import { ModeSelect } from "@/components/mode-select";
 import { OrganizationForm } from "@/components/organization-form";
 import { OrganizationsTable } from "@/components/organizations-table";
@@ -30,6 +31,8 @@ export default function OrganizationsPage() {
   const canManageOrg = useCan("action:org.manage");
   const [items, setItems] = useState<Organization[]>([]);
   const [total, setTotal] = useState(0);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState<string>("");
   const [bulkMode, setBulkMode] = useState<ScrapeMode>("public");
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
@@ -41,19 +44,23 @@ export default function OrganizationsPage() {
   const refresh = useCallback(async () => {
     const windowSize = Math.max(items.length, PAGE_SIZE);
     const [page, sessionInfo] = await Promise.all([
-      listOrganizationsPage({ limit: windowSize, offset: 0 }),
+      listOrganizationsPage({ limit: windowSize, offset: 0, companyId: companyId || undefined }),
       getSessionSafe(),
     ]);
     setItems(page.items);
     setTotal(page.total);
     setSession(sessionInfo);
-  }, [items.length]);
+  }, [items.length, companyId]);
 
   // Fetch the next page and append.
   async function loadMore() {
     setLoadingMore(true);
     try {
-      const page = await listOrganizationsPage({ limit: PAGE_SIZE, offset: items.length });
+      const page = await listOrganizationsPage({
+        limit: PAGE_SIZE,
+        offset: items.length,
+        companyId: companyId || undefined,
+      });
       setItems((prev) => [...prev, ...page.items]);
       setTotal(page.total);
     } finally {
@@ -69,11 +76,15 @@ export default function OrganizationsPage() {
     }
   }
 
-  // First load only — refresh() re-runs on every items.length change, but we
-  // want the initial page fetched exactly once.
+  // Companies for the filter dropdown (fetched once).
+  useEffect(() => {
+    listCompanies().then(setCompanies).catch(console.error);
+  }, []);
+
+  // Fetch the first page on mount and whenever the company filter changes.
   useEffect(() => {
     Promise.all([
-      listOrganizationsPage({ limit: PAGE_SIZE, offset: 0 }),
+      listOrganizationsPage({ limit: PAGE_SIZE, offset: 0, companyId: companyId || undefined }),
       getSessionSafe(),
     ])
       .then(([page, sessionInfo]) => {
@@ -82,7 +93,7 @@ export default function OrganizationsPage() {
         setSession(sessionInfo);
       })
       .catch(console.error);
-  }, []);
+  }, [companyId]);
 
   async function handleScrapeAll() {
     setLoading(true);
@@ -114,19 +125,33 @@ export default function OrganizationsPage() {
             {total} {plural(total, "точка", "точки", "точек")} в мониторинге
           </p>
         </div>
-        {canScrape && (
-          <div className="flex items-center gap-2">
-            <ModeSelect value={bulkMode} onChange={setBulkMode} />
-            <button
-              type="button"
-              onClick={handleScrapeAll}
-              disabled={loading || total === 0}
-              className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-bg transition-colors hover:bg-accent-dim disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-            >
-              {loading ? "Обновление…" : "Обновить все"}
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <select
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <option value="">Все компании</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.short_name ?? c.name}
+              </option>
+            ))}
+          </select>
+          {canScrape && (
+            <>
+              <ModeSelect value={bulkMode} onChange={setBulkMode} />
+              <button
+                type="button"
+                onClick={handleScrapeAll}
+                disabled={loading || total === 0}
+                className="rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-bg transition-colors hover:bg-accent-dim disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+              >
+                {loading ? "Обновление…" : "Обновить все"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {canManageSession && (

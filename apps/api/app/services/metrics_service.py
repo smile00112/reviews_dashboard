@@ -8,17 +8,21 @@
 from __future__ import annotations
 
 import enum
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models.enums import OrganizationScrapeStatus
+from app.models.enums import OrganizationScrapeStatus, ReviewPlatform
 from app.models.organization import Organization
 from app.scraper.twogis_api import TwogisApiScraper
 from app.scraper.types import ScrapeResult
 from app.scraper.yandex_http import YandexHttpScraper
 from app.scraper.yandex_scrapeops import YandexScrapeOpsScraper
+from app.services.dashboard_service import DashboardService
+
+logger = logging.getLogger(__name__)
 
 # платформа -> (url, rating, review_count, rating_count, status, success-ts)
 PLATFORM_COLUMNS: dict[str, tuple[str, str, str, str, str, str]] = {
@@ -30,6 +34,12 @@ PLATFORM_COLUMNS: dict[str, tuple[str, str, str, str, str, str]] = {
         "gis2_url", "gis2_rating", "gis2_review_count", "gis2_rating_count",
         "gis2_scrape_status", "gis2_last_successful_scrape_at",
     ),
+}
+
+# internal platform key -> ReviewPlatform (rating_snapshot uses the shared enum)
+_SNAPSHOT_PLATFORM: dict[str, ReviewPlatform] = {
+    "yandex": ReviewPlatform.yandex,
+    "2gis": ReviewPlatform.gis2,
 }
 
 
@@ -108,6 +118,12 @@ class MetricsService:
             setattr(org, rating_count_col, result.organization.rating_count)
         setattr(org, status_col, OrganizationScrapeStatus.success)
         setattr(org, ts_col, datetime.now(timezone.utc))
+
+        # Additive + best-effort: a snapshot failure must never fail the metrics refresh.
+        try:
+            DashboardService(self.db).capture_snapshot(org.id, _SNAPSHOT_PLATFORM[platform])
+        except Exception:  # noqa: BLE001 - snapshot is non-critical telemetry
+            logger.warning("snapshot capture failed org=%s platform=%s", org.id, platform, exc_info=True)
 
         payload.update(
             {

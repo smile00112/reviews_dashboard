@@ -366,6 +366,22 @@ export async function submitSessionCode(code: string): Promise<SessionInfo> {
   });
 }
 
+// --- Сессия кабинета 2ГИС (feature 017) ---
+export async function getTwogisSession(): Promise<SessionInfo> {
+  return request<SessionInfo>("/api/scraper/2gis/session");
+}
+
+export async function checkTwogisSession(): Promise<SessionInfo> {
+  return request<SessionInfo>("/api/scraper/2gis/session/check", { method: "POST" });
+}
+
+export async function importTwogisSessionCookies(cookies: string): Promise<SessionInfo> {
+  return request<SessionInfo>("/api/scraper/2gis/session/import", {
+    method: "POST",
+    body: JSON.stringify({ cookies }),
+  });
+}
+
 // --- Фоновые задачи ---
 export async function listJobs(): Promise<Job[]> {
   const data = await request<{ items: Job[] }>("/api/jobs");

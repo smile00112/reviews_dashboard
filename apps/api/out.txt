@@ -1,0 +1,29 @@
+Галерея Суши | Нижнекамск | rating=1.00 | reviews=19 | https://yandex.ru/maps/org/134989394141
+Мир Суши | Хабаровск | rating=1.00 | reviews=212 | https://yandex.ru/maps/org/mir_sushi/154761338825
+Галерея Суши | Москва | rating=1.00 | reviews=237 | https://yandex.ru/maps/org/galereya_sushi/46094733756
+Мир Суши | Киров | rating=1.00 | reviews=151 | https://yandex.ru/maps/org/mir_sushi/133862557128
+Галерея Суши | Москва | rating=1.00 | reviews=223 | https://yandex.ru/maps/org/galereya_sushi/33030357255
+Галерея Суши | Новокузнецк | rating=1.00 | reviews=346 | https://yandex.ru/maps/org/64326972958
+Spoke | Ижевск | rating=1.00 | reviews=144 | https://yandex.ru/maps/org/spoke/142230229297
+Мир Суши | Ангарск | rating=1.00 | reviews=129 | https://yandex.ru/maps/org/mir_sushi/74116086006
+Spoke | Краснодар | rating=1.00 | reviews=147 | https://yandex.ru/maps/org/spoke/23884905134
+Галерея Суши | Усолье-Сибирское | rating=1.00 | reviews=275 | https://yandex.ru/maps/org/galereya_sushi/124553562764
+Галерея Суши | Королев | rating=1.00 | reviews=254 | https://yandex.ru/maps/org/galereya_sushi/203049406826
+Spoke | Люберцы | rating=1.00 | reviews=143 | https://yandex.ru/maps/org/spoke/59580879443
+Spoke | Екатеринбург | rating=1.00 | reviews=141 | https://yandex.ru/maps/org/spoke/156905691050
+Галерея Суши | Москва | rating=1.00 | reviews=216 | https://yandex.ru/maps/org/galereya_sushi/182999140010
+Spoke | Барнаул | rating=1.00 | reviews=137 | https://yandex.ru/maps/org/spoke/170222450618
+Галерея Суши | Муравленко | rating=1.10 | reviews=9 | https://yandex.ru/maps/org/154428377066
+Галерея Суши | Новокузнецк | rating=1.20 | reviews=8 | https://yandex.ru/maps/org/204932420877
+Галерея Суши | Сыктывкар | rating=1.50 | reviews=12 | https://yandex.ru/maps/org/162694702808
+Мир Суши | Уссурийск | rating=1.70 | reviews=10 | https://yandex.ru/maps/org/mir_sushi/148414298615
+Галерея Суши | Москва | rating=1.80 | reviews=8 | https://yandex.ru/maps/org/galereya_sushi/47906027418
+Галерея Суши | Пыть-Ях | rating=1.80 | reviews=4 | https://yandex.ru/maps/org/203146105312
+Галерея Суши | Чебоксары | rating=1.90 | reviews=31 | https://yandex.ru/maps/org/227642846852
+Галерея Суши | Уссурийск | rating=1.90 | reviews=21 | https://yandex.ru/maps/org/183457912371
+Галерея Суши | Усинск | rating=2.00 | reviews=2 | https://yandex.ru/maps/org/216938763595
+Галерея Суши | Киров | rating=2.00 | reviews=140 | https://yandex.ru/maps/org/galereya_sushi/56547678327
+Spoke | Нефтеюганск | rating=2.00 | reviews=132 | https://yandex.ru/maps/org/spoke/52754001022
+Галерея Суши | Геленджик | rating=2.00 | reviews=17 | https://yandex.ru/maps/org/galereya_sushi/132007101194
+Spoke | Нижний Новгород | rating=2.00 | reviews=134 | https://yandex.ru/maps/org/spoke/85392662812
+count: 28

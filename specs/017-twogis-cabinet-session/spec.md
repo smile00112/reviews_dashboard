@@ -7,31 +7,33 @@
 ## Summary
 
 Store and verify an operator's **2GIS business-cabinet** session (`account.2gis.com`), by
-analogy with the existing Yandex operator session. Scope for now is deliberately narrow:
+analogy with the existing Yandex operator session. The cabinet authenticates with a **Bearer
+access token** (not cookies — see findings). Scope for now is deliberately narrow:
 
-- **Save** the cabinet cookies (manual import, same as Yandex).
-- **Check** the saved session against the live cabinet API.
-- A **CLI validator** so the operator can confirm login + pull one point's data from their
-  own (RU-reachable) machine.
+- **Save** the cabinet token (manual import, analogous to the Yandex cookie import).
+- **Check** the saved token against the live cabinet API (`GET /users`).
+- A **CLI validator** to confirm the token works + pull one point's data.
 
 The stored session is **not consumed by any scraper or job yet** — it is plumbing for future
 2GIS-cabinet work. No nightly job, no DB import of cabinet data, no auto-login.
 
-## Background / findings from the spike
+## Background / findings from the spike (confirmed live, HTTP 200)
 
 - The cabinet is a React SPA at `https://account.2gis.com/`; its backend API (read from the
   SPA's `window.APP_CONFIG`) is **`https://api.account.2gis.com/api/1.0`**.
-  - `GET /users` → current user. Clean **session-validity check** endpoint.
-  - `GET /orgs?fields=orgDetails` → the operator's organization list ("collect a point").
-- **Auth is cookie-based via `dg_session_token`** (the access-token cookie named in
-  `APP_CONFIG.cookie.accessToken`), *not* `spid`. A `spid`-only request returns **401** on
-  `/users` and `/orgs`. `dg_session_token` is `HttpOnly`, so JSON cookie exporters /
-  `document.cookie` can't see it — the operator must copy the raw **`Cookie:`** request header
-  from a DevTools → Network request to `api.account.2gis.com`. This is the exact same
-  constraint as Yandex's `HttpOnly` `Session_id`.
-- 2GIS **geo-walls foreign IPs** (`/external/userstatus` → 451, "Возможно, у вас включён VPN").
-  The check therefore only works from an RU/CIS-reachable network. Per decision, the check
-  connects **directly** (no proxy); validation happens on the operator's machine via the CLI.
+  - `GET /users` → current user (has `email`, `orgs`). Clean **session-validity check** endpoint.
+  - `GET /orgs?fields=orgDetails` → org list under `result.items[]` ("collect a point").
+- **Auth is a Bearer access token, NOT cookies.** The SPA sends
+  `Authorization: Bearer <access token>` plus a static `x-api-key: accweb96f8` (the
+  `lkApiKeyWeb` from `APP_CONFIG`). The `spid` cookie plays no part (a `spid`-only request is
+  401/400). Confirmed against a real operator token: `/users` and `/orgs` both return **200**
+  with real data. The token is short-lived, so an expired one → `expired` (re-import).
+  → The operator pastes the **`Authorization` value** copied from a DevTools request to
+  `api.account.2gis.com` (Network tab → Request Headers). A raw `Bearer …` line or the bare
+  token are both accepted.
+- The **API host `api.account.2gis.com` is reachable directly** even from a foreign IP (only
+  the SPA/`/external/userstatus` is geo-walled), so the check needs no proxy and works from
+  the server. No cookie/`spid` handling is needed at all.
 
 ## Non-goals
 
@@ -48,33 +50,29 @@ row is created on demand, `storage_state_path` = new setting `twogis_storage_sta
 (default `.local/twogis-storage-state.json`, gitignored). Reuses `SessionStatus`
 (`missing / valid / expired / needs_manual_action`). No schema change.
 
-### Cookie import — generalize `cookie_import.py`
-`parse_cookie_input(text)` currently hard-codes `Session_id` / `.yandex.ru`. Add optional
-params with today's Yandex values as defaults, so existing callers and tests are unchanged:
-
-```python
-def parse_cookie_input(text, *, required_cookie="Session_id", default_domain=".yandex.ru", provider_label="Yandex"): ...
-```
-
-2GIS passes `required_cookie="dg_session_token"`, `default_domain="account.2gis.com"`,
-`provider_label="2ГИС"`. The error message for a missing cookie is templated from these.
-`_normalise`, `_from_header` (raw `Cookie:` header), `build_storage_state`, and the sameSite
-map are reused unchanged. A `spid`-only paste is **rejected** (422) with a message pointing to
-the Network → Cookie-header method; the live check remains the ultimate source of truth.
+### Token import — `extract_bearer_token`
+2GIS uses no cookies, so `cookie_import.py` is left untouched (Yandex-only). A small
+`extract_bearer_token(text)` in `scraper/twogis_account.py` pulls the access token out of
+whatever the operator pastes — a full request-headers block, an `Authorization: Bearer …`
+line, or the bare token (regex: a `Bearer <token>` match, else a lone `[A-Za-z0-9._-]{20,}`
+line). The token is stored in the session's storage-state file as `{"access_token": "…"}`.
+An empty paste or one with no token → `ValueError` (→ 422) before any file write.
 
 ### Cabinet client — new `scraper/twogis_account.py` (requests-based)
-No Playwright. Loads cookies from the storage-state file into a `requests` session and calls
-the cabinet API directly. Never raises out of an attempt (constitution IV); credentials never
-appear in messages/logs (constitution VIII).
+No Playwright. Loads the token from the storage-state file and calls the cabinet API directly
+with `Authorization: Bearer <token>` + `x-api-key`. Never raises out of an attempt (IV); the
+token never appears in messages/logs (VIII).
 
 - `check_session(storage_state_path) -> (SessionStatus, message)`:
-  `GET /users` → 200 ⇒ `valid`; 401/403 ⇒ `expired`; 451/network/other ⇒ `needs_manual_action`
-  (+ terse prose message — e.g. geo-wall hint on 451).
-- `list_orgs(storage_state_path, limit=1) -> list[dict]`: `GET /orgs?fields=orgDetails`, returns
-  a trimmed, value-only view (id / name / address) for the CLI to print. Display-only.
+  no token ⇒ `missing`; `GET /users` → 200 ⇒ `valid` (message includes the operator email);
+  400/401/403 ⇒ `expired`; network/other ⇒ `needs_manual_action`.
+- `list_orgs(storage_state_path, limit=1) -> list[dict]`: `GET /orgs?fields=orgDetails`, reads
+  `result.items[]`, returns a trimmed value-only view (id / name / address / branchesCount) for
+  the CLI. Display-only.
 
-Constants: `ACCOUNT_API = "https://api.account.2gis.com/api/1.0"`. Browser-ish headers with
-`Origin`/`Referer` = `https://account.2gis.com`.
+Constants: `ACCOUNT_API = "https://api.account.2gis.com/api/1.0"`; `x-api-key` from
+`settings.twogis_lk_api_key` (default `accweb96f8`). Headers include `Origin`/`Referer` =
+`https://account.2gis.com`, `locale: ru`.
 
 ### Service — new `TwogisAccountService`
 Dedicated service (leaves the delicate Yandex Playwright/login/awaiting-code logic in
@@ -82,14 +80,16 @@ Dedicated service (leaves the delicate Yandex Playwright/login/awaiting-code log
 
 - `get_session_status()` — file-heuristic refresh mirroring `ScrapeService.get_session_status`
   (valid+no-file ⇒ missing; missing+file ⇒ valid), minus the `pending`/`awaiting_code` guards.
-- `import_session_cookies(text)` — `parse_cookie_input(..., 2gis args)`, write storage state,
-  mark `valid`, stamp `last_login_at`/`last_checked_at`, message `"Session imported (N cookies)"`.
+- `import_session_cookies(text)` — `extract_bearer_token`, write `{"access_token": …}`, mark
+  `valid` optimistically, stamp `last_login_at`/`last_checked_at`, message "Token imported —
+  press Проверить to verify". (Name kept for symmetry with the Yandex session API; payload is a
+  token.)
 - `check_session()` — call the cabinet client, persist status + `last_checked_at` + message.
 
 All synchronous (the check is one fast HTTP call — **no BackgroundTasks**).
 
 ### API — new router `api/twogis_account.py`, prefix `/api/scraper/2gis`
-- `POST /session/import` → 200 `SessionStatusResponse` (422 on missing `dg_session_token`).
+- `POST /session/import` → 200 `SessionStatusResponse` (422 only on empty/unparseable paste).
 - `GET  /session` → `SessionStatusResponse`.
 - `POST /session/check` → `SessionStatusResponse` (synchronous; 200, not 202).
 
@@ -104,13 +104,13 @@ python -m scripts.twogis_account_check          # check session + print one org
 python -m scripts.twogis_account_check --check   # check only
 ```
 
-Exit codes: 0 valid, 2 needs_manual_action, 1 missing/expired. Never prints cookie values or
+Exit codes: 0 valid, 2 needs_manual_action, 1 missing/expired. Never prints the token or
 storage-state contents — only status, message, path, and the org's public fields.
 
 ### Web — Settings UI (parity with Yandex)
-- `components/settings/twogis-cookie-import.tsx` — manual import panel, 2GIS-specific
-  instructions (export from `account.2gis.com`, must include `dg_session_token`, use the
-  Network → `Cookie:` header method because it's `HttpOnly`).
+- `components/settings/twogis-cookie-import.tsx` — manual import panel; instructions to copy the
+  `authorization` request-header value from a DevTools request to `api.account.2gis.com`. Accepts
+  a `Bearer …` line or the bare token.
 - `components/settings/twogis-connection.tsx` — status label + "Проверить" button + the import
   panel. No login button (no auto-login), no code modal.
 - `lib/api.ts` — `importTwogisSessionCookies`, `getTwogisSession`, `checkTwogisSession`.
@@ -118,18 +118,19 @@ storage-state contents — only status, message, path, and the org's public fiel
 
 ## Testing (critical-path per constitution)
 
-- `test_cookie_import.py` — extend: 2GIS args accept a `dg_session_token` header/JSON, reject a
-  `spid`-only paste; **existing Yandex cases still pass** with defaults unchanged (contract).
-- `test_twogis_account_service.py` — import writes storage state + marks valid; check maps
-  200→valid / 401→expired / network→needs_manual_action (cabinet client mocked). No live HTTP.
-- `test_twogis_account_api.py` — import 422 on missing cookie; GET/POST session contract;
-  permission gate (403/401).
+- `test_twogis_account_service.py` — `extract_bearer_token` (Bearer line / bare / headers block /
+  absent); import writes `{"access_token": …}` + marks valid, rejects a token-less paste without
+  writing; check maps 200→valid / expired / needs_manual_action (cabinet client mocked); 2gis and
+  yandex are independent rows. No live HTTP.
+- `test_twogis_account_api.py` — import 422 on a token-less paste, never echoes the token; GET/POST
+  session contract; permission gate (401). `cookie_import.py` and its tests are untouched (Yandex).
 
-Cabinet HTTP is always mocked in tests (no network, no real cookies committed).
+Cabinet HTTP is always mocked in tests (no network, no real token committed).
 
-## Open risk
+## Notes
 
-`dg_session_token` is the best-evidence auth cookie but was not confirmable against a live valid
-session from this environment (geo-wall + dead proxy). If the live `/users` check reveals 2GIS
-needs a different/additional cookie, only the `required_cookie` constant and the client's request
-shape change — the structure holds.
+- **Token lifetime.** The cabinet access token is short-lived; when it expires the check returns
+  `expired` and the operator re-imports a fresh one. A refresh flow (exchanging `dg_refresh_token`
+  / `spid` via `api.auth.2gis.com`) is deliberately out of scope for this "save + check" feature.
+- **Confirmed live:** `/users` and `/orgs` both returned HTTP 200 with a real operator token; the
+  API host is reachable directly (no proxy, no geo-wall on the API itself).
