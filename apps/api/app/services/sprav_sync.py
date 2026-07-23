@@ -69,12 +69,21 @@ class FieldUpdate:
     changes: dict[str, tuple[object, object]]
 
 
+# A branch is "open" only in this state; everything else (closed,
+# temporarily_closed, unpublished…) counts as not-open for the sync.
+OPEN_STATUS = "publish"
+
+
 @dataclass
 class SyncPlan:
     deactivate: list[Organization] = field(default_factory=list)
     update: list[FieldUpdate] = field(default_factory=list)
     new_in_cabinet: list[SpravBranch] = field(default_factory=list)
     ambiguous: list[Organization] = field(default_factory=list)
+    # Cabinet branches that are not open AND match no point of ours. We do not
+    # pull their data in (report only) — an open branch we don't have is a real
+    # candidate, a closed one we never had is not.
+    skipped_closed: list[SpravBranch] = field(default_factory=list)
 
 
 def _blank(value: object) -> bool:
@@ -144,6 +153,7 @@ def build_plan(
     matches: list[BranchMatch],
     organizations: list[Organization],
     resolve_maps_url: ResolveMapsUrl,
+    allow_deactivation: bool = True,
 ) -> SyncPlan:
     """Turn matched branches + our organizations into a :class:`SyncPlan`.
 
@@ -151,6 +161,13 @@ def build_plan(
     ``match_branches``); ``organizations`` is the full pool for the chain's
     company. ``resolve_maps_url`` is called at most once per matched point that
     lacks an ``external_id``.
+
+    ``allow_deactivation=False`` suppresses the deactivate bucket entirely. Pass
+    it whenever the cabinet branch list was read only **partially** (throttling,
+    an unreached page): absence from a truncated list is not a removal, and
+    deactivating on it silently closes live points. Only a **complete** read may
+    deactivate — the same invariant the review scraper's corroborated full pass
+    enforces.
     """
     plan = SyncPlan()
     cabinet_pids = {m.branch.permanent_id for m in matches}
@@ -158,7 +175,12 @@ def build_plan(
 
     for match in matches:
         if match.organization is None:
-            plan.new_in_cabinet.append(match.branch)
+            # An open branch we don't have is a real "new point" candidate; a
+            # closed one we never tracked is not pulled in.
+            if match.branch.publishing_status == OPEN_STATUS:
+                plan.new_in_cabinet.append(match.branch)
+            else:
+                plan.skipped_closed.append(match.branch)
             continue
         matched_org_ids.add(match.organization.id)
         changes = _diff(match.organization, match.branch, resolve_maps_url)
@@ -168,12 +190,12 @@ def build_plan(
     for org in organizations:
         if org.id in matched_org_ids:
             continue
-        if org.external_id and org.external_id not in cabinet_pids and org.is_active:
+        if allow_deactivation and org.external_id and org.external_id not in cabinet_pids and org.is_active:
             plan.deactivate.append(org)
         elif _blank(org.external_id):
             plan.ambiguous.append(org)
-        # else: external_id present but in cabinet (claimed by another branch) —
-        # not a removal, nothing to do.
+        # else: external_id present but in cabinet (or the read was partial) —
+        # not a confirmed removal, nothing to do.
 
     return plan
 
@@ -194,4 +216,5 @@ def apply_plan(plan: SyncPlan) -> dict[str, int]:
         "updated": len(plan.update),
         "new_in_cabinet": len(plan.new_in_cabinet),
         "ambiguous": len(plan.ambiguous),
+        "skipped_closed": len(plan.skipped_closed),
     }

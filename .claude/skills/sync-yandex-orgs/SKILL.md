@@ -27,7 +27,9 @@ python -m scripts.sprav_sync --company "Суши Мастер Россия" --ap
 | *(none)* | Dry-run over every chain that maps to a company. Prints the report, writes nothing. |
 | `--company "<exact name>"` | Limit to one company (our DB name, e.g. `"Мир Суши Россия"`). |
 | `--apply` | Commit the plan (deactivations + field updates). Default is dry-run. |
-| `--delay <seconds>` | Pause between per-point `/p/edit/main` loads and branch-list pages (default `2`). Raise it if the cabinet throttles. |
+| `--delay <seconds>` | Pause between per-point `/p/edit/main` loads, short-link resolutions, and branch-list pages (default `2`). Raise it if throttled. |
+| `--resolve-links` | Also match points that have **no `external_id`** by resolving their `/maps/-/CODE` short link to a real `permanent_id` and pairing it with the cabinet branch of that id (exact, not fuzzy). One public-Maps request per such point. Backfills `external_id` + `normalized_url` on a match. |
+| `--resolve-proxy` | Route `--resolve-links` requests through `PROXY_POOL`. Off by default — the single residential proxy hangs ~30 s/request; a direct request is far faster. |
 
 ## Prerequisite: a valid cabinet session
 
@@ -46,11 +48,17 @@ python -m scripts.sprav_login
    company by name.
 2. Reads the full branch list via Playwright + cookies (browserless `requests`
    currently redirect-loop against the cabinet).
-3. Matches branches to the company's organizations: `external_id == permanent_id`
-   first, then a conservative address fallback. The fallback is **calibrated**
-   against the exactly-matched branches and **abandoned** (exit 1) if it produces
-   even one wrong answer — a wrong match silently misattributes a point.
-4. Builds and prints a plan in four buckets.
+3. Matches branches to the company's organizations, in order:
+   1. `external_id == permanent_id` (exact).
+   2. conservative address fallback — **calibrated** against the exact matches and
+      **dropped to permalink-only** if it produces even one wrong answer.
+   3. *(with `--resolve-links`)* short-link resolution: follow a no-`external_id`
+      point's `/maps/-/CODE` link to its real `permanent_id` and pair it with the
+      cabinet branch of that id. Exact. This is how the `/maps/-/CODE`-imported
+      points (which the address fallback can't read) get synced and get their
+      `external_id`/`normalized_url` backfilled. Points carrying only a 2GIS link
+      have no Yandex identity to resolve and stay `ambiguous`.
+4. Builds and prints a plan in the buckets below.
 
 ## The four report buckets
 
@@ -86,9 +94,20 @@ Written only under `--apply`:
 
 ## Scope
 
-Four chains → four brands: Суши Мастер, Галерея Суши, Мир Суши, Spoke. Cabinet
-entries with no matching company (e.g. the `.by` Minsk chain, a closed single
-ordinal) are skipped with a `skip:` note.
+Four chains → four brands: Суши Мастер, Галерея Суши, Мир Суши, Spoke.
+
+- The branch list is read with **`status=all`**. Its default is `status=opened`,
+  which hides closed branches — for «Суши Мастер» that is 209 of 357 (147 closed,
+  1 temporarily_closed). `all` returns the full set the cabinet header counts, and
+  each branch's `publishing_status` then drives the is_active rule. Only
+  `closed` deactivates; `temporarily_closed` is left active (may reopen).
+- A brand can appear as **several same-named chains** (e.g. a 3-branch `.by`
+  «Суши Мастер» beside the real 209-branch one). Chains are processed
+  largest-first and each brand is synced by its **biggest chain only**; the rest
+  are skipped with a `skip: … already synced by a larger chain` note. This guard
+  exists because a small namesake would otherwise see every other branch as
+  absent and wrongly deactivate it.
+- Cabinet entries with no matching company are skipped with a `skip:` note.
 
 ## Exit codes
 

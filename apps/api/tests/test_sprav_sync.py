@@ -80,6 +80,14 @@ def test_present_point_is_not_deactivated():
     assert plan.deactivate == []
 
 
+def test_partial_read_never_deactivates():
+    """allow_deactivation=False (truncated branch list) must suppress deactivation."""
+    org = _org("Пермь-07 Солдатова 28", external_id="111")
+    matches = match_branches([_branch(999, city="Сочи", address="Сочи, Морская, 1")], [org])
+    plan = build_plan(matches, [org], lambda b: None, allow_deactivation=False)
+    assert plan.deactivate == []  # would be [org] with a complete read
+
+
 def test_already_inactive_point_is_not_re_deactivated():
     org = _org("Пермь-07 Солдатова 28", external_id="111", is_active=False)
     plan = _plan([_branch(999, city="Сочи", address="Сочи, Морская, 1")], [org])
@@ -88,10 +96,27 @@ def test_already_inactive_point_is_not_re_deactivated():
 
 # --- new in cabinet -------------------------------------------------------
 
-def test_unmatched_branch_is_reported_as_new():
-    branch = _branch(999, city="Сочи", address="Сочи, Морская, 1")
+def test_unmatched_open_branch_is_reported_as_new():
+    branch = _branch(999, city="Сочи", address="Сочи, Морская, 1")  # publish by default
     plan = _plan([branch], [_org("Пермь-07 Солдатова 28", external_id="111")])
     assert plan.new_in_cabinet == [branch]
+    assert plan.skipped_closed == []
+
+
+def test_unmatched_closed_branch_is_not_pulled_in():
+    """A closed branch we never had must not land in new_in_cabinet."""
+    branch = _branch(999, city="Сочи", address="Сочи, Морская, 1", publishing_status="closed")
+    plan = _plan([branch], [_org("Пермь-07 Солдатова 28", external_id="111")])
+    assert plan.new_in_cabinet == []
+    assert plan.skipped_closed == [branch]
+
+
+def test_unmatched_temporarily_closed_branch_is_not_pulled_in():
+    branch = _branch(999, city="Сочи", address="Сочи, Морская, 1",
+                     publishing_status="temporarily_closed")
+    plan = _plan([branch], [_org("Пермь-07 Солдатова 28", external_id="111")])
+    assert plan.new_in_cabinet == []
+    assert plan.skipped_closed == [branch]
 
 
 # --- field updates --------------------------------------------------------
