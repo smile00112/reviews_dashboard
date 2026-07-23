@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { getOrganization, listOrganizationReviews } from "@/lib/api";
 import type { Organization, Review } from "@/lib/types";
 import { ReviewsTable } from "@/components/reviews-table";
+import { useCan } from "@/components/shell/user-context";
 
 function PlatformCard({
   title,
@@ -56,6 +57,7 @@ function PlatformCard({
 
 export default function OrganizationDetailPage() {
   const params = useParams<{ id: string }>();
+  const canManage = useCan("action:org.manage");
   const [org, setOrg] = useState<Organization | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [showRemoved, setShowRemoved] = useState(false);
@@ -83,9 +85,27 @@ export default function OrganizationDetailPage() {
         ← Назад к списку
       </Link>
       <div>
-        <h1 className="font-display text-4xl font-medium tracking-tight">{org.name ?? "Организация"}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-4xl font-medium tracking-tight">{org.name ?? "Организация"}</h1>
+            {!org.is_active && (
+              <span className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-text-faint">
+                Неактивна
+              </span>
+            )}
+          </div>
+          {canManage && (
+            <Link
+              href={`/organizations/${org.id}/edit`}
+              className="rounded-lg border border-border bg-surface-2 px-4 py-2 text-[13px] font-semibold text-text hover:bg-surface-3"
+            >
+              Изменить
+            </Link>
+          )}
+        </div>
         <p className="mt-1.5 text-sm text-text-dim">
           Статус — Яндекс: {org.yandex_scrape_status} · 2ГИС: {org.gis2_scrape_status}
+          {!org.is_active && " · сбор отзывов отключён"}
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <PlatformCard

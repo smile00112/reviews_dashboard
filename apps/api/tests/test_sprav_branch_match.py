@@ -127,6 +127,18 @@ def test_an_organization_is_claimed_only_once():
     assert len(matched) == 1
 
 
+def test_address_fallback_can_be_disabled():
+    """With the fallback off, only permalink matches survive — the rest are unmatched."""
+    by_id = _org("Пермь-07 Солдатова 28", external_id="111")
+    by_addr = _org("Сочи-01 Морская 1")
+    branches = [_branch(111, "Пермь", "Пермь, Солдатова, 28"),
+                _branch(222, "Сочи", "Сочи, Морская, 1")]
+    matches = {m.branch.permanent_id: m for m in
+               match_branches(branches, [by_id, by_addr], address_fallback=False)}
+    assert matches["111"].organization is by_id and matches["111"].method == "external_id"
+    assert matches["222"].organization is None and matches["222"].method is None
+
+
 def test_permalink_owner_is_not_stolen_by_an_address_match():
     """An org already claimed by its permalink must stay with that branch."""
     org = _org("Пермь-07 Солдатова 28", external_id="111")

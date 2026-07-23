@@ -138,9 +138,10 @@ class JobRunner:
     def _select_organizations(self, platform: str) -> list[Organization]:
         url_col = PLATFORM_COLUMNS[platform][0]
         column = getattr(Organization, url_col)
+        # Неактивные точки (is_active=false) исключены из автоматического сбора.
         return (
             self.db.query(Organization)
-            .filter(column.isnot(None), column != "")
+            .filter(column.isnot(None), column != "", Organization.is_active.is_(True))
             .order_by(Organization.created_at, Organization.id)
             .all()
         )

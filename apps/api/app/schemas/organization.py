@@ -29,6 +29,7 @@ class OrganizationCreate(PlatformMetricsMixin):
     region: str | None = None
     address: str | None = None
     company_id: UUID | None = None
+    is_active: bool = True
 
 
 class OrganizationUpdate(PlatformMetricsMixin):
@@ -39,6 +40,7 @@ class OrganizationUpdate(PlatformMetricsMixin):
     region: str | None = None
     address: str | None = None
     company_id: UUID | None = None
+    is_active: bool | None = None
 
 
 class OrganizationResponse(BaseModel):
@@ -70,6 +72,7 @@ class OrganizationResponse(BaseModel):
     city: str | None = None
     region: str | None = None
     company_id: UUID | None = None
+    is_active: bool = True
     created_at: datetime
     updated_at: datetime
 

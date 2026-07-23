@@ -203,6 +203,7 @@ export interface OrganizationCreatePayload extends PlatformMetricsPayload {
   region?: string | null;
   address?: string | null;
   company_id?: string | null;
+  is_active?: boolean;
 }
 
 export interface OrganizationUpdatePayload extends PlatformMetricsPayload {
@@ -212,6 +213,7 @@ export interface OrganizationUpdatePayload extends PlatformMetricsPayload {
   region?: string | null;
   address?: string | null;
   company_id?: string | null;
+  is_active?: boolean;
 }
 
 export async function listOrganizations(companyId?: string): Promise<Organization[]> {

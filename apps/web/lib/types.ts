@@ -53,6 +53,7 @@ export interface Organization {
   city: string | null;
   region: string | null;
   company_id: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }

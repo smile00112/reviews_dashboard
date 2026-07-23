@@ -164,11 +164,20 @@ def calibrate(branches: list[SpravBranch], organizations: list[Organization]) ->
     return result
 
 
-def match_branches(branches: list[SpravBranch], organizations: list[Organization]) -> list[BranchMatch]:
+def match_branches(
+    branches: list[SpravBranch],
+    organizations: list[Organization],
+    address_fallback: bool = True,
+) -> list[BranchMatch]:
     """Match every branch: permalink first, then the address fallback.
 
     An organization is claimed at most once — once a branch takes it, later
     branches cannot, which stops one popular address from absorbing several.
+
+    ``address_fallback=False`` restricts matching to the exact permalink route,
+    leaving every non-permalink branch unmatched. Callers pass this once
+    :func:`calibrate` shows the fallback is untrustworthy for the chain — the
+    permalink matches are always reliable and must not be thrown away with it.
     """
     by_permalink = {str(o.external_id): o for o in organizations if o.external_id}
     claimed = {o.id for o in by_permalink.values()}
@@ -179,6 +188,9 @@ def match_branches(branches: list[SpravBranch], organizations: list[Organization
         exact = by_permalink.get(branch.permanent_id)
         if exact is not None:
             matches.append(BranchMatch(branch, exact, "external_id", 1.0))
+            continue
+        if not address_fallback:
+            matches.append(BranchMatch(branch, None, None, 0.0))
             continue
         guess, confidence = best_match(branch, available)
         if guess is not None:

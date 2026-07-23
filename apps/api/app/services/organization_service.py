@@ -54,7 +54,11 @@ class OrganizationService:
         query = self.db.query(Organization)
         if company_id is not None:
             query = query.filter(Organization.company_id == company_id)
-        query = query.order_by(Organization.created_at.desc())
+        # id is a unique tiebreaker: many orgs share the exact same created_at
+        # (bulk import stamps one timestamp), so without it OFFSET/LIMIT paging
+        # returns an unstable order — the same row can appear on two pages
+        # (duplicate React keys) while others are skipped.
+        query = query.order_by(Organization.created_at.desc(), Organization.id.desc())
         if offset:
             query = query.offset(offset)
         if limit is not None:
@@ -90,6 +94,7 @@ class OrganizationService:
             region=data.region,
             address=data.address,
             company_id=data.company_id,
+            is_active=data.is_active,
         )
         for field in _PLATFORM_FIELDS:
             setattr(org, field, getattr(data, field))
@@ -117,6 +122,8 @@ class OrganizationService:
         if "company_id" in fields_set:
             self._validate_company(data.company_id)
             org.company_id = data.company_id
+        if data.is_active is not None:
+            org.is_active = data.is_active
         # Platform metrics honor explicit values (incl. clearing to null).
         for field in _PLATFORM_FIELDS:
             if field in fields_set:
@@ -133,8 +140,11 @@ class OrganizationService:
         self.db.commit()
         return True
 
-    def list_ids(self) -> list[UUID]:
-        return [row[0] for row in self.db.query(Organization.id).all()]
+    def list_ids(self, active_only: bool = False) -> list[UUID]:
+        query = self.db.query(Organization.id)
+        if active_only:
+            query = query.filter(Organization.is_active.is_(True))
+        return [row[0] for row in query.all()]
 
     def update_scrape_status(
         self,

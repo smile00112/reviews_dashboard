@@ -119,6 +119,28 @@ def test_skips_when_platform_count_unknown(db_session, reviews_job):
     assert scrape.executed == []
 
 
+def test_inactive_org_is_excluded_from_run(db_session, reviews_job):
+    # Неактивная точка не попадает в выборку: ни JobRunItem, ни сбора.
+    active = _org(db_session, review_count=5)
+    _seed_reviews(db_session, active, 2, prefix="a")
+    inactive = _org(db_session, review_count=5)
+    _seed_reviews(db_session, inactive, 2, prefix="b")
+    inactive.is_active = False
+    db_session.commit()
+
+    scrape = FakeScrapeService(db_session, inserted=3)
+    run = JobService(db_session).create_run(reviews_job.id, JobTrigger.manual)
+
+    JobRunner(db_session, scrape_service=scrape, sleep=lambda _s: None).execute(run.id)
+
+    items = db_session.query(JobRunItem).filter(JobRunItem.job_run_id == run.id).all()
+    org_ids = {item.organization_id for item in items}
+    assert active.id in org_ids
+    assert inactive.id not in org_ids
+    db_session.refresh(run)
+    assert run.orgs_total == 1
+
+
 def test_scrapes_when_counts_differ_and_links_scrape_run(db_session, reviews_job):
     org = _org(db_session, review_count=5)
     _seed_reviews(db_session, org, 2)

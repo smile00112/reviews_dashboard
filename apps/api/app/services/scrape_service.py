@@ -115,7 +115,8 @@ class ScrapeService:
             )
             return
 
-        org_ids = org_service.list_ids()
+        # Неактивные точки (is_active=false) исключены из массового сбора отзывов.
+        org_ids = org_service.list_ids(active_only=True)
         children: list[ScrapeRun] = []
         for org_id in org_ids:
             org = org_service.get(org_id)

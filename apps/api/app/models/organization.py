@@ -58,6 +58,8 @@ class Organization(Base):
     city: Mapped[str | None] = mapped_column(Text, nullable=True)
     region: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_franchise: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # Active flag (additive). false = точка исключена из автоматического сбора отзывов.
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
     # Company parent (feature 008, additive). NULL = unassigned branch.
     company_id: Mapped[uuid.UUID | None] = mapped_column(
